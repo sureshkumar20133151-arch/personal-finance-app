@@ -1,10 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    /* Premium Light Theme */
+    --background: 210 40% 98%; /* Soft Cool Grey */
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
@@ -13,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 246 80% 60%; /* Vibrant Purple-Blue */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -30,23 +33,24 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 246 80% 60%; 
 
-    --radius: 0.5rem;
+    --radius: 1rem; /* More rounded premium feel */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    /* Premium Dark Theme - Deep Blue/Grey, not pure black */
+    --background: 224 71% 4%; /* Rich Deep Navy */
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 222 47% 11%; /* Slightly lighter navy for cards */
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 246 80% 65%; /* Bright Lavender/Purple */
+    --primary-foreground: 210 40% 98%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -62,50 +66,65 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 246 80% 65%;
   }
 
-  /* Color Themes */
-  /* Green Theme */
-  [data-theme="green"] {
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-  }
+  /* Theme Overrides with simpler logic */
+  [data-theme="green"] { --primary: 150 100% 40%; }
+  .dark[data-theme="green"] { --primary: 150 70% 50%; }
 
-  .dark[data-theme="green"] {
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-  }
+  [data-theme="purple"] { --primary: 270 90% 60%; }
+  .dark[data-theme="purple"] { --primary: 270 80% 70%; }
 
-  /* Purple Theme */
-  [data-theme="purple"] {
-    --primary: 262.1 83.3% 57.8%;
-    --primary-foreground: 210 40% 98%;
-  }
-
-  .dark[data-theme="purple"] {
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
-  }
-
-  /* Orange Theme */
-  [data-theme="orange"] {
-    --primary: 24.6 95% 53.1%;
-    --primary-foreground: 60 9.1% 97.8%;
-  }
-
-  .dark[data-theme="orange"] {
-    --primary: 20.5 90.2% 48.2%;
-    --primary-foreground: 60 9.1% 97.8%;
-  }
+  [data-theme="orange"] { --primary: 25 100% 55%; }
+  .dark[data-theme="orange"] { --primary: 25 100% 65%; }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  
+  html {
+     font-family: 'Plus Jakarta Sans', sans-serif;
+     -webkit-font-smoothing: antialiased;
+  }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground selection:bg-primary/20;
+  }
+
+  /* Custom Scrollbar for Webkit */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50 transition-colors;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-lg border border-white/20 dark:border-white/10 shadow-xl;
+  }
+  
+  .glass-card {
+    @apply bg-card/50 backdrop-blur-md border border-border/50 shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400;
+  }
+
+  .animate-enter {
+    @apply animate-in fade-in zoom-in-95 duration-300;
+  }
+  
+  /* Smooth transitions for all interactive elements */
+  .btn-hover {
+    @apply active:scale-95 transition-transform duration-100;
   }
 }

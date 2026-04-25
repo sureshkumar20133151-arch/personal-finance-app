@@ -16,7 +16,7 @@ const COLORS = [
 const ICON_NAMES = Object.keys(LucideIcons).filter(name => name !== 'createLucideIcon' && name !== 'default');
 
 const Setup = () => {
-    const { categories, addCategory, deleteCategory, updateCategory } = useFinanceData();
+    const { categories, addCategory, deleteCategory, updateCategory, salaryDate, updateSalaryDate } = useFinanceData();
 
     // Form State
     const [name, setName] = useState('');
@@ -115,6 +115,39 @@ const Setup = () => {
                 <div className="space-y-6 md:col-span-5 order-2 md:order-1">
                     <ThemeSelector />
                     <CurrencySelector />
+
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+                        <h3 className="font-semibold mb-1 flex items-center gap-2">
+                            <span style={{ fontSize: '16px' }}>💰</span> Salary Date
+                        </h3>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Your budget month resets on this date every month.
+                        </p>
+                        <div className="flex items-center gap-3">
+                            <select
+                                value={salaryDate}
+                                onChange={(e) => updateSalaryDate(e.target.value)}
+                                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                            >
+                                {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
+                                    <option key={day} value={day}>
+                                        {day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'} of every month
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-3">
+                            Current cycle: {(() => {
+                                const today = new Date();
+                                const sd = salaryDate || 1;
+                                const cycleStart = today.getDate() >= sd
+                                    ? new Date(today.getFullYear(), today.getMonth(), sd)
+                                    : new Date(today.getFullYear(), today.getMonth() - 1, sd);
+                                const cycleEnd = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, sd - 1);
+                                return `${cycleStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${cycleEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+                            })()}
+                        </p>
+                    </div>
 
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sticky top-8">
                         <div className="flex items-center justify-between mb-6">

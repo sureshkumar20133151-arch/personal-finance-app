@@ -35,11 +35,40 @@ export const parseStatement = async (file) => {
 const parseCSV = (file) => {
     return new Promise((resolve, reject) => {
         Papa.parse(file, {
-            header: true,
+            header: false, // We'll parse as array of arrays first to find the header row
             skipEmptyLines: true,
             complete: (results) => {
                 try {
-                    const transactions = normalizeTransactions(results.data);
+                    const rows = results.data;
+                    if (!rows || rows.length === 0) {
+                        resolve([]);
+                        return;
+                    }
+
+                    // Find header row index
+                    const headerRowIndex = findHeaderRowIndex(rows);
+
+                    if (headerRowIndex === -1) {
+                        // Fallback: Try to parse without headers if it looks like data?
+                        // For now, if we can't find clear headers, we might fail or try column heuristics
+                        resolve([]);
+                        return;
+                    }
+
+                    const headers = rows[headerRowIndex].map(h => String(h).toLowerCase().trim());
+                    const dataRows = rows.slice(headerRowIndex + 1);
+
+                    const objData = dataRows.map(row => {
+                        const obj = {};
+                        headers.forEach((h, i) => {
+                            if (row[i] !== undefined) {
+                                obj[h] = row[i];
+                            }
+                        });
+                        return obj;
+                    });
+
+                    const transactions = normalizeTransactions(objData);
                     resolve(transactions);
                 } catch (err) {
                     reject(err);
@@ -309,16 +338,22 @@ const parseXLSX = async (file) => {
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
 
-    // Convert to JSON with headers
+    // Convert to JSON array of arrays
     const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-    if (rawData.length < 2) {
-        throw new Error('Excel file appears to be empty or has no data rows.');
+    if (!rawData || rawData.length === 0) {
+        throw new Error('Excel file appears to be empty.');
     }
 
-    // First row is headers
-    const headers = rawData[0].map(h => String(h).toLowerCase().trim());
-    const dataRows = rawData.slice(1);
+    // Find header row (skipping metadata at top)
+    const headerRowIndex = findHeaderRowIndex(rawData);
+
+    if (headerRowIndex === -1) {
+        throw new Error('Could not identify a header row in the Excel file. Please ensure columns like "Date", "Description", and "Amount" exist.');
+    }
+
+    const headers = rawData[headerRowIndex].map(h => String(h).toLowerCase().trim());
+    const dataRows = rawData.slice(headerRowIndex + 1);
 
     // Convert to object format like CSV
     const objData = dataRows.map(row => {

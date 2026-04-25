@@ -51,6 +51,9 @@ const Transactions = () => {
     const [recurringDay, setRecurringDay] = useState(1); // 0=Sun, 1=Mon (Default)
     const [recurringTenure, setRecurringTenure] = useState(''); // New State
 
+    // Payment Mode State
+    const [paymentMode, setPaymentMode] = useState('upi');
+
     // Debt Repayment Specific State
     const [debtType, setDebtType] = useState('personal'); // 'immediate' | 'personal' | 'emi'
     const [repaymentType, setRepaymentType] = useState('principal'); // 'principal' | 'interest'
@@ -78,6 +81,7 @@ const Transactions = () => {
         setLoanId('');
         setRepaymentType('principal');
         setDebtType('personal');
+        setPaymentMode('upi');
     };
 
     // Derived Logic
@@ -113,8 +117,9 @@ const Transactions = () => {
             date,
             type,
             categoryId,
-            loanId: type === 'debt' ? loanId : undefined, // Link loan logic
-            repaymentType: type === 'debt' ? repaymentType : undefined // 'principal' or 'interest'
+            loanId: type === 'debt' ? loanId : undefined,
+            repaymentType: type === 'debt' ? repaymentType : undefined,
+            paymentMode: paymentMode,
         };
 
         if (editingTx) {
@@ -531,7 +536,7 @@ const Transactions = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-1.5 ">
+                            <div className="space-y-1.5">
                                 <label htmlFor="description" className="text-xs font-medium">Description</label>
                                 <input
                                     id="description"
@@ -542,6 +547,33 @@ const Transactions = () => {
                                     placeholder="e.g. Monthly Rent"
                                     className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
                                 />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium">Payment Mode</label>
+                                <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
+                                    {[
+                                        { id: 'upi',        label: 'UPI',         emoji: '📱' },
+                                        { id: 'cash',       label: 'Cash',        emoji: '💵' },
+                                        { id: 'card',       label: 'Card',        emoji: '💳' },
+                                        { id: 'netbanking', label: 'Net Banking', emoji: '🏦' },
+                                    ].map(mode => (
+                                        <button
+                                            key={mode.id}
+                                            type="button"
+                                            onClick={() => setPaymentMode(mode.id)}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-medium transition-all",
+                                                paymentMode === mode.id
+                                                    ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                                            )}
+                                        >
+                                            <span style={{ fontSize: '14px' }}>{mode.emoji}</span>
+                                            <span className="hidden sm:inline leading-tight text-center">{mode.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {!editingTx && (type === 'expense' || type === 'savings') && (
@@ -765,23 +797,32 @@ const Transactions = () => {
                                         <div key={tx.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-all group">
                                             <div className="flex items-center gap-4">
                                                 <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl shadow-sm", typeInfo.bg)}>
-                                                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl shadow-sm", typeInfo.bg)}>
                                                         {(() => {
                                                             const cat = categories.find(c => c.id === tx.categoryId);
                                                             if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={20} color={cat.color} />;
                                                             return <typeInfo.icon className={cn("w-5 h-5", typeInfo.color)} />;
                                                         })()}
                                                     </div>
-                                                </div>
                                                 <div>
                                                     <p className="font-medium text-sm">{tx.description || getCategoryName(tx.categoryId)}</p>
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                                         <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
                                                         <span>•</span>
                                                         <span className="flex items-center gap-1">
                                                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
                                                             {getCategoryName(tx.categoryId)}
                                                         </span>
+                                                        {tx.paymentMode && (
+                                                            <span className={cn(
+                                                                "px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                                                                tx.paymentMode === 'upi'        && "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                                                                tx.paymentMode === 'cash'       && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                                                                tx.paymentMode === 'card'       && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                                                                tx.paymentMode === 'netbanking' && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                                                            )}>
+                                                                {tx.paymentMode === 'netbanking' ? 'Net Banking' : tx.paymentMode.toUpperCase()}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

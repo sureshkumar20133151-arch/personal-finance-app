@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from './AuthContext'; // Updated import path assuming sibling
 import { db } from '../lib/firebase';
@@ -22,7 +22,7 @@ const DEFAULT_CATEGORIES = [
     { id: '11', name: 'Entertainment', type: 'expense', color: '#14b8a6', icon: 'Clapperboard', budget: 100 },
 ];
 
-const DEFAULT_CURRENCY = { code: 'USD', symbol: '$', locale: 'en-US', name: 'United States Dollar' };
+const DEFAULT_CURRENCY = { code: 'INR', symbol: '₹', locale: 'en-IN', name: 'Indian Rupee' };
 const DEFAULT_THEME = { mode: 'system', accent: 'blue' };
 
 const DEFAULT_DATA = {
@@ -34,7 +34,8 @@ const DEFAULT_DATA = {
     recurring: [], // [{ id, amount, description, type, categoryId, active: true }]
     loans: [], // [{ id, name, type: 'emi'|'debt', monthlyAmount, tenure, startDate, principal, interestRate }]
     monthlyBudget: 50000, // Default monthly budget
-    lastProcessedMonth: '' // 'YYYY-MM' format to track when we last ran automation
+    lastProcessedMonth: '', // 'YYYY-MM' format to track when we last ran automation
+    salaryDate: 1, // Day of month on which salary arrives & budget cycle resets
 };
 
 export function FinanceProvider({ children }) {
@@ -52,8 +53,15 @@ export function FinanceProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     // Automation: Check for recurring transactions based on frequency
+    // Use a ref to hold the latest recurring array to avoid new-array-reference infinite loops
+    const recurringRef = useRef(data.recurring);
     useEffect(() => {
-        if (!data.recurring || data.recurring.length === 0) return;
+        recurringRef.current = data.recurring;
+    }, [data.recurring]);
+
+    useEffect(() => {
+        const recurring = recurringRef.current;
+        if (!recurring || recurring.length === 0) return;
 
         const today = new Date();
         // Helper to check if a date string is valid and return Date object
@@ -65,7 +73,7 @@ export function FinanceProvider({ children }) {
         let hasUpdates = false;
 
         const newTransactions = [];
-        const updatedRecurring = data.recurring.map(rule => {
+        const updatedRecurring = recurring.map(rule => {
             if (!rule.active) return rule;
 
             // Default defaults for backward compatibility
@@ -103,9 +111,6 @@ export function FinanceProvider({ children }) {
 
                 if (frequency === 'monthly') {
                     // Check if one month has passed AND we are on/after the same day
-                    // Method: Check if today is same month as start but later, OR next month
-                    // Simpler: Compare months. If current > last, CHECK DAY.
-
                     const lastDate = lastProcessed.getDate(); // e.g., 15th
                     const currentDay = today.getDate();
 
@@ -113,36 +118,25 @@ export function FinanceProvider({ children }) {
                     const lastMonthStr = rule.lastProcessedDate ? rule.lastProcessedDate.slice(0, 7) : '';
 
                     if (currentMonthStr > lastMonthStr) {
-                        // Different month. Is it time yet?
-                        // If today is 10th and due date is 15th, don't run yet.
-                        // If today is 16th and due date is 15th, RUN.
                         if (currentDay >= lastDate) {
                             shouldRun = true;
                         }
                     } else if (currentMonthStr === lastMonthStr) {
-                        // Same month, already ran (since lastProcessed is this month). Don't run.
                         shouldRun = false;
                     }
                 } else if (frequency === 'weekly') {
-                    // Check specific day of week if set
                     if (rule.weeklyDay !== undefined) {
                         const currentDay = today.getDay(); // 0-6
-                        // Run if today is the selected day AND we haven't run today already
-                        // Note: lastProcessedDate logic below ensures we don't run twice
-                        // But if we missed yesterday? This simple logic only runs ON the day.
                         if (currentDay === rule.weeklyDay) {
                             shouldRun = true;
-                            // Prevent double run if already ran today
                             if (lastProcessed && formatDate(lastProcessed) === formatDate(today)) {
                                 shouldRun = false;
                             }
                         }
                     } else {
-                        // Fallback to simple interval
                         if (diffDays >= 7) shouldRun = true;
                     }
                 } else if (frequency === 'custom') {
-                    // Custom days
                     if (diffDays >= interval) shouldRun = true;
                 }
             }
@@ -160,14 +154,12 @@ export function FinanceProvider({ children }) {
 
                 hasUpdates = true;
 
-                // Update stats
                 const newProcessedCount = processedCount + 1;
                 const updates = {
                     lastProcessedDate: new Date().toISOString(),
                     processedCount: newProcessedCount
                 };
 
-                // Check if we just finished the tenure
                 if (tenure && newProcessedCount >= tenure) {
                     updates.active = false;
                 }
@@ -187,7 +179,8 @@ export function FinanceProvider({ children }) {
             saveData(newData);
             console.log(`Generated ${newTransactions.length} automated transactions.`);
         }
-    }, [data.recurring]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data.recurring.length]); // ✅ only reruns when count changes, not on every render
 
     // Demo Data Seeding - REMOVED per user request
     /* 
@@ -231,19 +224,39 @@ export function FinanceProvider({ children }) {
         return () => unsubscribe();
     }, [currentUser]); // Note: We don't depend on 'data' here to avoid loops, only write when 'save' is called
 
-    // Helper to save data (Router between Cloud and Local)
-    const saveData = (newData) => {
-        setData(newData); // Optimistic update
-
+    // Immediate save — for settings, categories, loans
+    const saveData = useCallback((newData) => {
+        setData(newData);
         if (currentUser && !currentUser.isAnonymous) {
             const userDocRef = doc(db, 'users', currentUser.uid);
             setDoc(userDocRef, newData, { merge: true }).catch(err => {
                 console.error("Failed to save to cloud", err);
-                // Revert/Alert logic could go here
             });
         } else {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
         }
+    }, [currentUser]);
+
+    // Debounced save — for transactions (800ms) to reduce Firestore writes
+    const saveTimeoutRef = useRef(null);
+    const saveDataThrottled = useCallback((newData) => {
+        setData(newData); // UI updates immediately
+        if (currentUser && !currentUser.isAnonymous) {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = setTimeout(() => {
+                const userDocRef = doc(db, 'users', currentUser.uid);
+                setDoc(userDocRef, newData, { merge: true }).catch(err => {
+                    console.error("Failed to save to cloud", err);
+                });
+            }, 800);
+        } else {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        }
+    }, [currentUser]);
+
+    const updateSalaryDate = (date) => {
+        const newData = { ...data, salaryDate: parseInt(date) };
+        saveData(newData);
     };
 
     // --- Actions ---
@@ -290,63 +303,48 @@ export function FinanceProvider({ children }) {
         saveData(newData);
     };
 
-    const addTransaction = (transaction) => {
+    const addTransaction = useCallback((transaction) => {
         const newData = {
             ...data,
             transactions: [...data.transactions, { ...transaction, id: uuidv4(), date: transaction.date || new Date().toISOString() }]
         };
-        saveData(newData);
-    };
+        saveDataThrottled(newData);
+    }, [data, saveDataThrottled]);
 
     const importData = ({ categories: newCategories, transactions: newTransactions }) => {
         const newData = { ...data };
-
         if (newCategories && newCategories.length > 0) {
-            const cats = newCategories.map(c => ({ ...c, id: c.id || uuidv4() }));
-            newData.categories = [...newData.categories, ...cats];
+            newData.categories = [...newData.categories, ...newCategories.map(c => ({ ...c, id: c.id || uuidv4() }))];
         }
-
         if (newTransactions && newTransactions.length > 0) {
-            const txs = newTransactions.map(t => ({
-                ...t,
-                id: uuidv4(),
-                date: t.date || new Date().toISOString()
-            }));
-            newData.transactions = [...newData.transactions, ...txs];
+            newData.transactions = [...newData.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))];
         }
-
-        saveData(newData);
+        saveDataThrottled(newData);
     };
 
-    const addTransactions = (newTransactions) => {
-        const timestamped = newTransactions.map(t => ({
-            ...t,
-            id: uuidv4(),
-            date: t.date || new Date().toISOString()
-        }));
-
+    const addTransactions = useCallback((newTransactions) => {
         const newData = {
             ...data,
-            transactions: [...data.transactions, ...timestamped]
+            transactions: [...data.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))]
         };
-        saveData(newData);
-    };
+        saveDataThrottled(newData);
+    }, [data, saveDataThrottled]);
 
-    const updateTransaction = (id, updatedFields) => {
+    const updateTransaction = useCallback((id, updatedFields) => {
         const newData = {
             ...data,
             transactions: data.transactions.map(t => t.id === id ? { ...t, ...updatedFields } : t)
         };
-        saveData(newData);
-    };
+        saveDataThrottled(newData);
+    }, [data, saveDataThrottled]);
 
-    const deleteTransaction = (id) => {
+    const deleteTransaction = useCallback((id) => {
         const newData = {
             ...data,
             transactions: data.transactions.filter(t => t.id !== id)
         };
-        saveData(newData);
-    };
+        saveDataThrottled(newData);
+    }, [data, saveDataThrottled]);
 
     const updateCurrency = (currency) => {
         const newData = { ...data, currency };
@@ -493,6 +491,8 @@ export function FinanceProvider({ children }) {
         updateBudget,
         recurring: data.recurring || [],
         loans: data.loans || [],
+        salaryDate: data.salaryDate || 1,
+        updateSalaryDate,
         clearData
     };
 
