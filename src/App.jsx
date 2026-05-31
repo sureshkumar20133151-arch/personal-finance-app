@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -18,12 +18,14 @@ import { FinanceProvider } from './context/FinanceContext';
 import Budget from './pages/Budget';
 
 const App = () => {
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+
   return (
     <Router>
       <AuthProvider>
         <FinanceProvider>
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={isNative ? <Navigate to="/dashboard" replace /> : <Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 

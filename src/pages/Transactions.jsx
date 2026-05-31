@@ -2,12 +2,13 @@
 import React, { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard, Download, MessageSquare } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { parseStatement } from '../lib/StatementParser';
 import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
+import SMSScanModal from '../components/SMSScanModal';
 
 const Transactions = () => {
     const {
@@ -20,6 +21,7 @@ const Transactions = () => {
         updateTransaction,
         addRecurringTransaction,
         deleteRecurringTransaction,
+        subscription,
 
         recurring,
         loans,
@@ -38,6 +40,7 @@ const Transactions = () => {
 
     // Editing State
     const [editingTx, setEditingTx] = useState(null);
+    const [showSMSScan, setShowSMSScan] = useState(false);
 
     // List View State
     const [viewMode, setViewMode] = useState('transactions'); // 'transactions' or 'recurring'
@@ -89,7 +92,7 @@ const Transactions = () => {
         { id: 'income', label: 'Income', icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900/30' },
         { id: 'expense', label: 'Expense', icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900/30' },
         { id: 'savings', label: 'Savings', icon: PiggyBank, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-        { id: 'debt', label: 'Debt Repayment', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+        { id: 'debt', label: 'Debt', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
     ];
 
     const availableCategories = useMemo(() => {
@@ -278,6 +281,48 @@ const Transactions = () => {
     const getCategoryName = (id) => categories.find(c => c.id === id)?.name || 'Unknown';
     const getCategoryColor = (id) => categories.find(c => c.id === id)?.color || '#ccc';
 
+    const handleExportData = () => {
+        // Enforce Pro Plan check
+        if (subscription !== 'monthly' && subscription !== 'lifetime') {
+            alert("Upgrade to Pro: Exporting transactions to CSV is a Pro feature. Please upgrade on the Account page.");
+            return;
+        }
+
+        if (!transactions || transactions.length === 0) {
+            alert("No transactions to export.");
+            return;
+        }
+
+        // Format to CSV
+        const headers = ["Description", "Date", "Type", "Category", "Amount", "Payment Mode"];
+        const rows = transactions.map(t => {
+            const dateStr = t.date ? format(new Date(t.date), 'yyyy-MM-dd') : '';
+            const categoryName = getCategoryName(t.categoryId);
+            return [
+                `"${(t.description || '').replace(/"/g, '""')}"`,
+                dateStr,
+                t.type || '',
+                `"${categoryName}"`,
+                t.amount || 0,
+                t.paymentMode || ''
+            ];
+        });
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(e => e.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `budget_tracker_transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
             <header>
@@ -356,15 +401,15 @@ const Transactions = () => {
                                             type="button"
                                             onClick={() => { setType(t.id); setCategoryId(''); setIsRecurring(false); }}
                                             className={cn(
-                                                "flex items-center justify-center gap-1 py-1.5 px-1 rounded-md text-xs font-medium transition-all",
+                                                "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-semibold transition-all",
                                                 type === t.id
                                                     ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
                                                     : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                                             )}
                                             title={t.label}
                                         >
-                                            <t.icon className={cn("w-3 h-3", type === t.id ? t.color : "")} />
-                                            <span className="hidden xl:inline">{t.label}</span>
+                                            <t.icon className={cn("w-3.5 h-3.5", type === t.id ? t.color : "")} />
+                                            <span className="leading-none text-center">{t.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -570,7 +615,7 @@ const Transactions = () => {
                                             )}
                                         >
                                             <span style={{ fontSize: '14px' }}>{mode.emoji}</span>
-                                            <span className="hidden sm:inline leading-tight text-center">{mode.label}</span>
+                                            <span className="text-[8.5px] sm:text-xs leading-tight text-center font-medium mt-0.5">{mode.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -697,6 +742,22 @@ const Transactions = () => {
                                     className="w-full pl-9 pr-4 py-2 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                                 />
                             </div>
+                            <button
+                                onClick={handleExportData}
+                                className="flex items-center gap-1.5 px-3 py-2 border rounded-xl hover:bg-muted text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
+                                title="Export all transactions to CSV"
+                            >
+                                <Download className="w-4 h-4 text-muted-foreground" />
+                                <span className="hidden md:inline">Export CSV</span>
+                            </button>
+                            <button
+                                onClick={() => setShowSMSScan(true)}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
+                                title="Scan SMS Inbox for UPI/Bank alert receipts"
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                <span className="hidden md:inline">Scan SMS</span>
+                            </button>
                         </div>
 
                         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
@@ -938,6 +999,13 @@ const Transactions = () => {
                     </div>
                 )
             }
+
+            <SMSScanModal 
+                isOpen={showSMSScan} 
+                onClose={() => setShowSMSScan(false)} 
+                onImport={(txs) => addTransactions(txs)} 
+                categories={categories} 
+            />
         </div >
     );
 };

@@ -36,6 +36,8 @@ const DEFAULT_DATA = {
     monthlyBudget: 50000, // Default monthly budget
     lastProcessedMonth: '', // 'YYYY-MM' format to track when we last ran automation
     salaryDate: 1, // Day of month on which salary arrives & budget cycle resets
+    initialBankBalance: 0,
+    initialCashBalance: 0,
 };
 
 export function FinanceProvider({ children }) {
@@ -304,6 +306,18 @@ export function FinanceProvider({ children }) {
     };
 
     const addTransaction = useCallback((transaction) => {
+        // Enforce 50 monthly entries limit on Free Plan
+        if (data.subscription !== 'monthly' && data.subscription !== 'lifetime') {
+            const currentMonth = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+            const monthlyTransactionsCount = (data.transactions || [])
+                .filter(t => t.date && t.date.slice(0, 7) === currentMonth)
+                .length;
+            if (monthlyTransactionsCount >= 50) {
+                alert("Limit reached: Free Plan is restricted to 50 transactions per month. Please upgrade to the Pro Plan in the Account settings for unlimited entries.");
+                return;
+            }
+        }
+
         const newData = {
             ...data,
             transactions: [...data.transactions, { ...transaction, id: uuidv4(), date: transaction.date || new Date().toISOString() }]
@@ -317,15 +331,46 @@ export function FinanceProvider({ children }) {
             newData.categories = [...newData.categories, ...newCategories.map(c => ({ ...c, id: c.id || uuidv4() }))];
         }
         if (newTransactions && newTransactions.length > 0) {
+            // Enforce monthly limit on Free Plan
+            if (data.subscription !== 'monthly' && data.subscription !== 'lifetime') {
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                const monthlyTransactionsCount = (data.transactions || [])
+                    .filter(t => t.date && t.date.slice(0, 7) === currentMonth)
+                    .length;
+                const remaining = 50 - monthlyTransactionsCount;
+                if (remaining <= 0) {
+                    alert("Import blocked: Free Plan is restricted to 50 transactions per month. Please upgrade to Pro to import entries.");
+                    return;
+                } else if (newTransactions.length > remaining) {
+                    alert(`Limit reached: Free Plan is restricted to 50 transactions per month. Only the first ${remaining} transactions will be imported. Please upgrade to Pro for unlimited imports.`);
+                    newTransactions = newTransactions.slice(0, remaining);
+                }
+            }
             newData.transactions = [...newData.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))];
         }
         saveDataThrottled(newData);
     };
 
     const addTransactions = useCallback((newTransactions) => {
+        // Enforce monthly limit on Free Plan
+        let txsToAdd = newTransactions;
+        if (data.subscription !== 'monthly' && data.subscription !== 'lifetime') {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            const monthlyTransactionsCount = (data.transactions || [])
+                .filter(t => t.date && t.date.slice(0, 7) === currentMonth)
+                .length;
+            const remaining = 50 - monthlyTransactionsCount;
+            if (remaining <= 0) {
+                alert("Import blocked: Free Plan is restricted to 50 transactions per month. Please upgrade to Pro to add entries.");
+                return;
+            } else if (newTransactions.length > remaining) {
+                alert(`Limit reached: Free Plan is restricted to 50 transactions per month. Only the first ${remaining} transactions will be added. Please upgrade to Pro for unlimited entries.`);
+                txsToAdd = newTransactions.slice(0, remaining);
+            }
+        }
         const newData = {
             ...data,
-            transactions: [...data.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))]
+            transactions: [...data.transactions, ...txsToAdd.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))]
         };
         saveDataThrottled(newData);
     }, [data, saveDataThrottled]);
@@ -454,6 +499,9 @@ export function FinanceProvider({ children }) {
             };
         } else {
             // Bank EMI (Legacy/Default)
+            const monthsDiff = Math.max(0, (currentDate.getFullYear() - start.getFullYear()) * 12 + currentDate.getMonth() - start.getMonth());
+            const activeMonths = Math.min(loan.tenure, monthsDiff);
+            const principalPaid = activeMonths * loan.monthlyAmount;
             return {
                 paid: principalPaid,
                 remaining: (loan.monthlyAmount * loan.tenure) - principalPaid, // Rough estimate
@@ -461,6 +509,15 @@ export function FinanceProvider({ children }) {
                 progress: 0 // Handled by date logic usually
             };
         }
+    };
+
+    const updateStartingBalances = (bank, cash) => {
+        const newData = {
+            ...data,
+            initialBankBalance: parseFloat(bank) || 0,
+            initialCashBalance: parseFloat(cash) || 0
+        };
+        saveData(newData);
     };
 
     const value = {
@@ -493,6 +550,9 @@ export function FinanceProvider({ children }) {
         loans: data.loans || [],
         salaryDate: data.salaryDate || 1,
         updateSalaryDate,
+        initialBankBalance: data.initialBankBalance || 0,
+        initialCashBalance: data.initialCashBalance || 0,
+        updateStartingBalances,
         clearData
     };
 

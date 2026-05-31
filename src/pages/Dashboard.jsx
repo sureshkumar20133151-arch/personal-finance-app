@@ -33,8 +33,8 @@ const SparkBar = ({ data, color }) => {
 };
 
 // ── KPI Card ─────────────────────────────────────────────────────────────────
-const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor, sparkColor, sparkData, trend }) => (
-  <div className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor, sparkColor, sparkData, trend, children }) => (
+  <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
     <div className="flex items-start justify-between mb-3">
       <div className={cn('p-2 rounded-xl', bgColor)}>
         <Icon className={cn('w-4 h-4', color)} />
@@ -51,7 +51,7 @@ const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor,
       )}
     </div>
     <p className="text-xs font-medium text-muted-foreground mb-1">{title}</p>
-    <p className={cn('text-2xl font-bold tracking-tight', color)}>{value}</p>
+    <p className={cn('text-lg sm:text-2xl font-bold tracking-tight', color)}>{value}</p>
     {sparkData && (
       <div className="mt-3">
         <SparkBar data={sparkData} color={sparkColor} />
@@ -62,6 +62,7 @@ const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor,
         <span className="font-medium text-foreground">{subValue}</span> {subLabel}
       </p>
     )}
+    {children}
   </div>
 );
 
@@ -87,15 +88,121 @@ const ProgressBar = ({ label, value, max, color, formatMoney }) => {
   );
 };
 
+const tourSteps = [
+  {
+    title: "👋 Welcome to FinTrack!",
+    content: "Let's take a quick 1-minute tour to help you understand how to manage your budget and track your expenses.",
+    target: null,
+  },
+  {
+    title: "📊 Financial Summary",
+    content: "Here you'll see your monthly overview: Income, Expenses, Savings, and Net Balance. It's arranged in a 2x2 grid layout on mobile screens.",
+    target: "tour-kpi-cards",
+  },
+  {
+    title: "💡 Safe to Spend Per Day",
+    content: "This is your daily budget helper! It divides your remaining budget by the days left in the month to tell you exactly how much is safe to spend today.",
+    target: "tour-budget-health",
+  },
+  {
+    title: "🗺️ Simple Tabs Navigation",
+    content: "Easily switch tabs to check Category Budget tracking or circular Goal progressions.",
+    target: "tour-nav-tabs",
+  },
+  {
+    title: "🚀 You're Ready!",
+    content: "Try entering a transaction or use the Demo Mode to play around. Your financial journey starts now!",
+    target: null,
+  }
+];
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const {
     transactions = [], formatMoney, categories = [],
-    loans = [], recurring = [], salaryDate, monthlyBudget
+    loans = [], recurring = [], salaryDate, monthlyBudget,
+    initialBankBalance = 0, initialCashBalance = 0
   } = useFinanceData();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Tour Guide State
+  const [showTour, setShowTour] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const [spotlightStyle, setSpotlightStyle] = useState({ display: 'none' });
+
+  // Update spotlight rect dynamically when step changes or window resizes
+  const updateSpotlight = useCallback(() => {
+    if (!showTour) {
+      setSpotlightStyle({ display: 'none' });
+      return;
+    }
+    const step = tourSteps[tourStep];
+    if (!step || !step.target) {
+      setSpotlightStyle({ display: 'none' });
+      return;
+    }
+    const el = document.getElementById(step.target);
+    if (!el) {
+      setSpotlightStyle({ display: 'none' });
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    setSpotlightStyle({
+      position: 'fixed',
+      top: `${rect.top - 8}px`,
+      left: `${rect.left - 8}px`,
+      width: `${rect.width + 16}px`,
+      height: `${rect.height + 16}px`,
+      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.75)',
+      borderRadius: '16px',
+      transition: 'all 0.3s ease',
+      pointerEvents: 'none',
+      zIndex: 49,
+    });
+  }, [showTour, tourStep]);
+
+  React.useEffect(() => {
+    updateSpotlight();
+    window.addEventListener('resize', updateSpotlight);
+    window.addEventListener('scroll', updateSpotlight);
+    return () => {
+      window.removeEventListener('resize', updateSpotlight);
+      window.removeEventListener('scroll', updateSpotlight);
+    };
+  }, [updateSpotlight]);
+
+  React.useEffect(() => {
+    // Check if tour was completed
+    const completed = localStorage.getItem('fintrack_tour_completed');
+    if (!completed) {
+      const timer = setTimeout(() => {
+        setShowTour(true);
+        setTourStep(0);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleNextStep = () => {
+    if (tourStep < tourSteps.length - 1) {
+      setTourStep(s => s + 1);
+    } else {
+      handleSkipTour();
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (tourStep > 0) {
+      setTourStep(s => s - 1);
+    }
+  };
+
+  const handleSkipTour = () => {
+    setShowTour(false);
+    localStorage.setItem('fintrack_tour_completed', 'true');
+  };
 
   const sd = salaryDate || 1;
 
@@ -132,7 +239,34 @@ const Dashboard = () => {
   const expense = useMemo(() => calcTotal('expense'), [calcTotal]);
   const savings = useMemo(() => calcTotal('savings'), [calcTotal]);
   const debt    = useMemo(() => calcTotal('debt'),    [calcTotal]);
-  const balance = income - expense - debt;
+  
+  const monthlyNet = income - expense - debt;
+
+  // Running Bank & Cash Balance calculations (All-time)
+  const bankBalance = useMemo(() => {
+    const bankIncomes = transactions.filter(t => t.type === 'income' && t.paymentMode !== 'cash');
+    const bankExpenses = transactions.filter(t => t.type === 'expense' && (t.paymentMode !== 'cash' || t.description?.toLowerCase().includes('atm') || t.description?.toLowerCase().includes('cash withdrawal')));
+    const bankDebts = transactions.filter(t => t.type === 'debt' && t.paymentMode !== 'cash');
+
+    const totalIn = bankIncomes.reduce((sum, t) => sum + t.amount, 0);
+    const totalOut = bankExpenses.reduce((sum, t) => sum + t.amount, 0) + bankDebts.reduce((sum, t) => sum + t.amount, 0);
+
+    return initialBankBalance + totalIn - totalOut;
+  }, [transactions, initialBankBalance]);
+
+  const cashBalance = useMemo(() => {
+    const cashIncomes = transactions.filter(t => t.type === 'income' && t.paymentMode === 'cash');
+    const cashExpenses = transactions.filter(t => t.type === 'expense' && t.paymentMode === 'cash' && !t.description?.toLowerCase().includes('atm') && !t.description?.toLowerCase().includes('cash withdrawal'));
+    const cashDebts = transactions.filter(t => t.type === 'debt' && t.paymentMode === 'cash');
+    const atmWithdrawals = transactions.filter(t => t.type === 'expense' && (t.description?.toLowerCase().includes('atm') || t.description?.toLowerCase().includes('cash withdrawal')));
+
+    const totalIn = cashIncomes.reduce((sum, t) => sum + t.amount, 0) + atmWithdrawals.reduce((sum, t) => sum + t.amount, 0);
+    const totalOut = cashExpenses.reduce((sum, t) => sum + t.amount, 0) + cashDebts.reduce((sum, t) => sum + t.amount, 0);
+
+    return initialCashBalance + totalIn - totalOut;
+  }, [transactions, initialCashBalance]);
+
+  const netBalance = bankBalance + cashBalance;
 
   // Sparklines (last 6 months per type)
   const sparkData = useMemo(() => {
@@ -213,7 +347,7 @@ const Dashboard = () => {
   }, [recurring]);
 
   const totalEMI    = useMemo(() => loans.reduce((s, l) => s + (l.monthlyAmount || 0), 0), [loans]);
-  const savingsRate = income > 0 ? Math.round((balance / income) * 100) : 0;
+  const savingsRate = income > 0 ? Math.round((monthlyNet / income) * 100) : 0;
   const budgetUsed  = monthlyBudget > 0 ? Math.round((expense / monthlyBudget) * 100) : 0;
 
   // Budget Health computations
@@ -233,19 +367,19 @@ const Dashboard = () => {
   const handleShare = useCallback(() => {
     const monthName = format(currentDate, 'MMMM yyyy');
     const top = expenseData[0];
-    const rate = income > 0 ? Math.round((balance / income) * 100) : 0;
+    const rate = income > 0 ? Math.round((monthlyNet / income) * 100) : 0;
     const message =
       `💰 *${monthName} Financial Summary*\n\n` +
       `✅ Income: ${formatMoney(income)}\n` +
       `🛒 Expenses: ${formatMoney(expense)}\n` +
       `📈 Savings: ${formatMoney(savings)}\n` +
       `💳 Debt Paid: ${formatMoney(debt)}\n` +
-      `🏦 Net Balance: ${formatMoney(balance)}\n\n` +
+      `🏦 Net Balance: ${formatMoney(netBalance)}\n\n` +
       `📊 Savings Rate: ${rate}%\n` +
       (top ? `🔺 Top Spend: ${top.name} (${formatMoney(top.value)})\n` : '') +
       `\n_Tracked with BudgetTracker_ 🇮🇳`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-  }, [currentDate, income, expense, savings, debt, balance, expenseData, formatMoney]);
+  }, [currentDate, income, expense, savings, debt, netBalance, bankBalance, cashBalance, expenseData, formatMoney]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto">
@@ -293,7 +427,7 @@ const Dashboard = () => {
       </div>
 
       {/* ── Tab Nav ── */}
-      <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
+      <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
         {[
           { id: 'overview', label: 'Overview', icon: Activity },
           { id: 'spending', label: 'Spending', icon: TrendingDown },
@@ -319,7 +453,7 @@ const Dashboard = () => {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div id="tour-kpi-cards" className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <KPICard
               title="Total Income"
               value={formatMoney(income)}
@@ -354,20 +488,31 @@ const Dashboard = () => {
             />
             <KPICard
               title="Net Balance"
-              value={formatMoney(balance)}
+              value={formatMoney(netBalance)}
               icon={IndianRupee}
-              color={balance >= 0 ? 'text-green-500' : 'text-destructive'}
-              bgColor={balance >= 0
+              color={netBalance >= 0 ? 'text-green-500' : 'text-destructive'}
+              bgColor={netBalance >= 0
                 ? 'bg-green-100 dark:bg-green-900/30'
                 : 'bg-red-100 dark:bg-red-900/30'}
               subValue={totalEMI > 0 ? formatMoney(totalEMI) : null}
               subLabel="total EMI/month"
-            />
+            >
+              <div className="mt-3 pt-3 border-t border-border/50 space-y-1 text-[11px] sm:text-xs">
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span className="flex items-center gap-1">🏦 Bank Balance:</span>
+                  <span className="font-semibold text-foreground">{formatMoney(bankBalance)}</span>
+                </div>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span className="flex items-center gap-1">💵 Cash in Hand:</span>
+                  <span className="font-semibold text-foreground">{formatMoney(cashBalance)}</span>
+                </div>
+              </div>
+            </KPICard>
           </div>
 
           {/* ── BUDGET HEALTH PANEL ── */}
           {monthlyBudget > 0 && (
-            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div id="tour-budget-health" className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
 
               {/* Header strip */}
               <div className={cn(
@@ -483,12 +628,12 @@ const Dashboard = () => {
                       border: projectedMonthly > monthlyBudget ? 'border-red-200 dark:border-red-900/30' : 'border-green-200 dark:border-green-900/30',
                     },
                   ].map(stat => (
-                    <div key={stat.label} className={cn('rounded-xl border p-4 space-y-1', stat.bg, stat.border)}>
+                    <div key={stat.label} className={cn('rounded-xl border p-3 sm:p-4 space-y-1', stat.bg, stat.border)}>
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
                         <span className="text-base">{stat.icon}</span>
                       </div>
-                      <p className={cn('text-xl font-bold tracking-tight', stat.color)}>{stat.value}</p>
+                      <p className={cn('text-base sm:text-xl font-bold tracking-tight', stat.color)}>{stat.value}</p>
                       <p className="text-[10px] text-muted-foreground">{stat.sub}</p>
                     </div>
                   ))}
@@ -496,7 +641,7 @@ const Dashboard = () => {
 
                 {/* Safe-to-spend per day */}
                 <div className={cn(
-                  'rounded-xl p-4 flex items-center justify-between border',
+                  'rounded-xl p-3 sm:p-4 flex items-center justify-between border',
                   remaining <= 0
                     ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
                     : 'bg-primary/5 border-primary/20'
@@ -727,6 +872,84 @@ const Dashboard = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {/* ── ONBOARDING GUIDE TOUR OVERLAY ── */}
+      {showTour && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Background Dim overlay if no target spotlight is active */}
+          {tourSteps[tourStep].target === null && (
+            <div 
+              className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity duration-300"
+              onClick={handleSkipTour}
+            />
+          )}
+
+          {/* Spotlight Element */}
+          {tourSteps[tourStep].target !== null && (
+            <>
+              {/* Invisible blocker to capture clicks outside target */}
+              <div 
+                className="fixed inset-0 bg-transparent"
+                onClick={handleSkipTour}
+              />
+              <div style={spotlightStyle} />
+            </>
+          )}
+
+          {/* Guide Dialog Box */}
+          <div className="relative w-full max-w-sm bg-card border border-border rounded-2xl p-6 shadow-2xl z-50 animate-in zoom-in-95 duration-200 flex flex-col gap-4">
+            {/* Step Indicator */}
+            <div className="flex justify-between items-center text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+              <span>Guide Tour</span>
+              <span>{tourStep + 1} of {tourSteps.length}</span>
+            </div>
+
+            {/* Title & Body */}
+            <div className="space-y-2">
+              <h4 className="text-base font-bold text-foreground">{tourSteps[tourStep].title}</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">{tourSteps[tourStep].content}</p>
+            </div>
+
+            {/* Progress dot indicators */}
+            <div className="flex gap-1.5 justify-center py-1">
+              {tourSteps.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={cn(
+                    "h-1 rounded-full transition-all duration-300",
+                    idx === tourStep ? "w-6 bg-primary" : "w-1 bg-muted-foreground/30"
+                  )}
+                />
+              ))}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/55">
+              <button 
+                onClick={handleSkipTour} 
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Skip
+              </button>
+              <div className="flex gap-2">
+                {tourStep > 0 && (
+                  <button 
+                    onClick={handlePrevStep}
+                    className="px-3 py-1.5 rounded-xl border border-input text-xs font-semibold hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    Back
+                  </button>
+                )}
+                <button 
+                  onClick={handleNextStep}
+                  className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-sm transition-colors"
+                >
+                  {tourStep === tourSteps.length - 1 ? 'Get Started' : 'Next'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

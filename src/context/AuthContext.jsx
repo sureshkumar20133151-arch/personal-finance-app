@@ -6,7 +6,8 @@ import {
     createUserWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
-    signInWithPopup
+    signInWithPopup,
+    updateProfile
 } from 'firebase/auth';
 
 const AuthContext = createContext();
@@ -31,8 +32,12 @@ export function AuthProvider({ children }) {
         localStorage.setItem('fintrack_demo_user', 'true');
     };
 
-    function signup(email, password) {
-        return createUserWithEmailAndPassword(auth, email, password);
+    async function signup(email, password, name) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (name) {
+            await updateProfile(userCredential.user, { displayName: name });
+        }
+        return userCredential;
     }
 
     function login(email, password) {
@@ -43,12 +48,32 @@ export function AuthProvider({ children }) {
         return signInWithPopup(auth, googleProvider);
     }
 
-    function logout() {
-        if (currentUser?.isAnonymous) {
-            setCurrentUser(null);
-            localStorage.removeItem('fintrack_demo_user');
-            return Promise.resolve();
+    async function updateUserProfile(name, photoURL) {
+        if (auth.currentUser) {
+            await updateProfile(auth.currentUser, {
+                displayName: name || auth.currentUser.displayName,
+                photoURL: photoURL || auth.currentUser.photoURL
+            });
+            // Force state refresh
+            setCurrentUser({
+                uid: auth.currentUser.uid,
+                email: auth.currentUser.email,
+                displayName: auth.currentUser.displayName,
+                photoURL: auth.currentUser.photoURL,
+                isAnonymous: false
+            });
+        } else if (currentUser && currentUser.isAnonymous) {
+            setCurrentUser(prev => ({
+                ...prev,
+                displayName: name || prev.displayName,
+                photoURL: photoURL || prev.photoURL
+            }));
         }
+    }
+
+    function logout() {
+        localStorage.removeItem('fintrack_demo_user');
+        setCurrentUser(null);
         return signOut(auth);
     }
 
@@ -72,7 +97,7 @@ export function AuthProvider({ children }) {
                 setLoading(false);
             });
 
-            // Fallback: If Firebase doesn't respond within 2 seconds (e.g. invalid config), force load.
+            // Fallback: If Firebase doesn't respond within 8 seconds (e.g. invalid config), force load.
             setTimeout(() => {
                 setLoading((currentLoading) => {
                     if (currentLoading) {
@@ -81,7 +106,7 @@ export function AuthProvider({ children }) {
                     }
                     return currentLoading;
                 });
-            }, 2000);
+            }, 8000);
 
             return unsubscribe;
         } catch (error) {
@@ -96,6 +121,7 @@ export function AuthProvider({ children }) {
         login,
         loginWithGoogle,
         logout,
+        updateUserProfile,
         loginAsDemoUser // Exposed for the Login page
     };
 

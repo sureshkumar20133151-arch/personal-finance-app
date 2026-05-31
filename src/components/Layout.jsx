@@ -5,11 +5,11 @@ import { LayoutDashboard, Wallet, Settings, Receipt, Menu, X, User, Building2, T
 import { cn } from '../lib/utils';
 import { useState } from 'react';
 import ClockWidget from './ClockWidget';
+import { useAuth } from '../context/AuthContext';
 
 const Layout = () => {
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-    const navItems = [
+    const { currentUser } = useAuth();
+    const desktopNavItems = [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Transactions', path: '/transactions', icon: Receipt },
         { name: 'Budget', path: '/budget', icon: PieChart },
@@ -18,23 +18,38 @@ const Layout = () => {
         { name: 'Account', path: '/account', icon: User },
     ];
 
+    const mobileNavItems = [
+        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Transactions', path: '/transactions', icon: Receipt },
+        { name: 'Budget', path: '/budget', icon: PieChart },
+        { name: 'Loans', path: '/loans', icon: Building2 },
+        { name: 'Setup', path: '/setup', icon: Settings },
+    ];
+
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
             {/* Mobile Header */}
             <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background/80 backdrop-blur-xl sticky top-0 z-50">
                 <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">BudgetTracker</h1>
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
-                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                </button>
+                <NavLink 
+                    to="/account" 
+                    className={({ isActive }) => cn(
+                        "w-8 h-8 rounded-full border overflow-hidden flex items-center justify-center transition-all bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground shadow-sm",
+                        isActive ? "ring-2 ring-primary text-primary bg-primary/10" : ""
+                    )}
+                >
+                    {currentUser?.photoURL ? (
+                        <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                        <User size={16} />
+                    )}
+                </NavLink>
             </div>
 
-            {/* Sidebar (Desktop) / Mobile Menu */}
-            <aside className={cn(
-                "fixed inset-y-0 left-0 z-40 w-72 bg-card/60 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-2xl transform transition-transform duration-300 md:translate-x-0 md:static md:h-screen md:block pt-16 md:pt-0",
-                isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-            )}>
+            {/* Sidebar (Desktop only on md+) */}
+            <aside className="hidden md:block w-72 bg-card/60 backdrop-blur-2xl border-r border-white/20 dark:border-white/5 shadow-2xl h-screen sticky top-0">
                 <div className="h-full flex flex-col p-6">
-                    <div className="hidden md:flex items-center gap-3 mb-8 px-2">
+                    <div className="flex items-center gap-3 mb-8 px-2">
                         <div className="p-2.5 bg-gradient-to-br from-primary to-purple-600 rounded-xl shadow-lg shadow-primary/20">
                             <Wallet className="w-6 h-6 text-white" />
                         </div>
@@ -42,16 +57,15 @@ const Layout = () => {
                     </div>
 
                     {/* Clock Widget (Desktop Sidebar) */}
-                    <div className="hidden md:block mb-8">
+                    <div className="mb-8">
                         <ClockWidget />
                     </div>
 
                     <nav className="flex-1 space-y-1.5">
-                        {navItems.map((item) => (
+                        {desktopNavItems.map((item) => (
                             <NavLink
                                 key={item.path}
                                 to={item.path}
-                                onClick={() => setIsMobileMenuOpen(false)}
                                 className={({ isActive }) => cn(
                                     "flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 group relative overflow-hidden",
                                     isActive
@@ -84,16 +98,34 @@ const Layout = () => {
                 </div>
             </aside>
 
-            {/* Overlay for mobile */}
-            {isMobileMenuOpen && (
-                <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-200"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                />
-            )}
+            {/* Mobile Bottom Navigation Bar (WhatsApp/Instagram Style) */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border shadow-lg flex justify-around py-2.5 pb-safe-bottom">
+                {mobileNavItems.map((item) => (
+                    <NavLink
+                        key={item.path}
+                        to={item.path}
+                        className={({ isActive }) => cn(
+                            "flex flex-col items-center justify-center px-3 py-1 text-xs transition-all duration-300 relative shrink-0",
+                            isActive 
+                                ? "text-primary font-bold scale-110 -translate-y-0.5" 
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        {({ isActive }) => (
+                            <>
+                                <item.icon className={cn("w-5.5 h-5.5 mb-0.5 transition-all duration-300", isActive ? "text-primary stroke-[2.5]" : "text-muted-foreground")} />
+                                <span className="text-[9.5px] tracking-tight">{item.name}</span>
+                                {isActive && (
+                                    <span className="absolute -bottom-1.5 w-1.5 h-1.5 rounded-full bg-primary animate-in zoom-in-50 fade-in duration-300" />
+                                )}
+                            </>
+                        )}
+                    </NavLink>
+                ))}
+            </div>
 
             {/* Main Content */}
-            <main className="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-7xl mx-auto md:ml-6">
+            <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto w-full max-w-7xl mx-auto">
                 <Outlet />
             </main>
         </div>

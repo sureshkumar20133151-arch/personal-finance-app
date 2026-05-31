@@ -1,15 +1,22 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle } from "lucide-react";
 
 const Login = () => {
-    const { loginWithGoogle, loginAsDemoUser } = useAuth();
+    const { login, loginWithGoogle, loginAsDemoUser } = useAuth();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
 
     async function handleGoogleLogin() {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+            setError("Google login is only supported in browser mode. Please sign in with email/password or try Demo Mode.");
+            return;
+        }
         try {
             setError("");
             setGoogleLoading(true);
@@ -20,6 +27,20 @@ const Login = () => {
             setError("Failed to sign in with Google. Please try again.");
         }
         setGoogleLoading(false);
+    }
+
+    async function handleEmailLogin(e) {
+        e.preventDefault();
+        try {
+            setError("");
+            setLoading(true);
+            await login(email, password);
+            navigate("/dashboard");
+        } catch (err) {
+            console.error(err);
+            setError("Failed to sign in. Please check your credentials.");
+        }
+        setLoading(false);
     }
 
     return (
@@ -38,6 +59,49 @@ const Login = () => {
                 )}
 
                 <div className="space-y-4">
+                    <form onSubmit={handleEmailLogin} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Email Address</label>
+                            <input
+                                id="email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="you@example.com"
+                                className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label htmlFor="password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Password</label>
+                            <input
+                                id="password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                required
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full inline-flex items-center justify-center rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-11 disabled:opacity-50"
+                        >
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In with Email"}
+                        </button>
+                    </form>
+
+                    <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-border" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-card px-2 text-muted-foreground">Or</span>
+                        </div>
+                    </div>
+
                     <button
                         type="button"
                         onClick={handleGoogleLogin}
@@ -56,15 +120,6 @@ const Login = () => {
                         )}
                         Continue with Google
                     </button>
-
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-border" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-card px-2 text-muted-foreground">Or</span>
-                        </div>
-                    </div>
 
                     <button
                         type="button"

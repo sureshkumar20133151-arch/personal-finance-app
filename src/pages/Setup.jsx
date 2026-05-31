@@ -16,10 +16,25 @@ const COLORS = [
 const ICON_NAMES = Object.keys(LucideIcons).filter(name => name !== 'createLucideIcon' && name !== 'default');
 
 const Setup = () => {
-    const { categories, addCategory, deleteCategory, updateCategory, salaryDate, updateSalaryDate } = useFinanceData();
+    const { 
+        categories, addCategory, deleteCategory, updateCategory, 
+        salaryDate, updateSalaryDate, initialBankBalance, 
+        initialCashBalance, updateStartingBalances 
+    } = useFinanceData();
 
     // Form State
     const [name, setName] = useState('');
+    const [tempBank, setTempBank] = useState('');
+    const [tempCash, setTempCash] = useState('');
+
+    React.useEffect(() => {
+        setTempBank(initialBankBalance || '');
+        setTempCash(initialCashBalance || '');
+    }, [initialBankBalance, initialCashBalance]);
+
+    const handleSaveBalances = () => {
+        updateStartingBalances(tempBank, tempCash);
+    };
     const [type, setType] = useState('expense');
     const [icon, setIcon] = useState('Wallet'); // Default to Wallet icon
     const [color, setColor] = useState(COLORS[0]);
@@ -147,6 +162,45 @@ const Setup = () => {
                                 return `${cycleStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${cycleEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
                             })()}
                         </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+                        <h3 className="font-semibold mb-1 flex items-center gap-2">
+                            <span style={{ fontSize: '16px' }}>🏦</span> Starting Balances
+                        </h3>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Set your actual starting account balances for accurate tracking.
+                        </p>
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Bank Account Balance</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">₹</span>
+                                    <input
+                                        type="number"
+                                        value={tempBank}
+                                        onChange={(e) => setTempBank(e.target.value)}
+                                        onBlur={handleSaveBalances}
+                                        placeholder="0"
+                                        className="flex h-10 w-full pl-7 rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Cash in Hand (Wallet)</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">₹</span>
+                                    <input
+                                        type="number"
+                                        value={tempCash}
+                                        onChange={(e) => setTempCash(e.target.value)}
+                                        onBlur={handleSaveBalances}
+                                        placeholder="0"
+                                        className="flex h-10 w-full pl-7 rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sticky top-8">
