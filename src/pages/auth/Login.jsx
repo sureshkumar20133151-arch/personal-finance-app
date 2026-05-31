@@ -13,10 +13,6 @@ const Login = () => {
     const navigate = useNavigate();
 
     async function handleGoogleLogin() {
-        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-            setError("Google login is only supported in browser mode. Please sign in with email/password or try Demo Mode.");
-            return;
-        }
         try {
             setError("");
             setGoogleLoading(true);
@@ -24,7 +20,7 @@ const Login = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError("Failed to sign in with Google. Please try again.");
+            setError(err.message || "Failed to sign in with Google. Please try again.");
         }
         setGoogleLoading(false);
     }
