@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "693193969124",
+    "firebase_url": "https://billing-dc0b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "billing-dc0b2",
+    "storage_bucket": "billing-dc0b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:693193969124:android:414fba7684b9c20a4e0bf1",
+        "android_client_info": {
+          "package_name": "com.budgettracker.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "693193969124-0jeo9i8mrm8blbtn2459229jikam7u9r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.budgettracker.app",
+            "certificate_hash": "1833f8489ff48ae4cb2fb91f65db18286c9b7c2e"
+          }
+        },
+        {
+          "client_id": "693193969124-21ea6dfpb0nd4742rcjr5oq2v6mvjol3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTE19747cdV4ARlvcylKLXnW9iCP28Nks"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "693193969124-21ea6dfpb0nd4742rcjr5oq2v6mvjol3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -7,7 +7,9 @@ import {
     signOut,
     onAuthStateChanged,
     signInWithPopup,
-    updateProfile
+    updateProfile,
+    signInWithCredential,
+    GoogleAuthProvider
 } from 'firebase/auth';
 
 const AuthContext = createContext();
@@ -44,8 +46,26 @@ export function AuthProvider({ children }) {
         return signInWithEmailAndPassword(auth, email, password);
     }
 
-    function loginWithGoogle() {
-        return signInWithPopup(auth, googleProvider);
+    async function loginWithGoogle() {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+            const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+            if (!clientId || clientId.includes("placeholder")) {
+                throw new Error("Google Sign-In is not configured. Please add your actual VITE_GOOGLE_CLIENT_ID to the .env file.");
+            }
+
+            const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+            GoogleAuth.initialize({
+                clientId: clientId,
+                scopes: ['profile', 'email'],
+                grantOfflineAccess: true
+            });
+
+            const googleUser = await GoogleAuth.signIn();
+            const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+            return signInWithCredential(auth, credential);
+        } else {
+            return signInWithPopup(auth, googleProvider);
+        }
     }
 
     async function updateUserProfile(name, photoURL) {

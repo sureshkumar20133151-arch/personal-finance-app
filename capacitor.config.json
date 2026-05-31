@@ -2,5 +2,14 @@
   "appId": "com.budgettracker.app",
   "appName": "Budget Tracker",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "GoogleAuth": {
+      "providers": [
+        "google"
+      ],
+      "clientId": "693193969124-21ea6dfpb0nd4742rcjr5oq2v6mvjol3.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
+    }
+  }
 }

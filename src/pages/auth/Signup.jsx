@@ -14,10 +14,6 @@ const Signup = () => {
     const navigate = useNavigate();
 
     async function handleGoogleSignup() {
-        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-            setError("Google sign-up is only supported in browser mode. Please register with email/password or try Demo Mode.");
-            return;
-        }
         try {
             setError("");
             setGoogleLoading(true);
@@ -25,7 +21,7 @@ const Signup = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError("Failed to sign up with Google. Please try again.");
+            setError(err.message || "Failed to sign up with Google. Please try again.");
         }
         setGoogleLoading(false);
     }
