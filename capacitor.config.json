@@ -3,6 +3,13 @@
   "appName": "Budget Tracker",
   "webDir": "dist",
   "bundledWebRuntime": false,
+  "server": {
+    "allowNavigation": [
+      "*.razorpay.com",
+      "*.googleapis.com",
+      "*.firebaseapp.com"
+    ]
+  },
   "plugins": {
     "GoogleAuth": {
       "providers": [
