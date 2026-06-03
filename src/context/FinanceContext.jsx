@@ -23,7 +23,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DEFAULT_CURRENCY = { code: 'INR', symbol: '₹', locale: 'en-IN', name: 'Indian Rupee' };
-const DEFAULT_THEME = { mode: 'system', accent: 'blue' };
+const DEFAULT_THEME = { mode: 'light', accent: 'blue' };
 
 const DEFAULT_DATA = {
     categories: DEFAULT_CATEGORIES,
