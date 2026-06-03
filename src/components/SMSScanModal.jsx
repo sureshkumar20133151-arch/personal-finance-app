@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, ShieldAlert, Sparkles, MessageSquare, AlertCircle, Calendar, CreditCard, ChevronRight } from 'lucide-react';
+import { X, Check, ShieldAlert, Sparkles, MessageSquare, AlertCircle, Calendar, CreditCard, ChevronRight, Bell, Settings, RefreshCw } from 'lucide-react';
 import { parseTransactionSMS } from '../lib/SMSParser';
 import { cn } from '../lib/utils';
 import CategoryIcon from './CategoryIcon';
@@ -7,71 +7,102 @@ import CategoryIcon from './CategoryIcon';
 // SMS Inbox reader import from Capacitor
 import { MessageReader } from '@solimanware/capacitor-sms-reader';
 
+// Notification Listener plugin (registered in native Android)
+import { registerPlugin } from '@capacitor/core';
+const NotificationListener = registerPlugin('NotificationListener');
+
 const SMSScanModal = ({ isOpen, onClose, onImport, categories }) => {
     const [scanning, setScanning] = useState(false);
     const [transactions, setTransactions] = useState([]);
     const [selectedIndices, setSelectedIndices] = useState([]);
     const [permissionError, setPermissionError] = useState(false);
+    const [scanMode, setScanMode] = useState(null); // 'sms' | 'notification' | null
+    const [notifEnabled, setNotifEnabled] = useState(false);
+    const [showNotifSetup, setShowNotifSetup] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            scanSMSInbox();
+            scanMessages();
         } else {
-            // Reset state on close
             setTransactions([]);
             setSelectedIndices([]);
             setPermissionError(false);
+            setScanMode(null);
+            setShowNotifSetup(false);
         }
     }, [isOpen]);
 
-    const scanSMSInbox = async () => {
+    // Check if notification listener is enabled
+    const checkNotifListener = async () => {
+        try {
+            const result = await NotificationListener.isListenerEnabled();
+            setNotifEnabled(result.enabled);
+            return result.enabled;
+        } catch {
+            return false;
+        }
+    };
+
+    // Main scan function — tries SMS first, falls back to Notification Listener
+    const scanMessages = async () => {
         setScanning(true);
         setPermissionError(false);
+        setShowNotifSetup(false);
 
-        // Detect if mobile Capacitor environment
         const isMobile = window.Capacitor && window.Capacitor.isNativePlatform();
 
         try {
             if (isMobile) {
-                // Check SMS permissions
-                const status = await MessageReader.checkPermissions();
-                if (status.sms !== 'granted') {
-                    const req = await MessageReader.requestPermissions();
-                    if (req.sms !== 'granted') {
+                // Strategy 1: Try SMS permission first
+                let smsParsed = [];
+                let smsBlocked = false;
+
+                try {
+                    const status = await MessageReader.checkPermissions();
+                    if (status.sms === 'granted') {
+                        smsParsed = await readSMSInbox();
+                        setScanMode('sms');
+                    } else {
+                        const req = await MessageReader.requestPermissions();
+                        if (req.sms === 'granted') {
+                            smsParsed = await readSMSInbox();
+                            setScanMode('sms');
+                        } else {
+                            smsBlocked = true;
+                        }
+                    }
+                } catch {
+                    smsBlocked = true;
+                }
+
+                // Strategy 2: If SMS blocked, try Notification Listener
+                if (smsBlocked) {
+                    const enabled = await checkNotifListener();
+                    if (enabled) {
+                        smsParsed = await readNotifications();
+                        setScanMode('notification');
+                    } else {
+                        // Neither works — show setup UI
                         setPermissionError(true);
+                        setShowNotifSetup(true);
                         setScanning(false);
                         return;
                     }
                 }
 
-                // Query inbox (last 5 days to keep it fast)
-                const minDate = Date.now() - 5 * 24 * 60 * 60 * 1000;
-                const result = await MessageReader.getSMSList({
-                    minDate: minDate,
-                    max: 80 // fetch last 80 messages
-                });
-
-                const smsList = result.messages || [];
-                const parsed = smsList
-                    .map(m => parseTransactionSMS(m.body, parseInt(m.date)))
-                    .filter(t => t !== null);
-
-                // Sort newest first
-                parsed.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-                // Auto-categorize
-                const mapped = parsed.map(t => ({
+                // Process results
+                smsParsed.sort((a, b) => new Date(b.date) - new Date(a.date));
+                const mapped = smsParsed.map(t => ({
                     ...t,
                     categoryId: guessCategory(t.description, t.type)
                 }));
 
                 setTransactions(mapped);
-                // Pre-select all found transactions
                 setSelectedIndices(mapped.map((_, i) => i));
+
             } else {
-                // Browser sandbox: Simulate parsing HDFC/SBI/UPI SMS alerts for testing
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate loading delay
-                
+                // Browser demo mode
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 const mockSMS = [
                     { body: "Dear Customer, your A/c ending 5678 has been debited by Rs 250.00 at Zomato on 31-May-26 via UPI. Ref 12345", date: Date.now() - 3600000 },
                     { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 24 * 3600000 },
@@ -79,25 +110,61 @@ const SMSScanModal = ({ isOpen, onClose, onImport, categories }) => {
                     { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },
                     { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India. Limit available Rs 85,000.00", date: Date.now() - 5 * 3600000 }
                 ];
-
-                const parsed = mockSMS
-                    .map(m => parseTransactionSMS(m.body, m.date))
-                    .filter(t => t !== null);
-
-                // Auto-categorize
-                const mapped = parsed.map(t => ({
-                    ...t,
-                    categoryId: guessCategory(t.description, t.type)
-                }));
-
+                const parsed = mockSMS.map(m => parseTransactionSMS(m.body, m.date)).filter(t => t !== null);
+                const mapped = parsed.map(t => ({ ...t, categoryId: guessCategory(t.description, t.type) }));
                 setTransactions(mapped);
                 setSelectedIndices(mapped.map((_, i) => i));
+                setScanMode('demo');
             }
         } catch (error) {
-            console.error("SMS Scanning failed:", error);
-            alert("Error scanning messages. Please check permissions.");
+            console.error("Scanning failed:", error);
         }
         setScanning(false);
+    };
+
+    // Read from SMS inbox (original method)
+    const readSMSInbox = async () => {
+        const minDate = Date.now() - 5 * 24 * 60 * 60 * 1000;
+        const result = await MessageReader.getSMSList({ minDate, max: 80 });
+        const smsList = result.messages || [];
+        return smsList
+            .map(m => parseTransactionSMS(m.body, parseInt(m.date)))
+            .filter(t => t !== null);
+    };
+
+    // Read from Notification Listener (fallback method)
+    const readNotifications = async () => {
+        const minDate = Date.now() - 5 * 24 * 60 * 60 * 1000;
+        const result = await NotificationListener.getCapturedNotifications({
+            minDate: String(minDate)
+        });
+        const notifications = result.notifications || [];
+        return notifications
+            .map(n => parseTransactionSMS(n.body, parseInt(n.date)))
+            .filter(t => t !== null);
+    };
+
+    // Open Android notification access settings
+    const openNotifSettings = async () => {
+        try {
+            await NotificationListener.openListenerSettings();
+        } catch (e) {
+            console.error("Could not open settings:", e);
+        }
+    };
+
+    // Re-check after user returns from settings
+    const retryAfterSetup = async () => {
+        const enabled = await checkNotifListener();
+        if (enabled) {
+            setShowNotifSetup(false);
+            setPermissionError(false);
+            // Notification Listener is now enabled but needs time to capture notifications
+            // Show a helpful message
+            setScanMode('notification');
+            setTransactions([]);
+            setScanning(false);
+        }
     };
 
     // Keyword matching helper to auto-select matching categories
@@ -188,17 +255,41 @@ const SMSScanModal = ({ isOpen, onClose, onImport, categories }) => {
                             </div>
                         </div>
                     ) : permissionError ? (
-                        <div className="p-6 text-center space-y-4 border border-destructive/20 bg-destructive/5 rounded-xl">
-                            <ShieldAlert className="w-12 h-12 text-destructive mx-auto" />
-                            <div className="space-y-1.5">
-                                <h3 className="font-bold text-sm text-destructive">SMS Permission Blocked</h3>
-                                <p className="text-xs text-muted-foreground">
-                                    The app needs SMS permission to automatically scan UPI transaction alerts. Please allow permission in your phone Settings.
+                        <div className="p-5 text-center space-y-4 border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl">
+                            <Bell className="w-12 h-12 text-amber-500 mx-auto" />
+                            <div className="space-y-2">
+                                <h3 className="font-bold text-sm">Enable Notification Access</h3>
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                    SMS permission is blocked on your device. Instead, enable <strong>Notification Access</strong> to automatically capture bank & UPI transaction notifications. This works on all phones without any restrictions.
                                 </p>
                             </div>
-                            <button onClick={scanSMSInbox} className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs hover:bg-primary/90 transition-colors shadow">
-                                Try Again
-                            </button>
+
+                            <div className="space-y-2 text-left bg-card/80 rounded-lg p-3 border">
+                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Quick Setup (30 seconds)</p>
+                                <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+                                    <li>Tap <strong>"Open Settings"</strong> below</li>
+                                    <li>Find <strong>"Budget Tracker"</strong> in the list</li>
+                                    <li>Toggle it <strong>ON</strong> and tap Allow</li>
+                                    <li>Come back here and tap <strong>"I've Enabled It"</strong></li>
+                                </ol>
+                            </div>
+
+                            <div className="flex gap-2 justify-center pt-1">
+                                <button 
+                                    onClick={openNotifSettings} 
+                                    className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs hover:bg-primary/90 transition-colors shadow flex items-center gap-1.5"
+                                >
+                                    <Settings className="w-3.5 h-3.5" />
+                                    Open Settings
+                                </button>
+                                <button 
+                                    onClick={retryAfterSetup} 
+                                    className="px-4 py-2 border font-semibold rounded-xl text-xs hover:bg-muted transition-colors flex items-center gap-1.5"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    I've Enabled It
+                                </button>
+                            </div>
                         </div>
                     ) : transactions.length === 0 ? (
                         <div className="py-12 text-center text-muted-foreground space-y-3">
@@ -289,9 +380,21 @@ const SMSScanModal = ({ isOpen, onClose, onImport, categories }) => {
                 {/* Footer */}
                 <div className="p-4 border-t flex justify-between gap-3 bg-muted/30">
                     <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        {!(window.Capacitor && window.Capacitor.isNativePlatform()) && (
+                        {scanMode === 'demo' && (
                             <span className="bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded font-medium text-[10px]">
                                 Demo Mode (Web Browser)
+                            </span>
+                        )}
+                        {scanMode === 'notification' && (
+                            <span className="bg-purple-100 dark:bg-purple-950/30 text-purple-800 dark:text-purple-400 px-2 py-0.5 rounded font-medium text-[10px] flex items-center gap-1">
+                                <Bell className="w-2.5 h-2.5" />
+                                via Notifications
+                            </span>
+                        )}
+                        {scanMode === 'sms' && (
+                            <span className="bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-400 px-2 py-0.5 rounded font-medium text-[10px] flex items-center gap-1">
+                                <MessageSquare className="w-2.5 h-2.5" />
+                                via SMS Inbox
                             </span>
                         )}
                     </div>
