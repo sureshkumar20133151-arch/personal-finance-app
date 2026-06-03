@@ -5,6 +5,8 @@ import { useFinanceData } from '../hooks/useFinanceData';
 import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { Capacitor } from '@capacitor/core';
+import { Checkout } from 'capacitor-razorpay';
 
 const Account = () => {
     const { currentUser, logout, updateUserProfile } = useAuth();
@@ -139,13 +141,6 @@ const Account = () => {
 
     const handleUpgrade = async (plan) => {
         setCheckoutLoading(true);
-        const scriptLoaded = await loadRazorpayScript();
-
-        if (!scriptLoaded) {
-            alert('Razorpay Checkout SDK failed to load. Please check your internet connection.');
-            setCheckoutLoading(false);
-            return;
-        }
 
         const options = {
             key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SqWOpMmySq1KXZ',
@@ -154,27 +149,6 @@ const Account = () => {
             name: 'BudgetTracker Pro',
             description: `Upgrade to ${plan}`,
             image: 'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_1280.png',
-            handler: function (response) {
-                if (razorpayOpenRef.current) {
-                    razorpayOpenRef.current = false;
-                    if (window.history.state?.razorpayOpen) {
-                        window.history.back();
-                    }
-                }
-                alert(`Payment Successful!\nPayment ID: ${response.razorpay_payment_id}`);
-                updateSubscription('monthly');
-            },
-            modal: {
-                ondismiss: function () {
-                    if (razorpayOpenRef.current) {
-                        razorpayOpenRef.current = false;
-                        if (window.history.state?.razorpayOpen) {
-                            window.history.back();
-                        }
-                    }
-                    setCheckoutLoading(false);
-                }
-            },
             prefill: {
                 email: currentUser?.email || '',
                 contact: ''
@@ -184,6 +158,51 @@ const Account = () => {
             },
             theme: {
                 color: '#4f46e5' // Indigo / Primary theme color
+            }
+        };
+
+        if (Capacitor.isNativePlatform()) {
+            try {
+                const data = await Checkout.open(options);
+                const paymentId = data.response?.razorpay_payment_id || data.razorpay_payment_id || "native_success";
+                alert(`Payment Successful!\nPayment ID: ${paymentId}`);
+                updateSubscription('monthly');
+            } catch (error) {
+                console.error('Razorpay native failed:', error);
+                alert(`Payment was cancelled or failed.`);
+            }
+            setCheckoutLoading(false);
+            return;
+        }
+
+        const scriptLoaded = await loadRazorpayScript();
+
+        if (!scriptLoaded) {
+            alert('Razorpay Checkout SDK failed to load. Please check your internet connection.');
+            setCheckoutLoading(false);
+            return;
+        }
+
+        options.handler = function (response) {
+            if (razorpayOpenRef.current) {
+                razorpayOpenRef.current = false;
+                if (window.history.state?.razorpayOpen) {
+                    window.history.back();
+                }
+            }
+            alert(`Payment Successful!\nPayment ID: ${response.razorpay_payment_id}`);
+            updateSubscription('monthly');
+        };
+
+        options.modal = {
+            ondismiss: function () {
+                if (razorpayOpenRef.current) {
+                    razorpayOpenRef.current = false;
+                    if (window.history.state?.razorpayOpen) {
+                        window.history.back();
+                    }
+                }
+                setCheckoutLoading(false);
             }
         };
 
