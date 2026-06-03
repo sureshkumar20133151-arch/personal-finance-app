@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown } from 'lucide-react';
@@ -15,11 +15,36 @@ const Account = () => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState('');
 
-    React.useEffect(() => {
+    const razorpayOpenRef = useRef(false);
+    const razorpayInstanceRef = useRef(null);
+
+    useEffect(() => {
         if (currentUser) {
             setNewName(currentUser.displayName || currentUser.email?.split('@')[0] || '');
         }
     }, [currentUser]);
+
+    // Handle hardware back button via popstate to prevent exiting app/navigating when Razorpay is open
+    useEffect(() => {
+        const handlePopState = () => {
+            if (razorpayOpenRef.current) {
+                if (razorpayInstanceRef.current) {
+                    try {
+                        razorpayInstanceRef.current.close();
+                    } catch (e) {
+                        console.error('Error closing Razorpay on back button:', e);
+                    }
+                }
+                razorpayOpenRef.current = false;
+                setCheckoutLoading(false);
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -130,8 +155,25 @@ const Account = () => {
             description: `Upgrade to ${plan}`,
             image: 'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_1280.png',
             handler: function (response) {
+                if (razorpayOpenRef.current) {
+                    razorpayOpenRef.current = false;
+                    if (window.history.state?.razorpayOpen) {
+                        window.history.back();
+                    }
+                }
                 alert(`Payment Successful!\nPayment ID: ${response.razorpay_payment_id}`);
                 updateSubscription('monthly');
+            },
+            modal: {
+                ondismiss: function () {
+                    if (razorpayOpenRef.current) {
+                        razorpayOpenRef.current = false;
+                        if (window.history.state?.razorpayOpen) {
+                            window.history.back();
+                        }
+                    }
+                    setCheckoutLoading(false);
+                }
             },
             prefill: {
                 email: currentUser?.email || '',
@@ -146,11 +188,22 @@ const Account = () => {
         };
 
         try {
+            // Push history state to intercept hardware back button
+            window.history.pushState({ razorpayOpen: true }, '');
+            razorpayOpenRef.current = true;
+
             const paymentObject = new window.Razorpay(options);
+            razorpayInstanceRef.current = paymentObject;
             paymentObject.open();
         } catch (err) {
             console.error('Razorpay initialization failed:', err);
             alert('Could not initialize payment window.');
+            if (razorpayOpenRef.current) {
+                razorpayOpenRef.current = false;
+                if (window.history.state?.razorpayOpen) {
+                    window.history.back();
+                }
+            }
         }
         setCheckoutLoading(false);
     };
