@@ -133,6 +133,17 @@ const Login = () => {
                     </p>
                 </div>
             </div>
+
+            {/* Razorpay Verification Links */}
+            <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground max-w-sm mx-auto">
+                <Link to="/terms" className="hover:text-primary transition-colors">Terms & Conditions</Link>
+                <span>&bull;</span>
+                <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+                <span>&bull;</span>
+                <Link to="/refund" className="hover:text-primary transition-colors">Refund Policy</Link>
+                <span>&bull;</span>
+                <Link to="/contact" className="hover:text-primary transition-colors">Contact Us</Link>
+            </div>
         </div>
     );
 };
