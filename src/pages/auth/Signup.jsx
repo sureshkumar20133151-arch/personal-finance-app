@@ -149,13 +149,15 @@ const Signup = () => {
 
             {/* Razorpay Verification Links */}
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground max-w-sm mx-auto">
-                <Link to="/terms" className="hover:text-primary transition-colors">Terms & Conditions</Link>
+                <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
                 <span>&bull;</span>
-                <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+                <Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
                 <span>&bull;</span>
-                <Link to="/refund" className="hover:text-primary transition-colors">Refund Policy</Link>
+                <Link to="/refund" className="hover:text-primary transition-colors">Refund</Link>
                 <span>&bull;</span>
-                <Link to="/contact" className="hover:text-primary transition-colors">Contact Us</Link>
+                <Link to="/shipping" className="hover:text-primary transition-colors">Shipping</Link>
+                <span>&bull;</span>
+                <Link to="/contact" className="hover:text-primary transition-colors">Contact</Link>
             </div>
         </div>
     );

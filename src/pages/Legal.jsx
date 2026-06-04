@@ -81,6 +81,25 @@ const Legal = () => {
                 No refunds are provided for partial months or after the 7-day initial period.
             `
         };
+    } else if (path === '/shipping') {
+        content = {
+            title: 'Shipping & Delivery Policy',
+            icon: <FileText className="w-8 h-8 text-primary" />,
+            text: `
+                **Shipping & Delivery Policy**
+                
+                Effective Date: 01-Jun-2026
+
+                **1. Digital Delivery**
+                BudgetTracker Pro is a purely digital software service. We do not sell or ship physical goods.
+
+                **2. Access to Services**
+                Upon successful completion of payment, your account will be instantly upgraded to "Pro" status. The delivery of our premium features is immediate and automatic.
+
+                **3. Confirmation**
+                You will receive a confirmation email and a payment receipt from our payment gateway partner (Razorpay) as proof of purchase and successful delivery of digital services.
+            `
+        };
     } else if (path === '/contact') {
         content = {
             title: 'Contact Us',
