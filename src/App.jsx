@@ -11,6 +11,7 @@ import Signup from './pages/auth/Signup';
 import Landing from './pages/Landing';
 import Account from './pages/Account';
 import Loans from './pages/Loans';
+import Legal from './pages/Legal';
 
 
 import { FinanceProvider } from './context/FinanceContext';
@@ -28,6 +29,12 @@ const App = () => {
             <Route path="/" element={isNative ? <Navigate to="/dashboard" replace /> : <Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            
+            {/* Legal Pages for Razorpay Verification */}
+            <Route path="/privacy" element={<Legal />} />
+            <Route path="/terms" element={<Legal />} />
+            <Route path="/refund" element={<Legal />} />
+            <Route path="/contact" element={<Legal />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
