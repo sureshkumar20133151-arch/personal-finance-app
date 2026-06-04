@@ -7,3 +7,6 @@ project(':codetrix-studio-capacitor-google-auth').projectDir = new File('../node
 
 include ':solimanware-capacitor-sms-reader'
 project(':solimanware-capacitor-sms-reader').projectDir = new File('../node_modules/@solimanware/capacitor-sms-reader/android')
+
+include ':capacitor-razorpay'
+project(':capacitor-razorpay').projectDir = new File('../node_modules/capacitor-razorpay/android')
