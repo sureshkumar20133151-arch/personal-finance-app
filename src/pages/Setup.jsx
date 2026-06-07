@@ -18,22 +18,24 @@ const ICON_NAMES = Object.keys(LucideIcons).filter(name => name !== 'createLucid
 const Setup = () => {
     const { 
         categories, addCategory, deleteCategory, updateCategory, 
-        salaryDate, updateSalaryDate, initialBankBalance, 
-        initialCashBalance, updateStartingBalances 
+        salaryDate, updateSalaryDate, initialBankBalances, bankAccountBalances, clearData,
+        initialCashBalance, cashSeedDate, updateStartingBalances 
     } = useFinanceData();
 
     // Form State
     const [name, setName] = useState('');
-    const [tempBank, setTempBank] = useState('');
+    const [tempBankBalances, setTempBankBalances] = useState({});
     const [tempCash, setTempCash] = useState('');
+    const [tempCashDate, setTempCashDate] = useState('');
 
     React.useEffect(() => {
-        setTempBank(initialBankBalance || '');
+        setTempBankBalances(initialBankBalances || {});
         setTempCash(initialCashBalance || '');
-    }, [initialBankBalance, initialCashBalance]);
+        setTempCashDate(cashSeedDate ? new Date(cashSeedDate).toISOString().split('T')[0] : '');
+    }, [initialBankBalances, initialCashBalance, cashSeedDate]);
 
     const handleSaveBalances = () => {
-        updateStartingBalances(tempBank, tempCash);
+        updateStartingBalances(tempBankBalances, tempCash, tempCashDate ? new Date(tempCashDate).toISOString() : null);
     };
     const [type, setType] = useState('expense');
     const [icon, setIcon] = useState('Wallet'); // Default to Wallet icon
@@ -172,35 +174,97 @@ const Setup = () => {
                             Set your actual starting account balances for accurate tracking.
                         </p>
                         <div className="space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Bank Account Balance</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">₹</span>
-                                    <input
-                                        type="number"
-                                        value={tempBank}
-                                        onChange={(e) => setTempBank(e.target.value)}
-                                        onBlur={handleSaveBalances}
-                                        placeholder="0"
-                                        className="flex h-10 w-full pl-7 rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Cash in Hand (Wallet)</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">₹</span>
-                                    <input
-                                        type="number"
-                                        value={tempCash}
-                                        onChange={(e) => setTempCash(e.target.value)}
-                                        onBlur={handleSaveBalances}
-                                        placeholder="0"
-                                        className="flex h-10 w-full pl-7 rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                    />
+                            <div className="grid grid-cols-1 gap-4">
+                                {bankAccountBalances.map((acc) => {
+                                    const key = `${acc.bankName}_${acc.accountEnding}`;
+                                    const currentData = tempBankBalances[key] || { amount: '', date: '' };
+                                    
+                                    return (
+                                        <div key={key} className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border/50">
+                                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                                                {acc.bankName} (A/C **** {acc.accountEnding})
+                                            </label>
+                                            
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={currentData.amount}
+                                                        onChange={(e) => setTempBankBalances({
+                                                            ...tempBankBalances,
+                                                            [key]: { ...currentData, amount: e.target.value }
+                                                        })}
+                                                        onBlur={handleSaveBalances}
+                                                        placeholder="Balance"
+                                                        className="flex h-10 w-full pl-7 rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="date"
+                                                    value={currentData.date}
+                                                    onChange={(e) => setTempBankBalances({
+                                                        ...tempBankBalances,
+                                                        [key]: { ...currentData, date: e.target.value }
+                                                    })}
+                                                    onBlur={handleSaveBalances}
+                                                    className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {bankAccountBalances.length === 0 && (
+                                    <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-xl text-center border border-dashed border-border">
+                                        Scan SMS to automatically detect and add your bank accounts here.
+                                    </div>
+                                )}
+
+                                <div className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border/50 mt-4">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Cash in Hand (Wallet)</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">₹</span>
+                                            <input
+                                                type="number"
+                                                value={tempCash}
+                                                onChange={(e) => setTempCash(e.target.value)}
+                                                onBlur={handleSaveBalances}
+                                                placeholder="Balance"
+                                                className="flex h-10 w-full pl-7 rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                            />
+                                        </div>
+                                        <input
+                                            type="date"
+                                            value={tempCashDate}
+                                            onChange={(e) => setTempCashDate(e.target.value)}
+                                            onBlur={handleSaveBalances}
+                                            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-red-500/20 bg-red-500/5 shadow-sm p-6">
+                        <h3 className="font-semibold mb-1 flex items-center gap-2 text-red-500">
+                            <span style={{ fontSize: '16px' }}>⚠️</span> Data Management
+                        </h3>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Clear all transaction data and settings. Use this to reset the app or to purge wrongly parsed duplicate SMS transactions before a fresh scan.
+                        </p>
+                        <button
+                            onClick={() => {
+                                if (window.confirm("Are you sure you want to permanently clear all app data? You will need to rescan your SMS.")) {
+                                    clearData();
+                                }
+                            }}
+                            className="w-full bg-red-500 text-white font-medium py-2 rounded-xl text-sm hover:bg-red-600 transition shadow-sm"
+                        >
+                            Clear App Data & Restart
+                        </button>
                     </div>
 
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sticky top-8">

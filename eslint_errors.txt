@@ -1,0 +1,329 @@
+
+D:\anti gravity\Demo\4.Budget tracker\src\components\AnalyticsWidget.jsx
+  14:35  error  'innerRadius' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  14:70  error  'index' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+  17:15  error  'x' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+  18:15  error  'y' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\components\BudgetTargetModal.jsx
+  3:10  error  'cn' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                    no-unused-vars
+  7:42  error  'formatMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\components\CurrencySelector.jsx
+  5:10  error  'cn' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\components\ErrorBoundary.jsx
+  10:37  error  'error' is defined but never used  no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\components\Layout.jsx
+  6:10  error  'useState' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\components\SMSScanModal.jsx
+   20:12   error    'notifEnabled' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+   21:12   error    'showNotifSetup' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+   25:13   error    Error: Cannot access variable before it is declared
+
+`scanMessages` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  23 |     useEffect(() => {
+  24 |         if (isOpen) {
+> 25 |             scanMessages();
+     |             ^^^^^^^^^^^^ `scanMessages` accessed before it is declared
+  26 |         } else {
+  27 |             setTransactions([]);
+  28 |             setSelectedIndices([]);
+
+   45 |
+   46 |     // Main scan function ??? tries SMS first, falls back to Notification Listener
+>  47 |     const scanMessages = async () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  48 |         setScanning(true);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  49 |         setPermissionError(false);
+      ???
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 122 |         setScanning(false);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 123 |     };
+      | ^^^^^^^ `scanMessages` is declared here
+  124 |
+  125 |     // Read from SMS inbox (original method)
+  126 |     const readSMSInbox = async () => {                                                                                                                                                                                                                                                                                                       react-hooks/immutability
+   27:13   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  25 |             scanMessages();
+  26 |         } else {
+> 27 |             setTransactions([]);
+     |             ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  28 |             setSelectedIndices([]);
+  29 |             setPermissionError(false);
+  30 |             setScanMode(null);                                                                                                                                                                                                                                                                                                                                                           react-hooks/set-state-in-effect
+   33:8    warning  React Hook useEffect has a missing dependency: 'scanMessages'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/exhaustive-deps
+  107:146  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  105 |                 await new Promise(resolve => setTimeout(resolve, 1500));
+  106 |                 const mockSMS = [
+> 107 |                     { body: "Dear Customer, your A/c ending 5678 has been debited by Rs 250.00 at Zomato on 31-May-26 via UPI. Ref 12345", date: Date.now() - 3600000 },
+      |                                                                                                                                                  ^^^^^^^^^^ Cannot call impure function
+  108 |                     { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 24 * 3600000 },
+  109 |                     { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 2 * 3600000 },
+  110 |                     { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },                                                                                           react-hooks/purity
+  108:130  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  106 |                 const mockSMS = [
+  107 |                     { body: "Dear Customer, your A/c ending 5678 has been debited by Rs 250.00 at Zomato on 31-May-26 via UPI. Ref 12345", date: Date.now() - 3600000 },
+> 108 |                     { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 24 * 3600000 },
+      |                                                                                                                                  ^^^^^^^^^^ Cannot call impure function
+  109 |                     { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 2 * 3600000 },
+  110 |                     { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },
+  111 |                     { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India. Limit available Rs 85,000.00", date: Date.now() - 5 * 3600000 }  react-hooks/purity
+  109:114  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  107 |                     { body: "Dear Customer, your A/c ending 5678 has been debited by Rs 250.00 at Zomato on 31-May-26 via UPI. Ref 12345", date: Date.now() - 3600000 },
+  108 |                     { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 24 * 3600000 },
+> 109 |                     { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 2 * 3600000 },
+      |                                                                                                                  ^^^^^^^^^^ Cannot call impure function
+  110 |                     { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },
+  111 |                     { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India. Limit available Rs 85,000.00", date: Date.now() - 5 * 3600000 }
+  112 |                 ];                                 react-hooks/purity
+  110:98   error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  108 |                     { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 24 * 3600000 },
+  109 |                     { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 2 * 3600000 },
+> 110 |                     { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },
+      |                                                                                                  ^^^^^^^^^^ Cannot call impure function
+  111 |                     { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India. Limit available Rs 85,000.00", date: Date.now() - 5 * 3600000 }
+  112 |                 ];
+  113 |                 const parsed = mockSMS.map(m => parseTransactionSMS(m.body, m.date)).filter(t => t !== null);                                                                                                            react-hooks/purity
+  111:152  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  109 |                     { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 2 * 3600000 },
+  110 |                     { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },
+> 111 |                     { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India. Limit available Rs 85,000.00", date: Date.now() - 5 * 3600000 }
+      |                                                                                                                                                        ^^^^^^^^^^ Cannot call impure function
+  112 |                 ];
+  113 |                 const parsed = mockSMS.map(m => parseTransactionSMS(m.body, m.date)).filter(t => t !== null);
+  114 |                 const mapped = parsed.map(t => ({ ...t, categoryId: guessCategory(t.description, t.type) }));                                                                                                      react-hooks/purity
+  225:47   error    'rawSms' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   no-unused-vars
+  310:43   error    'selectedCat' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\context\AuthContext.jsx
+   17:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           react-refresh/only-export-components
+  103:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  101 |         // Check for persisted demo session
+  102 |         if (localStorage.getItem('fintrack_demo_user')) {
+> 103 |             setCurrentUser({
+      |             ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  104 |                 uid: 'demo-user-123',
+  105 |                 email: 'demo@fintrack.app',
+  106 |                 displayName: 'Demo User',  react-hooks/set-state-in-effect
+
+D:\anti gravity\Demo\4.Budget tracker\src\context\FinanceContext.jsx
+    1:73  error    'useMemo' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           no-unused-vars
+  181:13  error    Error: Cannot access variable before it is declared
+
+`saveData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  179 |                 recurring: updatedRecurring
+  180 |             };
+> 181 |             saveData(newData);
+      |             ^^^^^^^^ `saveData` accessed before it is declared
+  182 |             console.log(`Generated ${newTransactions.length} automated transactions.`);
+  183 |         }
+  184 |     // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  228 |
+  229 |     // Immediate save ??? for settings, categories, loans
+> 230 |     const saveData = useCallback((newData) => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 231 |         setData(newData);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |         if (currentUser && !currentUser.isAnonymous) {
+      ???
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 239 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 240 |     }, [currentUser]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^ `saveData` is declared here
+  241 |
+  242 |     // Debounced save ??? for transactions (800ms) to reduce Firestore writes
+  243 |     const saveTimeoutRef = useRef(null);  react-hooks/immutability
+  199:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  197 |             // Fallback to LocalStorage persistence
+  198 |             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+> 199 |             setLoading(false);
+      |             ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  200 |             return;
+  201 |         }
+  202 |                                                                                                                                                                                               react-hooks/set-state-in-effect
+  227:8   warning  React Hook useEffect has a missing dependency: 'data'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+  230:34  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  228 |
+  229 |     // Immediate save ??? for settings, categories, loans
+> 230 |     const saveData = useCallback((newData) => {
+      |                                  ^^^^^^^^^^^^^^
+> 231 |         setData(newData);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |         if (currentUser && !currentUser.isAnonymous) {
+      ???
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 239 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 240 |     }, [currentUser]);
+      | ^^^^^^ Could not preserve existing memoization
+  241 |
+  242 |     // Debounced save ??? for transactions (800ms) to reduce Firestore writes
+  243 |     const saveTimeoutRef = useRef(null);                                                                                                                                                                                                                                                                                                                     react-hooks/preserve-manual-memoization
+  568:17  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           react-refresh/only-export-components
+
+D:\anti gravity\Demo\4.Budget tracker\src\lib\SMSParser.js
+  20:75  error  Unnecessary escape character: \.  no-useless-escape
+  20:77  error  Unnecessary escape character: \*  no-useless-escape
+  21:57  error  Unnecessary escape character: \.  no-useless-escape
+  21:59  error  Unnecessary escape character: \*  no-useless-escape
+
+D:\anti gravity\Demo\4.Budget tracker\src\lib\StatementParser.js
+  196:19  error  'values' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  212:44  error  Unnecessary escape character: \/                                                        no-useless-escape
+  212:48  error  Unnecessary escape character: \.                                                        no-useless-escape
+  246:35  error  Unnecessary escape character: \/                                                        no-useless-escape
+  246:39  error  Unnecessary escape character: \.                                                        no-useless-escape
+  246:50  error  Unnecessary escape character: \/                                                        no-useless-escape
+  246:54  error  Unnecessary escape character: \.                                                        no-useless-escape
+  246:77  error  Unnecessary escape character: \/                                                        no-useless-escape
+  246:81  error  Unnecessary escape character: \.                                                        no-useless-escape
+  246:92  error  Unnecessary escape character: \/                                                        no-useless-escape
+  246:96  error  Unnecessary escape character: \.                                                        no-useless-escape
+  295:49  error  Unnecessary escape character: \/                                                        no-useless-escape
+  295:51  error  Unnecessary escape character: \-                                                        no-useless-escape
+  295:62  error  Unnecessary escape character: \/                                                        no-useless-escape
+  295:64  error  Unnecessary escape character: \-                                                        no-useless-escape
+  297:51  error  Unnecessary escape character: \/                                                        no-useless-escape
+  297:53  error  Unnecessary escape character: \-                                                        no-useless-escape
+  392:35  error  Unnecessary escape character: \/                                                        no-useless-escape
+  392:39  error  Unnecessary escape character: \.                                                        no-useless-escape
+  392:50  error  Unnecessary escape character: \/                                                        no-useless-escape
+  392:54  error  Unnecessary escape character: \.                                                        no-useless-escape
+  392:77  error  Unnecessary escape character: \/                                                        no-useless-escape
+  392:81  error  Unnecessary escape character: \.                                                        no-useless-escape
+  392:92  error  Unnecessary escape character: \/                                                        no-useless-escape
+  392:96  error  Unnecessary escape character: \.                                                        no-useless-escape
+  422:51  error  Unnecessary escape character: \/                                                        no-useless-escape
+  422:53  error  Unnecessary escape character: \-                                                        no-useless-escape
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Account.jsx
+  25:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  23 |     useEffect(() => {
+  24 |         if (currentUser) {
+> 25 |             setNewName(currentUser.displayName || currentUser.email?.split('@')[0] || '');
+     |             ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  26 |         }
+  27 |     }, [currentUser]);
+  28 |  react-hooks/set-state-in-effect
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Budget.jsx
+   7:54  error  'differenceInDays' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   no-unused-vars
+  11:68  error  'currency' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  no-unused-vars
+  32:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  30 |     useEffect(() => {
+  31 |         if (!selectedCategoryId && expenseCategories.length > 0) {
+> 32 |             setSelectedCategoryId(expenseCategories[0].id);
+     |             ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |         }
+  34 |     }, [expenseCategories, selectedCategoryId]);
+  35 |  react-hooks/set-state-in-effect
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Dashboard.jsx
+   36:60  error    'Icon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+  167:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  165 |
+  166 |   React.useEffect(() => {
+> 167 |     updateSpotlight();
+      |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  168 |     window.addEventListener('resize', updateSpotlight);
+  169 |     window.addEventListener('scroll', updateSpotlight);
+  170 |     return () => {  react-hooks/set-state-in-effect
+  382:6   warning  React Hook useCallback has a missing dependency: 'monthlyNet'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Landing.jsx
+  10:10  error  'cn' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Loans.jsx
+  193:29  error  'monthsPassed' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Setup.jsx
+  31:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  29 |
+  30 |     React.useEffect(() => {
+> 31 |         setTempBank(initialBankBalance || '');
+     |         ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |         setTempCash(initialCashBalance || '');
+  33 |     }, [initialBankBalance, initialCashBalance]);
+  34 |  react-hooks/set-state-in-effect
+
+D:\anti gravity\Demo\4.Budget tracker\src\pages\Transactions.jsx
+  163:11  error  'handleFileUpload' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+??? 71 problems (68 errors, 3 warnings)
+

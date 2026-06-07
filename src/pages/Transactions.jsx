@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard, Download, MessageSquare } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard, Download, MessageSquare, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { parseStatement } from '../lib/StatementParser';
@@ -25,7 +25,8 @@ const Transactions = () => {
 
         recurring,
         loans,
-        formatMoney
+        formatMoney,
+        rescanTransactions
     } = useFinanceData();
 
     // Form State
@@ -67,6 +68,22 @@ const Transactions = () => {
     const [isParsing, setIsParsing] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [isDragging, setIsDragging] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const handleSyncSms = async () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        try {
+            const result = await rescanTransactions();
+            const count = result?.count || 0;
+            const scanned = result?.totalScanned || 0;
+            alert(`Scanned ${scanned} SMS messages.\nFound ${count} new transactions!`);
+        } catch (e) {
+            console.error('[Transactions] Rescan error:', e);
+            alert("Failed to scan SMS: " + e.message);
+        }
+        setTimeout(() => setRefreshing(false), 1000);
+    };
 
     // Reset Form
     const resetForm = () => {
@@ -160,29 +177,6 @@ const Transactions = () => {
         setCategoryId(tx.categoryId);
     };
 
-    const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setIsParsing(true);
-        setUploadError('');
-
-        try {
-            const results = await parseStatement(file);
-            if (results.length === 0) {
-                setUploadError('No transactions found in file.');
-            } else {
-                setParsedTransactions(results);
-                setShowUploadPreview(true);
-            }
-        } catch (err) {
-            console.error(err);
-            setUploadError(err.message || 'Failed to parse file.');
-        } finally {
-            setIsParsing(false);
-            e.target.value = null; // Reset input
-        }
-    };
 
     const handleImportConfirm = () => {
         // Check/Create 'Pending' category if needed
@@ -749,6 +743,15 @@ const Transactions = () => {
                             >
                                 <Download className="w-4 h-4 text-muted-foreground" />
                                 <span className="hidden md:inline">Export CSV</span>
+                            </button>
+                            <button
+                                onClick={handleSyncSms}
+                                disabled={refreshing}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
+                                title="Auto-sync SMS receipts"
+                            >
+                                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+                                <span className="hidden md:inline">Auto Sync</span>
                             </button>
                             <button
                                 onClick={() => setShowSMSScan(true)}

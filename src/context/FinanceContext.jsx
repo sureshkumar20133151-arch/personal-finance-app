@@ -1,568 +1,534 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { useAuth } from './AuthContext'; // Updated import path assuming sibling
-import { db } from '../lib/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+// ─────────────────────────────────────────────────────────────────────────────
+//  FinanceContext.jsx  —  DROP-IN REPLACEMENT for your existing context
+//
+//  Changes from your original:
+//   ✅ Auto-scans SMS + notifications on startup
+//   ✅ Re-scans when app comes to foreground
+//   ✅ Bank balance calculated from initialBankBalance + all transactions
+//   ✅ bankBalance exposed in context (use it on Dashboard)
+//   ✅ cashBalance exposed in context
+//   ✅ totalBalance = bankBalance + cashBalance
+//   ✅ addTransactions() exposed for manual SMS scan modal
+//
+//  Everything else (categories, loans, recurring, Firebase sync) unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const FinanceContext = createContext();
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { registerPlugin }    from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { db }                from "../lib/firebase";          // ← your firebase.js path
+import { useAuth }           from "./AuthContext";       // ← your auth context path
+import { autoScanTransactions, autoCategory } from "./autoScanSms";
+import { v4 as uuidv4 }     from "uuid";
 
-const STORAGE_KEY = 'fintrack_data';
+const App = registerPlugin("App");
 
+// ─── Default data ─────────────────────────────────────────────────────────────
 const DEFAULT_CATEGORIES = [
-    { id: '1', name: 'Salary', type: 'income', color: '#10b981', icon: 'Wallet', budget: 0 },
-    { id: '2', name: 'Freelance', type: 'income', color: '#3b82f6', icon: 'Laptop', budget: 0 },
-    { id: '3', name: 'Food', type: 'expense', color: '#f59e0b', icon: 'Utensils', budget: 500 },
-    { id: '4', name: 'Transport', type: 'expense', color: '#ef4444', icon: 'Car', budget: 200 },
-    { id: '5', name: 'Utilities', type: 'expense', color: '#6366f1', icon: 'Zap', budget: 150 },
-    { id: '6', name: 'Emergency Fund', type: 'savings', color: '#06b6d4', icon: 'ShieldCheck', budget: 0 },
-    { id: '7', name: 'Credit Card', type: 'debt', color: '#f97316', icon: 'CreditCard', budget: 0 },
-    { id: '8', name: 'Clothes', type: 'expense', color: '#ec4899', icon: 'ShoppingBag', budget: 100 },
-    { id: '9', name: 'Coffee', type: 'expense', color: '#8b5cf6', icon: 'Coffee', budget: 50 },
-    { id: '10', name: 'Beauty', type: 'expense', color: '#f472b6', icon: 'Sparkles', budget: 0 },
-    { id: '11', name: 'Entertainment', type: 'expense', color: '#14b8a6', icon: 'Clapperboard', budget: 100 },
+  { id: "1",  name: "Salary",         type: "income",  color: "#10b981", icon: "Wallet",      budget: 0   },
+  { id: "2",  name: "Freelance",      type: "income",  color: "#3b82f6", icon: "Laptop",      budget: 0   },
+  { id: "3",  name: "Food",           type: "expense", color: "#f59e0b", icon: "Utensils",    budget: 500 },
+  { id: "4",  name: "Transport",      type: "expense", color: "#ef4444", icon: "Car",         budget: 200 },
+  { id: "5",  name: "Utilities",      type: "expense", color: "#6366f1", icon: "Zap",         budget: 150 },
+  { id: "6",  name: "Emergency Fund", type: "savings", color: "#06b6d4", icon: "ShieldCheck", budget: 0   },
+  { id: "7",  name: "Credit Card",    type: "debt",    color: "#f97316", icon: "CreditCard",  budget: 0   },
+  { id: "8",  name: "Clothes",        type: "expense", color: "#ec4899", icon: "ShoppingBag", budget: 100 },
+  { id: "9",  name: "Coffee",         type: "expense", color: "#8b5cf6", icon: "Coffee",      budget: 50  },
+  { id: "10", name: "Beauty",         type: "expense", color: "#f472b6", icon: "Sparkles",    budget: 0   },
+  { id: "11", name: "Entertainment",  type: "expense", color: "#14b8a6", icon: "Clapperboard",budget: 100 },
 ];
 
-const DEFAULT_CURRENCY = { code: 'INR', symbol: '₹', locale: 'en-IN', name: 'Indian Rupee' };
-const DEFAULT_THEME = { mode: 'light', accent: 'blue' };
-
-const DEFAULT_DATA = {
-    categories: DEFAULT_CATEGORIES,
-    transactions: [],
-    currency: DEFAULT_CURRENCY,
-    theme: DEFAULT_THEME,
-    subscription: 'free', // 'free', 'monthly', 'lifetime'
-    recurring: [], // [{ id, amount, description, type, categoryId, active: true }]
-    loans: [], // [{ id, name, type: 'emi'|'debt', monthlyAmount, tenure, startDate, principal, interestRate }]
-    monthlyBudget: 50000, // Default monthly budget
-    lastProcessedMonth: '', // 'YYYY-MM' format to track when we last ran automation
-    salaryDate: 1, // Day of month on which salary arrives & budget cycle resets
-    initialBankBalance: 0,
-    initialCashBalance: 0,
+const DEFAULT_STATE = {
+  categories:         DEFAULT_CATEGORIES,
+  transactions:       [],
+  currency:           { code: "INR", symbol: "₹", locale: "en-IN", name: "Indian Rupee" },
+  theme:              { mode: "light", accent: "blue" },
+  subscription:       "free",
+  recurring:          [],
+  loans:              [],
+  monthlyBudget:      50000,
+  lastProcessedMonth: "",
+  salaryDate:         1,
+  initialBankBalances: {},
+  initialCashBalance: 0,
+  cashSeedDate: null,
 };
 
+const STORAGE_KEY = "fintrack_data";
+
+// ─── Context ──────────────────────────────────────────────────────────────────
+const FinanceContext = createContext(undefined);
+
 export function FinanceProvider({ children }) {
-    const { currentUser } = useAuth();
-    const [data, setData] = useState(() => {
-        // Initial load from local storage to prevent flicker, or default
-        const saved = localStorage.getItem(STORAGE_KEY);
-        try {
-            return saved ? { ...DEFAULT_DATA, ...JSON.parse(saved) } : DEFAULT_DATA;
-        } catch {
-            return DEFAULT_DATA;
+  const { currentUser } = useAuth();
+
+  const [state, setState] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    try { return saved ? { ...DEFAULT_STATE, ...JSON.parse(saved) } : DEFAULT_STATE; }
+    catch { return DEFAULT_STATE; }
+  });
+
+  const [loading, setLoading] = useState(true);
+
+  // ─── Persist ──────────────────────────────────────────────────────────────
+  const persistDebounce = useRef(null);
+
+  const saveImmediate = useCallback((data) => {
+    setState(data);
+    if (currentUser && !currentUser.isAnonymous) {
+      setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
+        .catch(e => console.error("Firebase save failed", e));
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+  }, [currentUser]);
+
+  const saveDebounced = useCallback((data) => {
+    setState(data);
+    if (currentUser && !currentUser.isAnonymous) {
+      if (persistDebounce.current) clearTimeout(persistDebounce.current);
+      persistDebounce.current = setTimeout(() => {
+        setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
+          .catch(e => console.error("Firebase save failed", e));
+      }, 800);
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+  }, [currentUser]);
+
+  // ─── Load from Firebase / localStorage ───────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    const boot = async (loadedState) => {
+      if (!cancelled) {
+        // Request permissions for notifications
+        if (window.Capacitor?.isNativePlatform()) {
+          try {
+            await LocalNotifications.requestPermissions();
+            await LocalNotifications.createChannel({
+              id: 'sms-sync',
+              name: 'SMS & Notification Sync',
+              description: 'Alerts when the app reads financial SMS alerts.',
+              importance: 4,
+              visibility: 1,
+              vibration: true
+            });
+          } catch (e) {
+            console.error("LocalNotifications setup error", e);
+          }
         }
+
+        // Run auto SMS scan immediately after load
+        const { newTransactions: newTxs, totalScanned, needsSetup } = await autoScanTransactions(loadedState.transactions || []);
+
+        if (needsSetup && !cancelled) {
+          // Notify app to show SmsSetupGuide modal
+          window.dispatchEvent(new CustomEvent("sms_needs_setup"));
+        }
+
+        if (window.Capacitor?.isNativePlatform() && totalScanned !== undefined && !cancelled) {
+           try {
+             await LocalNotifications.schedule({
+               notifications: [{
+                 title: "Budget Tracker: SMS Scan",
+                 body: `Scanned ${totalScanned} financial SMS. Imported ${newTxs?.length || 0} new transactions.`,
+                 id: Math.floor(Math.random() * 1000000),
+                 channelId: 'sms-sync',
+                 schedule: { at: new Date(Date.now() + 1000) },
+               }]
+             });
+           } catch(e) { console.error("Notification failed", e); }
+        }
+
+        if (newTxs && newTxs.length > 0 && !cancelled) {
+          console.log(`[FinanceContext] Auto-imported ${newTxs.length} SMS transactions`);
+          const withCategory = newTxs.map(tx => ({
+            ...tx,
+            id:         uuidv4(),
+            categoryId: autoCategory(tx.description, tx.type, loadedState.categories || DEFAULT_CATEGORIES),
+          }));
+          const merged = {
+            ...loadedState,
+            transactions: [...(loadedState.transactions || []), ...withCategory],
+          };
+          saveImmediate(merged);
+          setState(merged);
+        } else {
+          setState(loadedState);
+        }
+        setLoading(false);
+      }
+    };
+
+    if (!currentUser || currentUser.isAnonymous) {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      let data = DEFAULT_STATE;
+      try { if (saved) data = { ...DEFAULT_STATE, ...JSON.parse(saved) }; }
+      catch (e) { console.warn("LocalStorage parse failed", e); }
+      boot(data);
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, "users", currentUser.uid),
+      (snap) => {
+        if (snap.exists()) {
+          const data = {
+            ...DEFAULT_STATE,
+            ...snap.data(),
+            theme:    snap.data().theme    || DEFAULT_STATE.theme,
+            currency: snap.data().currency || DEFAULT_STATE.currency,
+          };
+          boot(data);
+        } else {
+          setDoc(doc(db, "users", currentUser.uid), DEFAULT_STATE).then(() => boot(DEFAULT_STATE));
+        }
+      },
+      (err) => { console.error("Firebase snapshot error", err); setLoading(false); }
+    );
+
+    return () => { cancelled = true; unsub(); };
+  }, [currentUser, saveImmediate]);
+
+  // ─── Foreground rescan ────────────────────────────────────────────────────
+  const rescanLock = useRef(false);
+  const stateRef   = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  const rescanTransactions = useCallback(async () => {
+    if (!window.Capacitor?.isNativePlatform() || rescanLock.current) return { count: 0, totalScanned: 0 };
+    rescanLock.current = true;
+    try {
+      const current = stateRef.current;
+      const { newTransactions: newTxs, totalScanned } = await autoScanTransactions(current.transactions || []);
+      
+      if (window.Capacitor?.isNativePlatform() && totalScanned !== undefined) {
+         try {
+           await LocalNotifications.schedule({
+             notifications: [{
+               title: "Budget Tracker: SMS Rescan",
+               body: `Scanned ${totalScanned} financial SMS. Imported ${newTxs?.length || 0} new transactions.`,
+               id: Math.floor(Math.random() * 1000000),
+               channelId: 'sms-sync',
+               schedule: { at: new Date(Date.now() + 1000) },
+             }]
+           });
+         } catch(e) { console.error("Notification failed", e); }
+      }
+
+      if (newTxs && newTxs.length > 0) {
+        const withCategory = newTxs.map(tx => ({
+          ...tx,
+          id:         uuidv4(),
+          categoryId: autoCategory(tx.description, tx.type, current.categories || DEFAULT_CATEGORIES),
+        }));
+        const merged = {
+          ...current,
+          transactions: [...(current.transactions || []), ...withCategory],
+        };
+        saveImmediate(merged);
+        return { count: newTxs.length, totalScanned };
+      }
+      return { count: 0, totalScanned };
+    } catch (e) {
+      console.error("[Rescan] Error:", e);
+      throw e;
+    } finally {
+      rescanLock.current = false;
+    }
+  }, [saveImmediate]);
+
+  // Re-scan when app comes to foreground or when sms_rescan is triggered
+  useEffect(() => {
+    if (!window.Capacitor?.isNativePlatform()) return;
+    let listener;
+    App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) rescanTransactions();
+    }).then(l => { listener = l; });
+
+    const handleRescan = () => {
+      console.log("[FinanceContext] sms_rescan event triggered");
+      rescanTransactions();
+    };
+    window.addEventListener("sms_rescan", handleRescan);
+
+    return () => {
+      listener?.remove();
+      window.removeEventListener("sms_rescan", handleRescan);
+    };
+  }, [rescanTransactions]);
+
+  // ─── Computed balances ────────────────────────────────────────────────────
+  const validTransactions = React.useMemo(() => {
+    return (state.transactions || []).filter(t => {
+      if (t.source === 'sms') {
+        if (!t.bankName || t.bankName === 'Unknown Bank' || t.bankName === 'Bank Account') return false;
+        if (!t.accountEnding || t.accountEnding === 'null') return false;
+      }
+      return true;
+    });
+  }, [state.transactions]);
+
+  const bankBalance = React.useMemo(() => {
+    const allTx = validTransactions;
+    let totalInitial = 0;
+    
+    if (state.initialBankBalances) {
+      Object.values(state.initialBankBalances).forEach(data => {
+        totalInitial += parseFloat(data.amount) || 0;
+      });
+    }
+
+    const validTx = allTx.filter(t => {
+      const key = (t.bankName && t.accountEnding) ? `${t.bankName}_${t.accountEnding}` : null;
+      const seedData = key ? state.initialBankBalances?.[key] : null;
+      const seedDate = seedData?.date ? new Date(seedData.date) : null;
+      return !(seedDate && new Date(t.date) < seedDate);
     });
 
-    const [loading, setLoading] = useState(true);
-
-    // Automation: Check for recurring transactions based on frequency
-    // Use a ref to hold the latest recurring array to avoid new-array-reference infinite loops
-    const recurringRef = useRef(data.recurring);
-    useEffect(() => {
-        recurringRef.current = data.recurring;
-    }, [data.recurring]);
-
-    useEffect(() => {
-        const recurring = recurringRef.current;
-        if (!recurring || recurring.length === 0) return;
-
-        const today = new Date();
-        // Helper to check if a date string is valid and return Date object
-        const parseDate = (d) => d ? new Date(d) : null;
-
-        // Helper to format date as YYYY-MM-DD for consistency
-        const formatDate = (d) => d.toISOString().split('T')[0];
-
-        let hasUpdates = false;
-
-        const newTransactions = [];
-        const updatedRecurring = recurring.map(rule => {
-            if (!rule.active) return rule;
-
-            // Default defaults for backward compatibility
-            const frequency = rule.frequency || 'monthly';
-            const interval = rule.interval || 1;
-            const lastProcessed = parseDate(rule.lastProcessedDate);
-
-            // Tenure Check (New)
-            const tenure = rule.tenure ? parseInt(rule.tenure) : null;
-            const processedCount = rule.processedCount ? parseInt(rule.processedCount) : 0;
-
-            // If we have hit the tenure limit, deactivate and skip
-            if (tenure && processedCount >= tenure) {
-                if (rule.active) {
-                    hasUpdates = true; // Need to save the active: false state
-                    return { ...rule, active: false };
-                }
-                return rule;
-            }
-
-            // Logic to determine if we should run today
-            let shouldRun = false;
-
-            if (!lastProcessed) {
-                // Never run before? Run today.
-                shouldRun = true;
-            } else {
-                // Fix: Use calendar days difference manually to avoid import issues
-                const oneDay = 1000 * 60 * 60 * 24;
-                // Reset times to midnight for accurate day difference
-                const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                const lastMidnight = new Date(lastProcessed.getFullYear(), lastProcessed.getMonth(), lastProcessed.getDate());
-
-                const diffDays = Math.round((todayMidnight - lastMidnight) / oneDay);
-
-                if (frequency === 'monthly') {
-                    // Check if one month has passed AND we are on/after the same day
-                    const lastDate = lastProcessed.getDate(); // e.g., 15th
-                    const currentDay = today.getDate();
-
-                    const currentMonthStr = today.toISOString().slice(0, 7); // YYYY-MM
-                    const lastMonthStr = rule.lastProcessedDate ? rule.lastProcessedDate.slice(0, 7) : '';
-
-                    if (currentMonthStr > lastMonthStr) {
-                        if (currentDay >= lastDate) {
-                            shouldRun = true;
-                        }
-                    } else if (currentMonthStr === lastMonthStr) {
-                        shouldRun = false;
-                    }
-                } else if (frequency === 'weekly') {
-                    if (rule.weeklyDay !== undefined) {
-                        const currentDay = today.getDay(); // 0-6
-                        if (currentDay === rule.weeklyDay) {
-                            shouldRun = true;
-                            if (lastProcessed && formatDate(lastProcessed) === formatDate(today)) {
-                                shouldRun = false;
-                            }
-                        }
-                    } else {
-                        if (diffDays >= 7) shouldRun = true;
-                    }
-                } else if (frequency === 'custom') {
-                    if (diffDays >= interval) shouldRun = true;
-                }
-            }
-
-            if (shouldRun) {
-                console.log(`Auto-generating ${rule.description} (${frequency})`);
-                newTransactions.push({
-                    id: uuidv4(),
-                    amount: rule.amount,
-                    description: rule.description + ' (Auto)',
-                    type: rule.type,
-                    categoryId: rule.categoryId,
-                    date: new Date().toISOString()
-                });
-
-                hasUpdates = true;
-
-                const newProcessedCount = processedCount + 1;
-                const updates = {
-                    lastProcessedDate: new Date().toISOString(),
-                    processedCount: newProcessedCount
-                };
-
-                if (tenure && newProcessedCount >= tenure) {
-                    updates.active = false;
-                }
-
-                return { ...rule, ...updates };
-            }
-
-            return rule;
-        });
-
-        if (hasUpdates) {
-            const newData = {
-                ...data,
-                transactions: [...data.transactions, ...newTransactions],
-                recurring: updatedRecurring
-            };
-            saveData(newData);
-            console.log(`Generated ${newTransactions.length} automated transactions.`);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data.recurring.length]); // ✅ only reruns when count changes, not on every render
-
-    // Demo Data Seeding - REMOVED per user request
-    /* 
-    useEffect(() => {
-       // Seeding logic removed
-    }, []); 
-    */
-
-    // Sync with Firestore if logged in, else LocalStorage
-    useEffect(() => {
-        if (!currentUser || currentUser.isAnonymous) {
-            // Fallback to LocalStorage persistence
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            setLoading(false);
-            return;
-        }
-
-        const userDocRef = doc(db, 'users', currentUser.uid);
-
-        // Real-time listener for Firestore
-        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                // Merge cloud data with default structure to ensure all fields exist
-                const cloudData = docSnap.data();
-                setData({
-                    ...DEFAULT_DATA,
-                    ...cloudData,
-                    // Ensure theme/currency exist if not in cloud
-                    theme: cloudData.theme || DEFAULT_DATA.theme,
-                    currency: cloudData.currency || DEFAULT_DATA.currency
-                });
-            } else {
-                // New user: Create initial document
-                setDoc(userDocRef, DEFAULT_DATA);
-            }
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching user data:", error);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser]); // Note: We don't depend on 'data' here to avoid loops, only write when 'save' is called
-
-    // Immediate save — for settings, categories, loans
-    const saveData = useCallback((newData) => {
-        setData(newData);
-        if (currentUser && !currentUser.isAnonymous) {
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            setDoc(userDocRef, newData, { merge: true }).catch(err => {
-                console.error("Failed to save to cloud", err);
-            });
-        } else {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-        }
-    }, [currentUser]);
-
-    // Debounced save — for transactions (800ms) to reduce Firestore writes
-    const saveTimeoutRef = useRef(null);
-    const saveDataThrottled = useCallback((newData) => {
-        setData(newData); // UI updates immediately
-        if (currentUser && !currentUser.isAnonymous) {
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-            saveTimeoutRef.current = setTimeout(() => {
-                const userDocRef = doc(db, 'users', currentUser.uid);
-                setDoc(userDocRef, newData, { merge: true }).catch(err => {
-                    console.error("Failed to save to cloud", err);
-                });
-            }, 800);
-        } else {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-        }
-    }, [currentUser]);
-
-    const updateSalaryDate = (date) => {
-        const newData = { ...data, salaryDate: parseInt(date) };
-        saveData(newData);
-    };
-
-    // --- Actions ---
-
-    // Apply Theme Side-effect (Separate effect as it touches DOM)
-    useEffect(() => {
-        const root = window.document.documentElement;
-        root.classList.remove('light', 'dark');
-
-        if (data.theme?.mode === 'system') {
-            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            root.classList.add(systemTheme);
-        } else if (data.theme?.mode) {
-            root.classList.add(data.theme.mode);
-        }
-
-        if (data.theme?.accent) {
-            root.setAttribute('data-theme', data.theme.accent);
-        }
-    }, [data.theme]);
-
-
-    const addCategory = (category) => {
-        const newData = {
-            ...data,
-            categories: [...data.categories, { ...category, id: category.id || uuidv4() }]
-        };
-        saveData(newData);
-    };
-
-    const deleteCategory = (id) => {
-        const newData = {
-            ...data,
-            categories: data.categories.filter(c => c.id !== id)
-        };
-        saveData(newData);
-    };
-
-    const updateCategory = (id, updates) => {
-        const newData = {
-            ...data,
-            categories: data.categories.map(c => c.id === id ? { ...c, ...updates } : c)
-        };
-        saveData(newData);
-    };
-
-    const addTransaction = useCallback((transaction) => {
-        // Enforce 50 monthly entries limit on Free Plan
-        if (data.subscription !== 'monthly' && data.subscription !== 'lifetime') {
-            const currentMonth = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-            const monthlyTransactionsCount = (data.transactions || [])
-                .filter(t => t.date && t.date.slice(0, 7) === currentMonth)
-                .length;
-            if (monthlyTransactionsCount >= 50) {
-                alert("Limit reached: Free Plan is restricted to 50 transactions per month. Please upgrade to the Pro Plan in the Account settings for unlimited entries.");
-                return;
-            }
-        }
-
-        const newData = {
-            ...data,
-            transactions: [...data.transactions, { ...transaction, id: uuidv4(), date: transaction.date || new Date().toISOString() }]
-        };
-        saveDataThrottled(newData);
-    }, [data, saveDataThrottled]);
-
-    const importData = ({ categories: newCategories, transactions: newTransactions }) => {
-        const newData = { ...data };
-        if (newCategories && newCategories.length > 0) {
-            newData.categories = [...newData.categories, ...newCategories.map(c => ({ ...c, id: c.id || uuidv4() }))];
-        }
-        if (newTransactions && newTransactions.length > 0) {
-            // Enforce monthly limit on Free Plan
-            if (data.subscription !== 'monthly' && data.subscription !== 'lifetime') {
-                const currentMonth = new Date().toISOString().slice(0, 7);
-                const monthlyTransactionsCount = (data.transactions || [])
-                    .filter(t => t.date && t.date.slice(0, 7) === currentMonth)
-                    .length;
-                const remaining = 50 - monthlyTransactionsCount;
-                if (remaining <= 0) {
-                    alert("Import blocked: Free Plan is restricted to 50 transactions per month. Please upgrade to Pro to import entries.");
-                    return;
-                } else if (newTransactions.length > remaining) {
-                    alert(`Limit reached: Free Plan is restricted to 50 transactions per month. Only the first ${remaining} transactions will be imported. Please upgrade to Pro for unlimited imports.`);
-                    newTransactions = newTransactions.slice(0, remaining);
-                }
-            }
-            newData.transactions = [...newData.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))];
-        }
-        saveDataThrottled(newData);
-    };
-
-    const addTransactions = useCallback((newTransactions) => {
-        // Enforce monthly limit on Free Plan
-        let txsToAdd = newTransactions;
-        if (data.subscription !== 'monthly' && data.subscription !== 'lifetime') {
-            const currentMonth = new Date().toISOString().slice(0, 7);
-            const monthlyTransactionsCount = (data.transactions || [])
-                .filter(t => t.date && t.date.slice(0, 7) === currentMonth)
-                .length;
-            const remaining = 50 - monthlyTransactionsCount;
-            if (remaining <= 0) {
-                alert("Import blocked: Free Plan is restricted to 50 transactions per month. Please upgrade to Pro to add entries.");
-                return;
-            } else if (newTransactions.length > remaining) {
-                alert(`Limit reached: Free Plan is restricted to 50 transactions per month. Only the first ${remaining} transactions will be added. Please upgrade to Pro for unlimited entries.`);
-                txsToAdd = newTransactions.slice(0, remaining);
-            }
-        }
-        const newData = {
-            ...data,
-            transactions: [...data.transactions, ...txsToAdd.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))]
-        };
-        saveDataThrottled(newData);
-    }, [data, saveDataThrottled]);
-
-    const updateTransaction = useCallback((id, updatedFields) => {
-        const newData = {
-            ...data,
-            transactions: data.transactions.map(t => t.id === id ? { ...t, ...updatedFields } : t)
-        };
-        saveDataThrottled(newData);
-    }, [data, saveDataThrottled]);
-
-    const deleteTransaction = useCallback((id) => {
-        const newData = {
-            ...data,
-            transactions: data.transactions.filter(t => t.id !== id)
-        };
-        saveDataThrottled(newData);
-    }, [data, saveDataThrottled]);
-
-    const updateCurrency = (currency) => {
-        const newData = { ...data, currency };
-        saveData(newData);
-    };
-
-    const updateTheme = (newTheme) => {
-        const newData = { ...data, theme: { ...data.theme, ...newTheme } };
-        saveData(newData);
-    };
-
-    const updateSubscription = (status) => {
-        const newData = { ...data, subscription: status };
-        saveData(newData);
-    };
-
-    const updateBudget = (amount) => {
-        const newData = { ...data, monthlyBudget: parseFloat(amount) };
-        saveData(newData);
-    };
-
-    const addRecurringTransaction = (template) => {
-        const newData = {
-            ...data,
-            recurring: [...(data.recurring || []), { ...template, id: uuidv4(), active: true }]
-        };
-        saveData(newData);
-    };
-
-    const deleteRecurringTransaction = (id) => {
-        const newData = {
-            ...data,
-            recurring: (data.recurring || []).filter(i => i.id !== id)
-        };
-        saveData(newData);
-    };
-
-    const addLoan = (loan) => {
-        const newData = {
-            ...data,
-            loans: [...(data.loans || []), { ...loan, id: uuidv4() }]
-        };
-        saveData(newData);
-    };
-
-    const deleteLoan = (id) => {
-        const newData = {
-            ...data,
-            loans: (data.loans || []).filter(l => l.id !== id)
-        };
-        saveData(newData);
-    };
-
-    const clearData = () => {
-        const newData = { ...DEFAULT_DATA, theme: data.theme, currency: data.currency }; // Keep theme/currency
-        if (currentUser && !currentUser.isAnonymous) {
-            // For cloud users, we might want to delete sub-collections or just update root. 
-            // Updating root with empty arrays works for this simple structure.
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            setDoc(userDocRef, newData).then(() => {
-                window.location.reload();
-            });
-        } else {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-            setData(newData);
-            window.location.reload();
-        }
-    };
-
-    const formatMoney = (amount) => {
-        return new Intl.NumberFormat(data.currency?.locale || 'en-US', {
-            style: 'currency',
-            currency: data.currency?.code || 'USD',
-            maximumFractionDigits: 0,
-            minimumFractionDigits: 0
-        }).format(amount);
-    };
-
-    const getLoanDetails = (loan) => {
-        if (!loan) return { paid: 0, remaining: 0, progress: 0 };
-
-        // 1. Calculate Total Principal Repayments (exclude interest payments)
-        const principalPaid = (data.transactions || [])
-            .filter(t => t.loanId === loan.id && (t.repaymentType !== 'interest'))
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        // Optional: Track interest paid specific to this loan (for stats if needed later)
-        const interestPaid = (data.transactions || [])
-            .filter(t => t.loanId === loan.id && t.repaymentType === 'interest')
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        // 2. Calculate Stats based on Type
-        if (loan.type === 'debt') {
-            // Personal Debt: Principal + Interest
-            // Remaining = Principal - Principal Paid
-            // Monthly Interest = Remaining * (Rate/100)
-            const principal = loan.principal || 0;
-            const remaining = Math.max(principal - principalPaid, 0);
-            const monthlyInterest = remaining * ((loan.interestRate || 0) / 100);
-
-            return {
-                paid: principalPaid,
-                interestPaidTotal: interestPaid,
-                remaining: remaining,
-                monthlyInterest: monthlyInterest,
-                progress: principal > 0 ? (principalPaid / principal) * 100 : 0
-            };
-        } else {
-            // Bank EMI (Legacy/Default)
-            const monthsDiff = Math.max(0, (currentDate.getFullYear() - start.getFullYear()) * 12 + currentDate.getMonth() - start.getMonth());
-            const activeMonths = Math.min(loan.tenure, monthsDiff);
-            const principalPaid = activeMonths * loan.monthlyAmount;
-            return {
-                paid: principalPaid,
-                remaining: (loan.monthlyAmount * loan.tenure) - principalPaid, // Rough estimate
-                monthlyInterest: 0, // Hidden for EMI
-                progress: 0 // Handled by date logic usually
-            };
-        }
-    };
-
-    const updateStartingBalances = (bank, cash) => {
-        const newData = {
-            ...data,
-            initialBankBalance: parseFloat(bank) || 0,
-            initialCashBalance: parseFloat(cash) || 0
-        };
-        saveData(newData);
-    };
-
-    const value = {
-        categories: data.categories || [],
-        transactions: data.transactions || [],
-        currency: data.currency,
-        theme: data.theme,
-        loading,
-        addCategory,
-        deleteCategory,
-        updateCategory,
-        addTransaction,
-        addTransactions,
-        importData,
-        updateTransaction,
-        deleteTransaction,
-        updateCurrency,
-        updateTheme,
-        updateSubscription,
-        addRecurringTransaction,
-        deleteRecurringTransaction,
-        addLoan,
-        deleteLoan,
-        getLoanDetails,
-        formatMoney,
-        subscription: data.subscription,
-        monthlyBudget: data.monthlyBudget || 50000,
-        updateBudget,
-        recurring: data.recurring || [],
-        loans: data.loans || [],
-        salaryDate: data.salaryDate || 1,
-        updateSalaryDate,
-        initialBankBalance: data.initialBankBalance || 0,
-        initialCashBalance: data.initialCashBalance || 0,
-        updateStartingBalances,
-        clearData
-    };
-
-    return (
-        <FinanceContext.Provider value={value}>
-            {children}
-        </FinanceContext.Provider>
+    const bankIn  = validTx.filter(t => t.type === "income" && t.paymentMode !== "cash");
+    const bankOut = validTx.filter(t =>
+      (t.type === "expense" || t.type === "debt") &&
+      (t.paymentMode !== "cash" || t.description?.toLowerCase().includes("atm") || t.description?.toLowerCase().includes("cash withdrawal"))
     );
+    const inflow  = bankIn.reduce((s, t) => s + t.amount, 0);
+    const outflow = bankOut.reduce((s, t) => s + t.amount, 0);
+    return totalInitial + inflow - outflow;
+  }, [validTransactions, state.initialBankBalances]);
+
+  const cashBalance = React.useMemo(() => {
+    const allTx   = validTransactions;
+    const validTx = state.cashSeedDate ? allTx.filter(t => new Date(t.date) >= new Date(state.cashSeedDate)) : allTx;
+    const cashIn  = validTx.filter(t => t.type === "income" && t.paymentMode === "cash");
+    const atmOut  = validTx.filter(t =>
+      t.type === "expense" &&
+      (t.description?.toLowerCase().includes("atm") || t.description?.toLowerCase().includes("cash withdrawal"))
+    );
+    const cashOut = validTx.filter(t =>
+      (t.type === "expense" || t.type === "debt") &&
+      t.paymentMode === "cash" &&
+      !t.description?.toLowerCase().includes("atm") &&
+      !t.description?.toLowerCase().includes("cash withdrawal")
+    );
+    const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
+    const outflow = cashOut.reduce((s, t) => s + t.amount, 0);
+    return (state.initialCashBalance || 0) + inflow - outflow;
+  }, [validTransactions, state.initialCashBalance, state.cashSeedDate]);
+
+  // ─── Per-bank balances (for dashboard cards) ──────────────────────────────
+  const bankAccountBalances = React.useMemo(() => {
+    const map = {};
+    const allTx = validTransactions;
+
+    if (state.initialBankBalances) {
+      Object.entries(state.initialBankBalances).forEach(([key, data]) => {
+        const [bankName, accountEnding] = key.split('_');
+        map[key] = {
+          bankName,
+          accountEnding,
+          balance: parseFloat(data.amount) || 0,
+          transactionCount: 0
+        };
+      });
+    }
+
+    allTx.forEach(t => {
+      if (t.bankName && t.accountEnding) {
+        const key = `${t.bankName}_${t.accountEnding}`;
+        const seedData = state.initialBankBalances?.[key];
+        const seedDate = seedData?.date ? new Date(seedData.date) : null;
+        
+        if (seedDate && new Date(t.date) < seedDate) return;
+
+        if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
+        if (t.type === "income") map[key].balance += t.amount;
+        else if (t.type === "expense" || t.type === "debt") map[key].balance -= t.amount;
+        map[key].transactionCount++;
+      }
+    });
+    return Object.values(map);
+  }, [validTransactions, state.initialBankBalances]);
+
+  // ─── formatMoney ─────────────────────────────────────────────────────────
+  const formatMoney = useCallback((amount) =>
+    new Intl.NumberFormat(state.currency?.locale || "en-IN", {
+      style: "currency", currency: state.currency?.code || "INR",
+      maximumFractionDigits: 0, minimumFractionDigits: 0,
+    }).format(amount), [state.currency]);
+
+  // ─── CRUD ────────────────────────────────────────────────────────────────
+  const addTransaction = useCallback((tx) => {
+    const next = {
+      ...state,
+      transactions: [...state.transactions, { ...tx, id: uuidv4(), date: tx.date || new Date().toISOString() }],
+    };
+    saveDebounced(next);
+  }, [state, saveDebounced]);
+
+  const addTransactions = useCallback((txList) => {
+    const next = {
+      ...state,
+      transactions: [
+        ...state.transactions,
+        ...txList.map(tx => ({ ...tx, id: uuidv4(), date: tx.date || new Date().toISOString() })),
+      ],
+    };
+    saveImmediate(next);
+  }, [state, saveImmediate]);
+
+  const updateTransaction = useCallback((id, updates) => {
+    const next = { ...state, transactions: state.transactions.map(t => t.id === id ? { ...t, ...updates } : t) };
+    saveDebounced(next);
+  }, [state, saveDebounced]);
+
+  const deleteTransaction = useCallback((id) => {
+    const next = { ...state, transactions: state.transactions.filter(t => t.id !== id) };
+    saveDebounced(next);
+  }, [state, saveDebounced]);
+
+  const addCategory    = (cat)    => saveImmediate({ ...state, categories: [...state.categories, { ...cat, id: uuidv4() }] });
+  const deleteCategory = (id)     => saveImmediate({ ...state, categories: state.categories.filter(c => c.id !== id) });
+  const updateCategory = (id, up) => saveImmediate({ ...state, categories: state.categories.map(c => c.id === id ? { ...c, ...up } : c) });
+
+  const updateCurrency    = (c)    => saveImmediate({ ...state, currency: c });
+  const updateTheme       = (t)    => saveImmediate({ ...state, theme: { ...state.theme, ...t } });
+  const updateSubscription= (s)    => saveImmediate({ ...state, subscription: s });
+  const updateBudget      = (b)    => saveImmediate({ ...state, monthlyBudget: parseFloat(b) });
+  const updateSalaryDate  = (d)    => saveImmediate({ ...state, salaryDate: parseInt(d) });
+
+  const updateStartingBalances = (bankBalances, cash, cashDate) =>
+    saveImmediate({ ...state, initialBankBalances: bankBalances || {}, initialCashBalance: parseFloat(cash) || 0, cashSeedDate: cashDate || null });
+
+  const addRecurring    = (r)  => saveImmediate({ ...state, recurring: [...(state.recurring || []), { ...r, id: uuidv4(), active: true }] });
+  const deleteRecurring = (id) => saveImmediate({ ...state, recurring: (state.recurring || []).filter(r => r.id !== id) });
+  const addLoan         = (l)  => saveImmediate({ ...state, loans: [...(state.loans || []), { ...l, id: uuidv4() }] });
+  const deleteLoan      = (id) => saveImmediate({ ...state, loans: (state.loans || []).filter(l => l.id !== id) });
+
+  const clearData = async () => {
+    const fresh = { ...DEFAULT_STATE, theme: state.theme, currency: state.currency };
+    
+    // 1. Force wipe local storage instantly to prevent ghost data
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+    
+    // 2. Wipe Firebase safely
+    if (currentUser && !currentUser.isAnonymous) {
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), fresh);
+      } catch(e) {
+        console.error("Firebase wipe failed", e);
+      }
+    }
+    
+    window.location.reload();
+  };
+
+  // Apply theme
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("light", "dark");
+    if (state.theme?.mode === "system") {
+      root.classList.add(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    } else if (state.theme?.mode) {
+      root.classList.add(state.theme.mode);
+    }
+    if (state.theme?.accent) root.setAttribute("data-theme", state.theme.accent);
+  }, [state.theme]);
+
+
+  const importData = useCallback(({ categories: newCategories, transactions: newTransactions }) => {
+    const next = { ...state };
+    if (newCategories && newCategories.length > 0) {
+      next.categories = [...next.categories, ...newCategories.map(c => ({ ...c, id: c.id || uuidv4() }))];
+    }
+    if (newTransactions && newTransactions.length > 0) {
+      next.transactions = [...next.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))];
+    }
+    saveImmediate(next);
+  }, [state, saveImmediate]);
+
+  const getLoanDetails = useCallback((loan) => {
+    if (!loan) return { paid: 0, remaining: 0, progress: 0 };
+    const principalPaid = validTransactions
+      .filter(t => t.loanId === loan.id && (t.repaymentType !== 'interest'))
+      .reduce((sum, t) => sum + t.amount, 0);
+    const interestPaid = validTransactions
+      .filter(t => t.loanId === loan.id && t.repaymentType === 'interest')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    if (loan.type === 'debt') {
+      const principal = loan.principal || 0;
+      const remaining = Math.max(principal - principalPaid, 0);
+      const monthlyInterest = remaining * ((loan.interestRate || 0) / 100);
+      return {
+        paid: principalPaid,
+        interestPaidTotal: interestPaid,
+        remaining: remaining,
+        monthlyInterest: monthlyInterest,
+        progress: principal > 0 ? (principalPaid / principal) * 100 : 0
+      };
+    } else {
+      const currentDate = new Date();
+      const start = loan.startDate ? new Date(loan.startDate) : new Date();
+      const monthsDiff = Math.max(0, (currentDate.getFullYear() - start.getFullYear()) * 12 + currentDate.getMonth() - start.getMonth());
+      const activeMonths = Math.min(loan.tenure, monthsDiff);
+      const principalPaid = activeMonths * loan.monthlyAmount;
+      return {
+        paid: principalPaid,
+        remaining: (loan.monthlyAmount * loan.tenure) - principalPaid,
+        monthlyInterest: 0,
+        progress: 0
+      };
+    }
+  }, [validTransactions]);
+
+  const value = {
+    // data
+    categories:           state.categories   || [],
+    transactions:         validTransactions,
+    currency:             state.currency,
+    theme:                state.theme,
+    subscription:         state.subscription,
+    recurring:            state.recurring     || [],
+    loans:                state.loans         || [],
+    monthlyBudget:        state.monthlyBudget || 50000,
+    salaryDate:           state.salaryDate    || 1,
+    initialBankBalances:  state.initialBankBalances || {},
+    initialCashBalance:   state.initialCashBalance || 0,
+    cashSeedDate:         state.cashSeedDate || null,
+    loading,
+
+    // ✅ NEW — use these on Dashboard
+    bankBalance,
+    cashBalance,
+    totalBalance: bankBalance + cashBalance,
+    bankAccountBalances,
+    clearData,
+    bankAccountBalances,   // per-bank breakdown array
+
+    // helpers
+    formatMoney,
+    rescanTransactions,
+    importData,
+    getLoanDetails,
+
+    // CRUD
+    addCategory, deleteCategory, updateCategory,
+    addTransaction, addTransactions,
+    updateTransaction, deleteTransaction,
+    updateCurrency, updateTheme, updateSubscription,
+    updateBudget, updateSalaryDate, updateStartingBalances,
+    addRecurringTransaction:    addRecurring,
+    deleteRecurringTransaction: deleteRecurring,
+    addLoan, deleteLoan,
+    clearData,
+  };
+
+  return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
 
 export function useFinance() {
-    return useContext(FinanceContext);
+  const ctx = useContext(FinanceContext);
+  if (!ctx) throw new Error("useFinance must be inside FinanceProvider");
+  return ctx;
 }

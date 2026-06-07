@@ -193,7 +193,7 @@ const normalizeTransactions = (rawData) => {
         // Fallback for CSV: If Date is missing but we have columns, maybe try index 0?
         let usedDate = date;
         if (!usedDate) {
-            const values = Object.values(row);
+            // Heuristic: First value that looks like a date?
             // Heuristic: First value that looks like a date?
             // Not safe to assume.
             // If we found NO date, skip.
@@ -448,4 +448,40 @@ const findValue = (obj, keys) => {
         if (obj[key] !== undefined && obj[key] !== '') return obj[key];
     }
     return null;
+};
+
+const findHeaderRowIndex = (rows) => {
+    if (!rows || rows.length === 0) return -1;
+    const limit = Math.min(rows.length, 50);
+    const headerKeywords = [
+        'date', 'description', 'amount', 'credit', 'debit', 'cr', 'dr',
+        'narration', 'particulars', 'transaction', 'txn', 'deposit', 'withdrawal'
+    ];
+
+    for (let i = 0; i < limit; i++) {
+        const row = rows[i];
+        if (!row || !Array.isArray(row)) continue;
+
+        let matchCount = 0;
+        for (const cell of row) {
+            if (cell === undefined || cell === null) continue;
+            const val = String(cell).toLowerCase().trim();
+            if (headerKeywords.some(keyword => val.includes(keyword))) {
+                matchCount++;
+            }
+        }
+
+        if (matchCount >= 2) {
+            return i;
+        }
+    }
+
+    // Default: find first row with data
+    for (let i = 0; i < limit; i++) {
+        if (rows[i] && rows[i].some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')) {
+            return i;
+        }
+    }
+
+    return -1;
 };

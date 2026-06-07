@@ -4,11 +4,11 @@ import { cn } from '../lib/utils';
 import { Target, AlertCircle, Check, MoreVertical, Edit2, Wallet, TrendingUp, PiggyBank } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
 import BudgetTargetModal from '../components/BudgetTargetModal';
-import { startOfMonth, endOfMonth, isWithinInterval, differenceInDays } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import CircleProgress from '../components/CircleProgress';
 
 const Budget = () => {
-    const { categories, transactions, updateCategory, formatMoney, currency, monthlyBudget } = useFinanceData();
+    const { categories, transactions, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
 
     // Selection State
     const [selectedCategoryId, setSelectedCategoryId] = useState(null);

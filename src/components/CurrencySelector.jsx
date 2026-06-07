@@ -2,7 +2,7 @@
 import React from 'react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { Globe, Check } from 'lucide-react';
-import { cn } from '../lib/utils';
+
 
 const CURRENCIES = [
     { code: 'USD', symbol: '$', locale: 'en-US', name: 'United States Dollar' },
