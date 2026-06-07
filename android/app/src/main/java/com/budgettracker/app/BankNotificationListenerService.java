@@ -40,22 +40,29 @@ public class BankNotificationListenerService extends NotificationListenerService
         "com.xiaomi.sms",                      // Xiaomi Messages
         "com.oneplus.mms",                     // OnePlus Messages
         "com.coloros.sms",                     // OPPO Messages
+        "com.realme.sms",                      // Realme Messages
         "com.google.android.apps.nbu.paisa.user", // Google Pay
         "net.one97.paytm",                     // Paytm
         "com.phonepe.app",                     // PhonePe
         "in.amazon.mShop.android.shopping",    // Amazon Pay
-        "com.whatsapp"                         // WhatsApp Pay notifications
+        "com.whatsapp",                        // WhatsApp Pay notifications
+        "com.myairtelapp",                     // Airtel Thanks (Airtel Payments Bank)
+        "com.jio.myjio",                       // Jio (Jio Payments Bank)
+        "com.csam.icici.bank.imobile",         // ICICI iMobile
+        "com.sbi.SBIFreedomPlus",              // SBI Yono
+        "com.axis.mobile",                     // Axis Bank
+        "com.hdfcbank.hdfcquickbank",          // HDFC Bank
+        "com.kotak.mobile.banking"             // Kotak Mahindra Bank
     ));
 
-    // Keywords that indicate a financial/bank SMS notification
     private static final String[] BANK_KEYWORDS = {
         "debited", "credited", "debit", "credit",
         "withdrawn", "deposited", "transferred",
-        "sent rs", "received rs", "paid rs",
+        "sent", "received", "paid", "pay",
         "a/c", "acct", "account",
         "upi", "neft", "imps", "rtgs",
         "atm", "pos", "balance",
-        "txn", "transaction"
+        "txn", "transaction", "₹", "rs", "inr"
     };
 
     @Override
@@ -90,9 +97,9 @@ public class BankNotificationListenerService extends NotificationListenerService
                 }
             }
 
-            // Only capture if from a known SMS/UPI app AND contains bank keywords
-            if (!isFromSMSApp && !hasBankKeyword) return;
-            if (!hasBankKeyword) return; // Must have bank keyword regardless
+            // Only capture if it contains bank keywords
+            // Accept from ANY app as long as it has financial keywords
+            if (!hasBankKeyword) return;
 
             // Build notification JSON
             JSONObject notif = new JSONObject();
@@ -122,6 +129,18 @@ public class BankNotificationListenerService extends NotificationListenerService
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String existing = prefs.getString(KEY_NOTIFICATIONS, "[]");
             JSONArray array = new JSONArray(existing);
+
+            // Duplicate check — skip if same body+date already exists
+            String newBody = notif.optString("body", "");
+            String newDate = notif.optString("date", "");
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject old = array.getJSONObject(i);
+                if (newBody.equals(old.optString("body", "")) 
+                    && newDate.equals(old.optString("date", ""))) {
+                    Log.d(TAG, "Duplicate notification skipped");
+                    return;
+                }
+            }
 
             // Add new notification at the beginning
             JSONArray newArray = new JSONArray();

@@ -5,7 +5,7 @@ import { format, subMonths, addMonths, isSameMonth } from 'date-fns';
 import {
   ArrowLeft, ArrowRight, TrendingUp, TrendingDown,
   PiggyBank, CreditCard, Calendar, Share2,
-  IndianRupee, Activity, Target, Zap
+  IndianRupee, Activity, Target, Zap, RefreshCw
 } from 'lucide-react';
 import AnalyticsWidget from '../components/AnalyticsWidget';
 import { cn } from '../lib/utils';
@@ -33,6 +33,7 @@ const SparkBar = ({ data, color }) => {
 };
 
 // ── KPI Card ─────────────────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor, sparkColor, sparkData, trend, children }) => (
   <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
     <div className="flex items-start justify-between mb-3">
@@ -121,8 +122,36 @@ const Dashboard = () => {
   const {
     transactions = [], formatMoney, categories = [],
     loans = [], recurring = [], salaryDate, monthlyBudget,
-    initialBankBalance = 0, initialCashBalance = 0
+    rescanTransactions,
+    bankBalance, cashBalance, totalBalance, bankAccountBalances
   } = useFinanceData();
+
+  const netBalance = totalBalance;
+  const bankAccounts = bankAccountBalances;
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setToast({ show: true, message: 'Syncing SMS & Notifications...', type: 'info' });
+    try {
+      const result = await rescanTransactions();
+      const count = result?.count ?? 0;
+      const scanned = result?.totalScanned ?? 0;
+      if (count > 0) {
+        setToast({ show: true, message: `Sync complete! Scanned ${scanned} SMS. Imported ${count} new transactions.`, type: 'success' });
+      } else {
+        setToast({ show: true, message: `No new transactions found (scanned ${scanned} SMS).`, type: 'info' });
+      }
+    } catch (e) {
+      console.error('[Dashboard] Rescan error:', e);
+      setToast({ show: true, message: 'Sync failed! Please verify SMS and Notification permissions.', type: 'error' });
+    }
+    setRefreshing(false);
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+  };
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('overview');
@@ -242,31 +271,7 @@ const Dashboard = () => {
   
   const monthlyNet = income - expense - debt;
 
-  // Running Bank & Cash Balance calculations (All-time)
-  const bankBalance = useMemo(() => {
-    const bankIncomes = transactions.filter(t => t.type === 'income' && t.paymentMode !== 'cash');
-    const bankExpenses = transactions.filter(t => t.type === 'expense' && (t.paymentMode !== 'cash' || t.description?.toLowerCase().includes('atm') || t.description?.toLowerCase().includes('cash withdrawal')));
-    const bankDebts = transactions.filter(t => t.type === 'debt' && t.paymentMode !== 'cash');
-
-    const totalIn = bankIncomes.reduce((sum, t) => sum + t.amount, 0);
-    const totalOut = bankExpenses.reduce((sum, t) => sum + t.amount, 0) + bankDebts.reduce((sum, t) => sum + t.amount, 0);
-
-    return initialBankBalance + totalIn - totalOut;
-  }, [transactions, initialBankBalance]);
-
-  const cashBalance = useMemo(() => {
-    const cashIncomes = transactions.filter(t => t.type === 'income' && t.paymentMode === 'cash');
-    const cashExpenses = transactions.filter(t => t.type === 'expense' && t.paymentMode === 'cash' && !t.description?.toLowerCase().includes('atm') && !t.description?.toLowerCase().includes('cash withdrawal'));
-    const cashDebts = transactions.filter(t => t.type === 'debt' && t.paymentMode === 'cash');
-    const atmWithdrawals = transactions.filter(t => t.type === 'expense' && (t.description?.toLowerCase().includes('atm') || t.description?.toLowerCase().includes('cash withdrawal')));
-
-    const totalIn = cashIncomes.reduce((sum, t) => sum + t.amount, 0) + atmWithdrawals.reduce((sum, t) => sum + t.amount, 0);
-    const totalOut = cashExpenses.reduce((sum, t) => sum + t.amount, 0) + cashDebts.reduce((sum, t) => sum + t.amount, 0);
-
-    return initialCashBalance + totalIn - totalOut;
-  }, [transactions, initialCashBalance]);
-
-  const netBalance = bankBalance + cashBalance;
+  // Balances and Bank Accounts are now centrally computed in FinanceContext
 
   // Sparklines (last 6 months per type)
   const sparkData = useMemo(() => {
@@ -379,7 +384,7 @@ const Dashboard = () => {
       (top ? `🔺 Top Spend: ${top.name} (${formatMoney(top.value)})\n` : '') +
       `\n_Tracked with BudgetTracker_ 🇮🇳`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-  }, [currentDate, income, expense, savings, debt, netBalance, bankBalance, cashBalance, expenseData, formatMoney]);
+  }, [currentDate, income, expense, savings, debt, netBalance, expenseData, formatMoney, monthlyNet]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto">
@@ -416,6 +421,15 @@ const Dashboard = () => {
             </button>
           </div>
           <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+            title="Refresh transactions"
+          >
+            <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+            <span className="hidden sm:inline">Sync SMS</span>
+          </button>
+          <button
             onClick={handleShare}
             className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-green-500/25"
             title="Share on WhatsApp"
@@ -425,6 +439,58 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* ── Bank Accounts Quick Cards ── */}
+      {bankAccounts.length > 0 && (
+        <div className="flex gap-3 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x">
+          {bankAccounts.map((acc, index) => (
+            <div 
+              key={index} 
+              className={cn(
+                "flex-shrink-0 w-52 rounded-2xl border p-4 shadow-sm snap-start transition-all relative overflow-hidden",
+                "bg-gradient-to-br from-card to-muted/10 border-border hover:shadow-md"
+              )}
+            >
+              <div 
+                className="absolute -right-8 -top-8 w-24 h-24 rounded-full opacity-10 blur-xl animate-pulse"
+                style={{
+                  backgroundColor: 
+                    acc.bankName === 'Indian Bank' ? '#1d4ed8' : 
+                    acc.bankName === 'Canara Bank' ? '#0d9488' : 
+                    acc.bankName === 'SBI' ? '#0284c7' : '#8b5cf6'
+                }}
+              />
+              
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                    {acc.bankName}
+                  </p>
+                  <p className="text-xs text-muted-foreground/80 mt-0.5 font-medium">
+                    A/c •••• {acc.accountEnding}
+                  </p>
+                </div>
+                <span className="text-lg">
+                  {acc.bankName === 'Indian Bank' ? '🔵' : 
+                   acc.bankName === 'Canara Bank' ? '🟢' : 
+                   acc.bankName === 'SBI' ? '🔷' : '🏦'}
+                </span>
+              </div>
+              
+              <div className="mt-4 flex justify-between items-end">
+                <div>
+                  <p className="text-2xl font-bold tracking-tight leading-none">
+                    {formatMoney(acc.balance)}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground mt-1.5 font-medium">
+                    {acc.transactionCount} transactions
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Tab Nav ── */}
       <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
@@ -452,6 +518,34 @@ const Dashboard = () => {
       {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Summary Row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl border bg-card p-4 shadow-sm text-center">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                Bank Balance
+              </p>
+              <p className={`text-lg font-bold ${bankBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-500"}`}>
+                {formatMoney(bankBalance)}
+              </p>
+            </div>
+            <div className="rounded-2xl border bg-card p-4 shadow-sm text-center">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                Cash in Hand
+              </p>
+              <p className={`text-lg font-bold ${cashBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                {formatMoney(cashBalance)}
+              </p>
+            </div>
+            <div className="rounded-2xl border bg-primary/10 border-primary/20 p-4 shadow-sm text-center">
+              <p className="text-[10px] uppercase font-bold text-primary/70 tracking-wider mb-1">
+                Total Balance
+              </p>
+              <p className={`text-lg font-bold ${netBalance >= 0 ? "text-primary" : "text-red-500"}`}>
+                {formatMoney(netBalance)}
+              </p>
+            </div>
+          </div>
+
           {/* KPI Cards */}
           <div id="tour-kpi-cards" className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <KPICard
@@ -949,6 +1043,23 @@ const Dashboard = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-background border border-border px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 max-w-[90%] transition-all duration-300 border-primary/20 shadow-primary/10">
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
+            toast.type === 'success' ? 'bg-green-500/20 text-green-500' :
+            toast.type === 'error' ? 'bg-red-500/20 text-red-500' :
+            'bg-primary/20 text-primary'
+          )}>
+            {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'}
+          </div>
+          <div className="text-xs sm:text-sm font-semibold text-foreground">
+            {toast.message}
           </div>
         </div>
       )}

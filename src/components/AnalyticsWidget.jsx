@@ -11,11 +11,9 @@ const AnalyticsWidget = ({ title, icon: Icon, data, totalValue, formatMoney, col
 
     // Spider Label for Pie Chart (Like the user's image)
     const renderCustomizedLabel = (props) => {
-        const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value, fill } = props;
+        const { cx, cy, midAngle, outerRadius, percent, name, value, fill } = props;
         const RADIAN = Math.PI / 180;
-        const radius = outerRadius * 1.05;
-        const x = cx + radius * Math.cos(-midAngle * RADIAN);
-        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
         const sin = Math.sin(-RADIAN * midAngle);
         const cos = Math.cos(-RADIAN * midAngle);
         const sx = cx + (outerRadius + 0) * cos;

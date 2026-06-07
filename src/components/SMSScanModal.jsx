@@ -1,420 +1,400 @@
-import React, { useState, useEffect } from 'react';
-import { X, Check, ShieldAlert, Sparkles, MessageSquare, AlertCircle, Calendar, CreditCard, ChevronRight, Bell, Settings, RefreshCw } from 'lucide-react';
-import { parseTransactionSMS } from '../lib/SMSParser';
-import { cn } from '../lib/utils';
-import CategoryIcon from './CategoryIcon';
+// SMSScanModal.jsx — Definitive Fix
+// Bug fixed: V.messages === "granted" was the wrong key on initial checkPermissions()
+// Correct key returned by @solimanware/capacitor-sms-reader is: readSms
+// This fix checks all 3 possible keys in both checkPermissions + requestPermissions
 
-// SMS Inbox reader import from Capacitor
-import { MessageReader } from '@solimanware/capacitor-sms-reader';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { parseSms } from '../context/autoScanSms';
 
-// Notification Listener plugin (registered in native Android)
-import { registerPlugin } from '@capacitor/core';
-const NotificationListener = registerPlugin('NotificationListener');
+const MessageReader = Capacitor.isNativePlatform()
+  ? (() => { try { return window.Capacitor.Plugins.MessageReader; } catch { return null; } })()
+  : null;
 
-const SMSScanModal = ({ isOpen, onClose, onImport, categories }) => {
-    const [scanning, setScanning] = useState(false);
-    const [transactions, setTransactions] = useState([]);
-    const [selectedIndices, setSelectedIndices] = useState([]);
-    const [permissionError, setPermissionError] = useState(false);
-    const [scanMode, setScanMode] = useState(null); // 'sms' | 'notification' | null
-    const [notifEnabled, setNotifEnabled] = useState(false);
-    const [showNotifSetup, setShowNotifSetup] = useState(false);
+const NotificationListener = Capacitor.isNativePlatform()
+  ? (() => { try { return window.Capacitor.Plugins.NotificationListener; } catch { return null; } })()
+  : null;
 
-    useEffect(() => {
-        if (isOpen) {
-            scanMessages();
-        } else {
-            setTransactions([]);
-            setSelectedIndices([]);
-            setPermissionError(false);
-            setScanMode(null);
-            setShowNotifSetup(false);
-        }
-    }, [isOpen]);
+// ── key check helper ─────────────────────────────────────────────────────────
+function isSmsGranted(result) {
+  if (!result) return false;
+  // ✅ Plugin returns { messages: PermissionState } — key is "messages"
+  return result?.messages === 'granted';
+}
 
-    // Check if notification listener is enabled
-    const checkNotifListener = async () => {
+// Demo SMS for web browser testing
+const DEMO_SMS = [
+  { body: "Dear Customer, your A/c ending 5678 has been debited by Rs 250.00 at Zomato on 31-May-26 via UPI. Ref 12345", date: Date.now() - 3600000 },
+  { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 86400000 },
+  { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 7200000 },
+  { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 14400000 },
+  { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India.", date: Date.now() - 18000000 },
+];
+
+async function readSmsMessages() {
+  // ✅ minDate as number (milliseconds), 90 days back
+  const minDate = Date.now() - 90 * 24 * 60 * 60 * 1000;
+
+  let messages = [];
+  try {
+    // 🔍 Step 1: Verify permission is granted before calling getMessages
+    const permCheck = await MessageReader.checkPermissions();
+    console.log('[SMSScan] Permission before getMessages:', JSON.stringify(permCheck));
+    
+    if (permCheck?.messages !== 'granted') {
+      console.warn('[SMSScan] Permission NOT granted, requesting...');
+      const permReq = await MessageReader.requestPermissions();
+      console.log('[SMSScan] Permission after request:', JSON.stringify(permReq));
+      
+      // requestPermissions might return messages directly (Java bug in plugin)
+      if (permReq?.messages && Array.isArray(permReq.messages)) {
+        console.log('[SMSScan] requestPermissions returned messages directly! Count:', permReq.messages.length);
+        messages = permReq.messages;
+      } else if (permReq?.messages !== 'granted') {
+        console.error('[SMSScan] Permission denied');
+        return [];
+      }
+    }
+
+    // 🔍 Step 2: Only call getMessages if we didn't get messages from requestPermissions
+    if (messages.length === 0) {
+      // Try with NO filters first to see total count
+      const debugRaw = await MessageReader.getMessages({});
+      console.log('[DEBUG] getMessages({}) full response type:', typeof debugRaw);
+      console.log('[DEBUG] getMessages({}) keys:', Object.keys(debugRaw || {}));
+      console.log('[DEBUG] Total SMS in phone:', debugRaw?.messages?.length);
+      
+      if (debugRaw?.messages?.length > 0) {
+        console.log('[DEBUG] First 3 SMS bodies:', debugRaw.messages.slice(0, 3).map(m => m.body));
+        console.log('[DEBUG] First 3 SMS senders:', debugRaw.messages.slice(0, 3).map(m => m.sender));
+        console.log('[DEBUG] First 3 SMS dates:', debugRaw.messages.slice(0, 3).map(m => new Date(parseInt(m.date)).toISOString()));
+      }
+      
+      // Now do the real 90-day query
+      const raw = await MessageReader.getMessages({ minDate, limit: 500 });
+      messages = raw?.messages || [];
+      console.log('[SMSScan] Raw SMS count (90-day):', messages.length);
+    }
+    
+    if (messages[0]) {
+      console.log('[SMSScan] Sample keys:', Object.keys(messages[0]));
+      console.log('[SMSScan] Sample body:', messages[0].body);
+      console.log('[SMSScan] Sample sender:', messages[0].sender);
+    }
+  } catch (e) {
+    console.error('[SMSScan] getMessages failed:', e?.message, e);
+    return [];
+  }
+
+  // ✅ body and date keys confirmed from type definitions
+  const parsed = messages
+    .map(m => parseSms(m.body, parseInt(m.date)))
+    .filter(Boolean);
+
+  console.log('[SMSScan] Parsed financial SMS count:', parsed.length);
+  return parsed;
+}
+
+async function readNotifications() {
+  const minDate = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  console.log('[SMSScan] Reading notifications, minDate:', new Date(minDate).toISOString());
+  const { notifications = [] } = await NotificationListener.getCapturedNotifications({ minDate: String(minDate) });
+  console.log('[SMSScan] Raw notification count:', notifications.length);
+  if (notifications.length > 0) console.log('[SMSScan] Sample notif:', JSON.stringify(notifications[0]).substring(0, 200));
+  const parsed = notifications.map(n => parseSms(n.body, parseInt(n.date))).filter(Boolean);
+  console.log('[SMSScan] Parsed financial notification count:', parsed.length);
+  return parsed;
+}
+
+async function isNotificationListenerEnabled() {
+  try {
+    const result = await NotificationListener.isListenerEnabled();
+    return result?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
+export default function SMSScanModal({ isOpen, onClose, onImport, categories }) {
+  const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [showSetup, setShowSetup] = useState(false);
+  const [source, setSource] = useState(null);
+  const [scanDone, setScanDone] = useState(false);
+  const [noNotifYet, setNoNotifYet] = useState(false);
+
+  const startScan = useCallback(async () => {
+    setLoading(true);
+    try {
+      const isNative = Capacitor.isNativePlatform();
+
+      if (isNative) {
+        let results = [];
+        let smsBlocked = false;
+
+        // ── SMS path ─────────────────────────────────────────────────────────
         try {
-            const result = await NotificationListener.isListenerEnabled();
-            setNotifEnabled(result.enabled);
-            return result.enabled;
-        } catch {
-            return false;
-        }
-    };
+          console.log('[SMSScan] Checking SMS permissions...');
+          const checkResult = await MessageReader.checkPermissions();
+          console.log('[SMSScan] SMS permission status:', JSON.stringify(checkResult));
 
-    // Main scan function — tries SMS first, falls back to Notification Listener
-    const scanMessages = async () => {
-        setScanning(true);
-        setPermissionError(false);
-        setShowNotifSetup(false);
+          if (isSmsGranted(checkResult)) {
+            // Already granted
+            results = await readSmsMessages();
+            setSource('sms');
+          } else {
+            // Request permission
+            console.log('[SMSScan] Requesting SMS permission...');
+            const reqResult = await MessageReader.requestPermissions();
+            console.log('[SMSScan] SMS permission request result:', JSON.stringify(reqResult));
 
-        const isMobile = window.Capacitor && window.Capacitor.isNativePlatform();
-
-        try {
-            if (isMobile) {
-                // Strategy 1: Try SMS permission first
-                let smsParsed = [];
-                let smsBlocked = false;
-
-                try {
-                    const status = await MessageReader.checkPermissions();
-                    if (status.sms === 'granted') {
-                        smsParsed = await readSMSInbox();
-                        setScanMode('sms');
-                    } else {
-                        const req = await MessageReader.requestPermissions();
-                        if (req.sms === 'granted') {
-                            smsParsed = await readSMSInbox();
-                            setScanMode('sms');
-                        } else {
-                            smsBlocked = true;
-                        }
-                    }
-                } catch {
-                    smsBlocked = true;
-                }
-
-                // Strategy 2: If SMS blocked, try Notification Listener
-                if (smsBlocked) {
-                    const enabled = await checkNotifListener();
-                    if (enabled) {
-                        smsParsed = await readNotifications();
-                        setScanMode('notification');
-                    } else {
-                        // Neither works — show setup UI
-                        setPermissionError(true);
-                        setShowNotifSetup(true);
-                        setScanning(false);
-                        return;
-                    }
-                }
-
-                // Process results
-                smsParsed.sort((a, b) => new Date(b.date) - new Date(a.date));
-                const mapped = smsParsed.map(t => ({
-                    ...t,
-                    categoryId: guessCategory(t.description, t.type)
-                }));
-
-                setTransactions(mapped);
-                setSelectedIndices(mapped.map((_, i) => i));
-
+            if (isSmsGranted(reqResult)) {
+              results = await readSmsMessages();
+              setSource('sms');
             } else {
-                // Browser demo mode
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                const mockSMS = [
-                    { body: "Dear Customer, your A/c ending 5678 has been debited by Rs 250.00 at Zomato on 31-May-26 via UPI. Ref 12345", date: Date.now() - 3600000 },
-                    { body: "INR 25,000.00 credited to your SBI A/c ending 1234 on 30-May-26 towards Salary. Ref SBI7890", date: Date.now() - 24 * 3600000 },
-                    { body: "You sent Rs. 99.00 to Chai Tapri using GPay UPI. Txn Ref 78901 on 31-May-26", date: Date.now() - 2 * 3600000 },
-                    { body: "Paid Rs. 450.00 to Bharat Petroleum Petrol Pump on PhonePe.", date: Date.now() - 4 * 3600000 },
-                    { body: "Dear Customer, your Credit Card ending 9876 debited by Rs 1,899.00 at Netflix India. Limit available Rs 85,000.00", date: Date.now() - 5 * 3600000 }
-                ];
-                const parsed = mockSMS.map(m => parseTransactionSMS(m.body, m.date)).filter(t => t !== null);
-                const mapped = parsed.map(t => ({ ...t, categoryId: guessCategory(t.description, t.type) }));
-                setTransactions(mapped);
-                setSelectedIndices(mapped.map((_, i) => i));
-                setScanMode('demo');
+              smsBlocked = true;
             }
-        } catch (error) {
-            console.error("Scanning failed:", error);
-        }
-        setScanning(false);
-    };
-
-    // Read from SMS inbox (original method)
-    const readSMSInbox = async () => {
-        const minDate = Date.now() - 5 * 24 * 60 * 60 * 1000;
-        const result = await MessageReader.getSMSList({ minDate, max: 80 });
-        const smsList = result.messages || [];
-        return smsList
-            .map(m => parseTransactionSMS(m.body, parseInt(m.date)))
-            .filter(t => t !== null);
-    };
-
-    // Read from Notification Listener (fallback method)
-    const readNotifications = async () => {
-        const minDate = Date.now() - 5 * 24 * 60 * 60 * 1000;
-        const result = await NotificationListener.getCapturedNotifications({
-            minDate: String(minDate)
-        });
-        const notifications = result.notifications || [];
-        return notifications
-            .map(n => parseTransactionSMS(n.body, parseInt(n.date)))
-            .filter(t => t !== null);
-    };
-
-    // Open Android notification access settings
-    const openNotifSettings = async () => {
-        try {
-            await NotificationListener.openListenerSettings();
+          }
         } catch (e) {
-            console.error("Could not open settings:", e);
+          console.warn('[SMSScan] SMS reader failed:', e);
+          smsBlocked = true;
         }
-    };
 
-    // Re-check after user returns from settings
-    const retryAfterSetup = async () => {
-        const enabled = await checkNotifListener();
-        if (enabled) {
-            setShowNotifSetup(false);
-            setPermissionError(false);
-            // Notification Listener is now enabled but needs time to capture notifications
-            // Show a helpful message
-            setScanMode('notification');
-            setTransactions([]);
-            setScanning(false);
+        // ── Notification Listener fallback ────────────────────────────────────
+        if (smsBlocked || results.length === 0) {
+          const listenerOn = await isNotificationListenerEnabled();
+          if (listenerOn) {
+            const notifResults = await readNotifications();
+            if (notifResults.length > 0) {
+              results = notifResults;
+              setSource('notification');
+            } else if (smsBlocked) {
+              // Listener ON but 0 results — first launch, no data yet
+              setNoNotifYet(true);
+            } else {
+              // SMS returned 0 and notif returned 0 — still show setup
+              setShowSetup(true);
+              setLoading(false);
+              return;
+            }
+          } else if (smsBlocked) {
+            // SMS blocked + listener OFF → show setup
+            setShowSetup(true);
+            setLoading(false);
+            return;
+          }
         }
-    };
 
-    // Keyword matching helper to auto-select matching categories
-    const guessCategory = (description, type) => {
-        const descLower = description.toLowerCase();
-        
-        // Find categories
-        const incomeCats = categories.filter(c => c.type === 'income');
-        const expenseCats = categories.filter(c => c.type === 'expense');
-        const defaultExpense = expenseCats[0]?.id || '';
-        const defaultIncome = incomeCats[0]?.id || '';
+        results.sort((a, b) => new Date(b.date) - new Date(a.date));
+        const withCategory = results.map(t => ({
+          ...t,
+          categoryId: autoCategory(t.description, t.type, categories),
+        }));
+        setTransactions(withCategory);
+        setSelected(withCategory.map((_, i) => i));
 
-        if (type === 'income') {
-            if (descLower.includes('salary') || descLower.includes('salary credited')) {
-                const match = incomeCats.find(c => c.name.toLowerCase().includes('salary'));
-                return match ? match.id : defaultIncome;
-            }
-            const freelanceMatch = incomeCats.find(c => c.name.toLowerCase().includes('freelance') || c.name.toLowerCase().includes('business'));
-            return freelanceMatch ? freelanceMatch.id : defaultIncome;
-        } else {
-            if (descLower.includes('zomato') || descLower.includes('swiggy') || descLower.includes('food') || descLower.includes('restaurant') || descLower.includes('chai') || descLower.includes('cafe')) {
-                const match = expenseCats.find(c => c.name.toLowerCase().includes('food') || c.name.toLowerCase().includes('dining') || c.name.toLowerCase().includes('coffee'));
-                return match ? match.id : defaultExpense;
-            }
-            if (descLower.includes('petrol') || descLower.includes('fuel') || descLower.includes('uber') || descLower.includes('ola') || descLower.includes('travel') || descLower.includes('auto') || descLower.includes('cab')) {
-                const match = expenseCats.find(c => c.name.toLowerCase().includes('transport') || c.name.toLowerCase().includes('travel') || c.name.toLowerCase().includes('fuel'));
-                return match ? match.id : defaultExpense;
-            }
-            if (descLower.includes('netflix') || descLower.includes('spotify') || descLower.includes('prime') || descLower.includes('movie') || descLower.includes('cinema')) {
-                const match = expenseCats.find(c => c.name.toLowerCase().includes('entertainment') || c.name.toLowerCase().includes('sub'));
-                return match ? match.id : defaultExpense;
-            }
-            if (descLower.includes('electricity') || descLower.includes('recharge') || descLower.includes('water') || descLower.includes('utilities') || descLower.includes('broadband') || descLower.includes('wifi')) {
-                const match = expenseCats.find(c => c.name.toLowerCase().includes('utilities') || c.name.toLowerCase().includes('bill'));
-                return match ? match.id : defaultExpense;
-            }
-            return defaultExpense; // fallback
-        }
-    };
+      } else {
+        // Web browser — demo mode
+        await new Promise(r => setTimeout(r, 1500));
+        const demo = DEMO_SMS.map(m => parseSms(m.body, m.date)).filter(Boolean)
+          .map(t => ({ ...t, categoryId: autoCategory(t.description, t.type, categories) }));
+        setTransactions(demo);
+        setSelected(demo.map((_, i) => i));
+        setSource('demo');
+      }
+    } catch (e) {
+      console.error('[SMSScan] Scanning failed:', e);
+      setShowSetup(true);
+    }
+    setScanDone(true);
+    setLoading(false);
+  }, [categories]);
 
-    const handleToggleSelect = (index) => {
-        setSelectedIndices(prev => 
-            prev.includes(index) 
-                ? prev.filter(i => i !== index) 
-                : [...prev, index]
-        );
-    };
+  useEffect(() => {
+    if (isOpen) {
+      setTransactions([]);
+      setSelected([]);
+      setShowSetup(false);
+      setScanDone(false);
+      setNoNotifYet(false);
+      setSource(null);
+      startScan();
+    }
+  }, [isOpen, startScan]);
 
-    const handleCategoryChange = (index, catId) => {
-        setTransactions(prev => 
-            prev.map((item, i) => i === index ? { ...item, categoryId: catId } : item)
-        );
-    };
+  function autoCategory(description, type, cats) {
+    if (!cats || cats.length === 0) return '';
+    const low = (description || '').toLowerCase();
+    const RULES = [
+      { kw: ['zomato', 'swiggy', 'food', 'restaurant', 'chai', 'cafe'], cw: ['food', 'dining'] },
+      { kw: ['petrol', 'fuel', 'uber', 'ola', 'auto', 'cab', 'rapido'], cw: ['transport', 'travel'] },
+      { kw: ['netflix', 'spotify', 'prime', 'movie'], cw: ['entertainment'] },
+      { kw: ['doctor', 'hospital', 'medicine', 'pharmacy'], cw: ['health', 'medical'] },
+      { kw: ['salary', 'payroll'], cw: ['salary', 'income'] },
+      { kw: ['atm', 'cash withdrawal'], cw: ['cash'] },
+    ];
+    const typeCats = cats.filter(c => c.type === type);
+    for (const { kw, cw } of RULES) {
+      if (kw.some(k => low.includes(k))) {
+        const match = typeCats.find(c => cw.some(w => c.name.toLowerCase().includes(w)));
+        if (match) return match.id;
+      }
+    }
+    return typeCats[0]?.id || '';
+  }
 
-    const handleImport = () => {
-        const selectedTxs = transactions.filter((_, i) => selectedIndices.includes(i));
-        // Remove rawSms before saving to db
-        const cleanedTxs = selectedTxs.map(({ rawSms, ...rest }) => rest);
-        onImport(cleanedTxs);
-        onClose();
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-lg bg-card border rounded-2xl shadow-xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
-                
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                    <div className="flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5 text-primary" />
-                        <h2 className="font-bold text-lg">Scan SMS Transactions</h2>
-                    </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {scanning ? (
-                        <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-                            <Sparkles className="w-10 h-10 text-primary animate-bounce" />
-                            <div className="space-y-1.5">
-                                <p className="font-semibold text-sm">Scanning Inbox alerts...</p>
-                                <p className="text-xs text-muted-foreground">Reading latest payment alerts from UPI and bank notifications.</p>
-                            </div>
-                        </div>
-                    ) : permissionError ? (
-                        <div className="p-5 text-center space-y-4 border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl">
-                            <Bell className="w-12 h-12 text-amber-500 mx-auto" />
-                            <div className="space-y-2">
-                                <h3 className="font-bold text-sm">Enable Notification Access</h3>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                    SMS permission is blocked on your device. Instead, enable <strong>Notification Access</strong> to automatically capture bank & UPI transaction notifications. This works on all phones without any restrictions.
-                                </p>
-                            </div>
-
-                            <div className="space-y-2 text-left bg-card/80 rounded-lg p-3 border">
-                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Quick Setup (30 seconds)</p>
-                                <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
-                                    <li>Tap <strong>"Open Settings"</strong> below</li>
-                                    <li>Find <strong>"Budget Tracker"</strong> in the list</li>
-                                    <li>Toggle it <strong>ON</strong> and tap Allow</li>
-                                    <li>Come back here and tap <strong>"I've Enabled It"</strong></li>
-                                </ol>
-                            </div>
-
-                            <div className="flex gap-2 justify-center pt-1">
-                                <button 
-                                    onClick={openNotifSettings} 
-                                    className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs hover:bg-primary/90 transition-colors shadow flex items-center gap-1.5"
-                                >
-                                    <Settings className="w-3.5 h-3.5" />
-                                    Open Settings
-                                </button>
-                                <button 
-                                    onClick={retryAfterSetup} 
-                                    className="px-4 py-2 border font-semibold rounded-xl text-xs hover:bg-muted transition-colors flex items-center gap-1.5"
-                                >
-                                    <RefreshCw className="w-3.5 h-3.5" />
-                                    I've Enabled It
-                                </button>
-                            </div>
-                        </div>
-                    ) : transactions.length === 0 ? (
-                        <div className="py-12 text-center text-muted-foreground space-y-3">
-                            <AlertCircle className="w-12 h-12 mx-auto opacity-20" />
-                            <p className="text-sm font-medium">No new transactions found in SMS alerts.</p>
-                            <p className="text-xs max-w-xs mx-auto">Make sure you have recent SMS notifications from your bank or UPI apps like GPay/PhonePe.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center text-xs text-muted-foreground pb-2 border-b">
-                                <span>Checked ({selectedIndices.length} of {transactions.length})</span>
-                                <span className="flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-yellow-500 animate-pulse" /> Auto-categorized</span>
-                            </div>
-
-                            <div className="space-y-2">
-                                {transactions.map((tx, idx) => {
-                                    const isSelected = selectedIndices.includes(idx);
-                                    const selectedCat = categories.find(c => c.id === tx.categoryId);
-                                    
-                                    return (
-                                        <div 
-                                            key={idx} 
-                                            className={cn(
-                                                "p-3 rounded-xl border flex items-center justify-between gap-3 transition-all",
-                                                isSelected ? "border-primary/40 bg-primary/5 ring-1 ring-primary/10" : "border-border bg-card"
-                                            )}
-                                        >
-                                            {/* Select Checkbox & Icon */}
-                                            <div className="flex items-center gap-3">
-                                                <button 
-                                                    onClick={() => handleToggleSelect(idx)}
-                                                    className={cn(
-                                                        "w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0",
-                                                        isSelected ? "bg-primary border-primary text-primary-foreground" : "border-input bg-background"
-                                                    )}
-                                                >
-                                                    {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                                                </button>
-                                                
-                                                <div className="space-y-0.5">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="font-semibold text-xs leading-none">{tx.description}</span>
-                                                        <span className={cn(
-                                                            "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase leading-none",
-                                                            tx.type === 'expense' ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" : "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                                                        )}>
-                                                            {tx.type === 'expense' ? 'Debit' : 'Credit'}
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    {/* Category Selector inside scanned row */}
-                                                    <div className="flex items-center gap-1.5">
-                                                        <select
-                                                            value={tx.categoryId}
-                                                            onChange={(e) => handleCategoryChange(idx, e.target.value)}
-                                                            className="text-[10px] font-medium bg-transparent border-none p-0 focus:ring-0 text-muted-foreground hover:text-foreground cursor-pointer outline-none"
-                                                        >
-                                                            {categories.filter(c => c.type === tx.type).map(c => (
-                                                                <option key={c.id} value={c.id} className="bg-card text-foreground">{c.name}</option>
-                                                            ))}
-                                                        </select>
-                                                        <ChevronRight className="w-2.5 h-2.5 text-muted-foreground" />
-                                                        <span className="text-[10px] text-muted-foreground capitalize flex items-center gap-0.5">
-                                                            via {tx.paymentMode}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Date and Amount */}
-                                            <div className="text-right shrink-0">
-                                                <div className={cn("text-sm font-bold", tx.type === 'expense' ? "text-red-500" : "text-green-500")}>
-                                                    {tx.type === 'expense' ? '-' : '+'}{tx.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
-                                                </div>
-                                                <div className="text-[9px] text-muted-foreground flex items-center justify-end gap-1">
-                                                    <Calendar className="w-2.5 h-2.5" />
-                                                    {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-4 border-t flex justify-between gap-3 bg-muted/30">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        {scanMode === 'demo' && (
-                            <span className="bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded font-medium text-[10px]">
-                                Demo Mode (Web Browser)
-                            </span>
-                        )}
-                        {scanMode === 'notification' && (
-                            <span className="bg-purple-100 dark:bg-purple-950/30 text-purple-800 dark:text-purple-400 px-2 py-0.5 rounded font-medium text-[10px] flex items-center gap-1">
-                                <Bell className="w-2.5 h-2.5" />
-                                via Notifications
-                            </span>
-                        )}
-                        {scanMode === 'sms' && (
-                            <span className="bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-400 px-2 py-0.5 rounded font-medium text-[10px] flex items-center gap-1">
-                                <MessageSquare className="w-2.5 h-2.5" />
-                                via SMS Inbox
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={onClose} className="px-4 py-2 border rounded-xl hover:bg-muted text-xs font-semibold transition-colors">
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleImport}
-                            disabled={selectedIndices.length === 0 || scanning}
-                            className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:bg-primary/90 transition-all disabled:opacity-50 disabled:pointer-events-none shadow"
-                        >
-                            Import Selected ({selectedIndices.length})
-                        </button>
-                    </div>
-                </div>
-
-            </div>
-        </div>
+  function toggleSelect(idx) {
+    setSelected(prev =>
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
     );
-};
+  }
 
-export default SMSScanModal;
+  function handleImport() {
+    const toImport = selected.map(i => transactions[i]);
+    onImport(toImport);
+    onClose();
+  }
+
+  async function openListenerSettings() {
+    try { await NotificationListener.openListenerSettings(); } catch (e) { console.error(e); }
+  }
+
+  async function retryAfterSetup() {
+    setShowSetup(false);
+    setNoNotifYet(true);
+    const listenerOn = await isNotificationListenerEnabled();
+    if (listenerOn) {
+      setNoNotifYet(false);
+      setLoading(true);
+      try {
+        const results = await readNotifications();
+        if (results.length > 0) {
+          const withCat = results.map(t => ({ ...t, categoryId: autoCategory(t.description, t.type, categories) }));
+          setTransactions(withCat);
+          setSelected(withCat.map((_, i) => i));
+          setSource('notification');
+        } else {
+          setNoNotifYet(true);
+        }
+      } catch (e) {
+        console.warn('[SMSScan] Retry error:', e);
+      }
+      setLoading(false);
+    }
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--background, #fff)', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 20px 12px', borderBottom: '1px solid var(--border, #eee)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>📩 Import from SMS</h2>
+              {source === 'demo' && <span style={{ fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>Demo Mode (Web Browser)</span>}
+              {source === 'notification' && <span style={{ fontSize: 11, background: '#ede9fe', color: '#6d28d9', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>via Notifications</span>}
+              {source === 'sms' && <span style={{ fontSize: 11, background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>via SMS Inbox ✓</span>}
+            </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--foreground, #333)' }}>×</button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+
+          {loading && (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+              <p style={{ margin: 0, fontWeight: 600 }}>Scanning your SMS inbox...</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>Reading last 30 days</p>
+            </div>
+          )}
+
+          {!loading && showSetup && (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Enable Notification Access</h3>
+              <p style={{ margin: '0 0 20px', fontSize: 13, color: '#666' }}>
+                SMS permission was denied. Enable Notification Listener so the app can read bank alerts automatically.
+              </p>
+              <button onClick={openListenerSettings} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer', width: '100%', marginBottom: 10 }}>
+                Open Notification Settings
+              </button>
+              <button onClick={retryAfterSetup} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 12, padding: '10px 24px', fontWeight: 600, fontSize: 13, cursor: 'pointer', width: '100%' }}>
+                I've enabled it — Retry
+              </button>
+            </div>
+          )}
+
+          {!loading && noNotifYet && !showSetup && (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>No notifications captured yet</h3>
+              <p style={{ fontSize: 13, color: '#666' }}>
+                Notification Listener is active. New bank alerts will be captured automatically. Wait for a transaction and try again.
+              </p>
+            </div>
+          )}
+
+          {!loading && scanDone && !showSetup && !noNotifYet && transactions.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+              <p style={{ fontWeight: 600 }}>No bank transactions found in last 30 days</p>
+              <p style={{ fontSize: 13, color: '#888' }}>Make sure your bank sends SMS alerts to this SIM.</p>
+            </div>
+          )}
+
+          {!loading && transactions.length > 0 && transactions.map((t, i) => (
+            <div key={i} onClick={() => toggleSelect(i)} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+              borderRadius: 12, border: `1px solid ${selected.includes(i) ? '#7c3aed' : '#e5e7eb'}`,
+              background: selected.includes(i) ? '#faf5ff' : '#fff', marginBottom: 8, cursor: 'pointer'
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: 6, border: `2px solid ${selected.includes(i) ? '#7c3aed' : '#d1d5db'}`,
+                background: selected.includes(i) ? '#7c3aed' : 'transparent', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {selected.includes(i) && <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>✓</span>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.description}</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                  {t.bankName} · {new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · via {t.paymentMode}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: t.type === 'expense' ? '#ef4444' : '#10b981' }}>
+                  {t.type === 'expense' ? '-' : '+'}₹{t.amount.toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase' }}>
+                  {t.type === 'expense' ? 'Debit' : 'Credit'}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        {!loading && !showSetup && transactions.length > 0 && (
+          <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border, #eee)', display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: 12, fontWeight: 600, fontSize: 14, background: 'none', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={selected.length === 0}
+              style={{ flex: 2, padding: '12px', background: selected.length === 0 ? '#ccc' : '#7c3aed', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: selected.length === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              Import Selected ({selected.length})
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

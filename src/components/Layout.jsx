@@ -3,7 +3,7 @@ import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Wallet, Settings, Receipt, Menu, X, User, Building2, TrendingUp, PieChart } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useState } from 'react';
+
 import ClockWidget from './ClockWidget';
 import { useAuth } from '../context/AuthContext';
 

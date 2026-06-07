@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { X, Target, Save, DollarSign } from 'lucide-react';
-import { cn } from '../lib/utils';
+
 import { useFinanceData } from '../hooks/useFinanceData';
 
 const BudgetTargetModal = ({ isOpen, onClose }) => {
-    const { monthlyBudget, updateBudget, formatMoney, currency } = useFinanceData();
+    const { monthlyBudget, updateBudget, currency } = useFinanceData();
     const [amount, setAmount] = useState(monthlyBudget);
 
     if (!isOpen) return null;

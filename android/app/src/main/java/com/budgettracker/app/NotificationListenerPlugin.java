@@ -96,4 +96,36 @@ public class NotificationListenerPlugin extends Plugin {
         prefs.edit().putString(KEY_NOTIFICATIONS, "[]").apply();
         call.resolve();
     }
+
+    /**
+     * Opens the App Info settings page for this app.
+     * On Android 13+ (API 33+), users need to enable "Allow restricted settings"
+     * from here before they can enable Notification Listener access.
+     */
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open app settings", e);
+        }
+    }
+
+    /**
+     * Checks if device is Android 13+ where restricted settings may block
+     * notification listener access for side-loaded apps.
+     */
+    @PluginMethod
+    public void getDeviceInfo(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("sdkVersion", android.os.Build.VERSION.SDK_INT);
+        ret.put("needsRestrictedSettings", android.os.Build.VERSION.SDK_INT >= 33);
+        boolean listenerEnabled = BankNotificationListenerService.isEnabled(getContext());
+        ret.put("listenerEnabled", listenerEnabled);
+        call.resolve(ret);
+    }
 }

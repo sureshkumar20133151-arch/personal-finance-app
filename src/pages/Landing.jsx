@@ -7,7 +7,7 @@ import {
     ArrowRight, Lock, Smartphone, Zap,
     PieChart, Calendar, Menu, X, ChevronDown
 } from 'lucide-react';
-import { cn } from "../lib/utils";
+
 
 const Landing = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -276,7 +276,7 @@ const Landing = () => {
                             <div className="relative p-8 rounded-3xl border-2 border-primary bg-slate-900 text-white shadow-2xl">
                                 <div className="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-2xl">RECOMMENDED</div>
                                 <h3 className="text-2xl font-bold mb-2">Pro Plan</h3>
-                                <div className="text-4xl font-black mb-6">₹199<span className="text-base font-medium text-slate-400">/mo</span></div>
+                                <div className="text-4xl font-black mb-6">₹10<span className="text-base font-medium text-slate-400">/mo</span></div>
                                 <p className="text-slate-300 mb-8 pb-8 border-b border-slate-800">For serious savers and businesses.</p>
                                 <ul className="space-y-4 mb-8">
                                     <li className="flex items-center gap-3 text-sm"><CheckCircle2 className="w-5 h-5 text-primary" /> <strong>Unlimited</strong> Entries</li>

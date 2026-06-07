@@ -1,4 +1,4 @@
-
+import { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -15,11 +15,22 @@ import Legal from './pages/Legal';
 
 
 import { FinanceProvider } from './context/FinanceContext';
+import SmsSetupGuide from './context/SmsSetupGuide';
 
 import Budget from './pages/Budget';
 
 const App = () => {
   const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+  const [showSmsSetup, setShowSmsSetup] = useState(false);
+
+  useEffect(() => {
+    const handler = () => {
+      console.log("[App] sms_needs_setup event received, showing guide modal");
+      setShowSmsSetup(true);
+    };
+    window.addEventListener("sms_needs_setup", handler);
+    return () => window.removeEventListener("sms_needs_setup", handler);
+  }, []);
 
   return (
     <Router>
@@ -47,6 +58,15 @@ const App = () => {
               <Route path="/account" element={<Account />} />
             </Route>
           </Routes>
+          <SmsSetupGuide
+            isOpen={showSmsSetup}
+            onClose={() => setShowSmsSetup(false)}
+            onDone={() => {
+              setShowSmsSetup(false);
+              // Trigger a rescan after setup
+              window.dispatchEvent(new CustomEvent("sms_rescan"));
+            }}
+          />
         </FinanceProvider>
       </AuthProvider>
     </Router>

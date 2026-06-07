@@ -144,7 +144,7 @@ const Account = () => {
 
         const options = {
             key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SqWOpMmySq1KXZ',
-            amount: 19900, // Amount is in currency subunits (199 INR = 19900 paise)
+            amount: 1000, // Amount is in currency subunits (10 INR = 1000 paise)
             currency: 'INR',
             name: 'BudgetTracker Pro',
             description: `Upgrade to ${plan}`,
@@ -385,7 +385,7 @@ const Account = () => {
                                 </div>
                             )}
                             <h3 className="text-2xl font-bold text-foreground mb-2">Pro Plan</h3>
-                            <div className="text-3xl font-black text-foreground mb-6">₹199<span className="text-base font-medium text-muted-foreground">/mo</span></div>
+                            <div className="text-3xl font-black text-foreground mb-6">₹10<span className="text-base font-medium text-muted-foreground">/mo</span></div>
                             <p className="text-muted-foreground mb-6 pb-6 border-b border-border">For serious savers and businesses.</p>
                             <ul className="space-y-3 mb-8">
                                 <li className="flex items-center gap-3 text-sm"><CheckCircle2 className="w-5 h-5 text-primary" /> <strong>Unlimited</strong> Entries</li>
@@ -399,7 +399,7 @@ const Account = () => {
                                 </button>
                             ) : (
                                 <button 
-                                    onClick={() => handleUpgrade('Pro Plan (₹199/mo)')} 
+                                    onClick={() => handleUpgrade('Pro Plan (₹10/mo)')} 
                                     disabled={checkoutLoading}
                                     className="block w-full py-2.5 px-6 text-center rounded-xl bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25 disabled:opacity-50 disabled:pointer-events-none"
                                 >

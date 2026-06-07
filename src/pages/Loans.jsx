@@ -190,7 +190,7 @@ const Loans = () => {
             <div className="grid gap-6 md:grid-cols-2">
                 {loans.map(loan => {
                     const isDebt = loan.type === 'debt';
-                    const { monthsPassed, progress } = calculateProgress(loan);
+                    const { progress } = calculateProgress(loan);
                     const endDate = getEndDate(loan);
                     const stats = getLoanDetails(loan); // Get stats (Remaining, Interest, etc)
 
