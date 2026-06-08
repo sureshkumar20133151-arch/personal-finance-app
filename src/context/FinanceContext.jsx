@@ -271,7 +271,8 @@ export function FinanceProvider({ children }) {
       .filter(t => {
       if (t.source === 'sms') {
         if (!t.bankName || t.bankName === 'Unknown Bank' || t.bankName === 'Bank Account') return false;
-        if (!t.accountEnding || t.accountEnding === 'null') return false;
+        const isUPI = t.bankName === 'GPay/UPI' || t.bankName === 'PhonePe';
+        if ((!t.accountEnding || t.accountEnding === 'null') && !isUPI) return false;
       }
       return true;
     });
