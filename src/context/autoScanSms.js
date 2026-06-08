@@ -55,8 +55,8 @@ function getBankName(sms, sender = '') {
   const snd = sender.toLowerCase();
 
   // 1. Highly reliable detection from SENDER ID
-  if (snd.includes('indbnk') || snd.includes('indian')) return 'Indian Bank';
-  if (snd.includes('canbka') || snd.includes('canara')) return 'Canara Bank';
+  if (snd.includes('indbnk') || snd.includes('indian') || snd.includes('idib')) return 'Indian Bank';
+  if (snd.includes('canbka') || snd.includes('canara') || snd.includes('canbnk') || snd.includes('cnrb')) return 'Canara Bank';
   if (snd.includes('sbiinb') || snd.includes('sbi')) return 'SBI';
   if (snd.includes('hdfcbk') || snd.includes('hdfc')) return 'HDFC Bank';
   if (snd.includes('icicib') || snd.includes('icici')) return 'ICICI Bank';
