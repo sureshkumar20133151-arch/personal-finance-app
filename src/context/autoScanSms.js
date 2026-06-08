@@ -107,6 +107,56 @@ function getAccountEnding(body) {
   return null;
 }
 
+export function parseUpiNotification(body, dateMs) {
+  if (!body) return null;
+  const receivedPattern = /(.+?)\s+paid\s+you\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
+  const sentPattern = /you\s+paid\s+(.+?)\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
+  const phonepePattern = /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+sent\s+to\s+(.+)/i;
+
+  let amount = null, type = null, description = null;
+  let m = body.match(receivedPattern);
+  if (m) { amount = parseFloat(m[2].replace(/,/g, '')); type = 'income'; description = m[1].trim(); }
+
+  if (!amount) {
+    m = body.match(sentPattern);
+    if (m) { amount = parseFloat(m[2].replace(/,/g, '')); type = 'expense'; description = m[1].trim(); }
+  }
+
+  if (!amount) {
+    m = body.match(phonepePattern);
+    if (m) { amount = parseFloat(m[1].replace(/,/g, '')); type = 'expense'; description = m[2].trim(); }
+  }
+
+  if (!amount || isNaN(amount) || amount <= 0) return null;
+
+  return {
+    amount,
+    description: description?.substring(0, 30) || 'UPI Transfer',
+    type,
+    date: dateMs ? new Date(dateMs).toISOString() : new Date().toISOString(),
+    paymentMode: 'upi',
+    bankName: 'GPay/UPI',
+    accountEnding: null,
+    availableBalance: null,
+    source: 'sms',
+    rawSms: body,
+  };
+}
+
+export function getAvailableBalance(body) {
+  const patterns = [
+    /(?:total\s+)?avail(?:able)?\.?\s*bal(?:ance)?\s*(?:inr|rs\.?|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /available\s+balance\s*:?\s*(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /\bbal\s+(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /balance\s*:?\s*(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  ];
+  for (const p of patterns) {
+    const m = body.match(p);
+    if (m?.[1]) return parseFloat(m[1].replace(/,/g, ''));
+  }
+  return null;
+}
+
 export function parseSms(body, dateMs, sender = '') {
   if (!body) return null;
   const low = body.toLowerCase();
@@ -183,6 +233,7 @@ export function parseSms(body, dateMs, sender = '') {
     paymentMode,
     bankName: getBankName(body, sender),
     accountEnding: getAccountEnding(body),
+    availableBalance: getAvailableBalance(body),
     source: 'sms',
     rawSms: body,
   };
@@ -274,7 +325,11 @@ async function readNotifications() {
     
     const { notifications = [] } = await NotificationListener.getCapturedNotifications({ minDate: String(minDate) });
     console.log('[AutoScan] Raw notification count:', notifications.length);
-    const parsed = notifications.map(n => parseSms(n.body, parseInt(n.date), n.title)).filter(Boolean);
+    const parsed = notifications.map(n => {
+      const body = n.body || n.text || n.content || '';
+      const date = parseInt(n.date || n.timestamp || Date.now());
+      return parseSms(body, date, n.title) || parseUpiNotification(body, date);
+    }).filter(Boolean);
     console.log('[AutoScan] Parsed financial notifications:', parsed.length);
     return parsed;
   } catch (e) {
