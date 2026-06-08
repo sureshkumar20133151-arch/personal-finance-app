@@ -16,7 +16,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { registerPlugin }    from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, deleteDoc } from "firebase/firestore";
 import { db }                from "../lib/firebase";          // ← your firebase.js path
 import { useAuth }           from "./AuthContext";       // ← your auth context path
 import { autoScanTransactions, autoCategory, getAvailableBalance } from "./autoScanSms";
@@ -103,6 +103,24 @@ export function FinanceProvider({ children }) {
 
     const boot = async (loadedState) => {
       if (!cancelled) {
+        // --- MIGRATION: Fix duplicate Canara Bank 128 -> 9128 ---
+        if (loadedState.transactions) {
+          let migrated = false;
+          loadedState.transactions = loadedState.transactions.map(t => {
+            if (t.bankName === 'Canara Bank' && t.accountEnding === '128') {
+              migrated = true;
+              return { ...t, accountEnding: '9128' };
+            }
+            return t;
+          });
+          if (migrated) {
+            console.log("[FinanceContext] Migrated Canara Bank 128 -> 9128");
+            // Optionally, we could saveImmediate here, but boot already sets state and 
+            // the app will persist on next change, or we can just let it persist naturally.
+          }
+        }
+        // --------------------------------------------------------
+
         // Request permissions for notifications
         if (window.Capacitor?.isNativePlatform()) {
           try {
@@ -440,10 +458,16 @@ export function FinanceProvider({ children }) {
     // 2. Wipe Firebase safely
     if (currentUser && !currentUser.isAnonymous) {
       try {
+        // Use deleteDoc so Firebase actually removes the document, then set fresh config
+        await deleteDoc(doc(db, "users", currentUser.uid));
         await setDoc(doc(db, "users", currentUser.uid), fresh);
+        // Wait to allow Firebase to process before reloading
+        await new Promise(r => setTimeout(r, 500));
       } catch(e) {
         console.error("Firebase wipe failed", e);
       }
+    } else {
+        await new Promise(r => setTimeout(r, 100));
     }
     
     window.location.reload();
