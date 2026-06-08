@@ -323,23 +323,35 @@ export function FinanceProvider({ children }) {
     });
 
     Object.keys(map).forEach(key => {
-      const withBalance = allTx
-        .filter(t => `${t.bankName}_${t.accountEnding}` === key && t.availableBalance != null)
+      const accountTxs = allTx.filter(t => `${t.bankName}_${t.accountEnding}` === key);
+      const withBalance = accountTxs
+        .filter(t => t.availableBalance != null)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
       if (withBalance.length > 0) {
-        map[key].balance = withBalance[0].availableBalance;
+        const anchorTx = withBalance[0];
+        let computedBalance = anchorTx.availableBalance;
+        const anchorDate = new Date(anchorTx.date);
+
+        accountTxs.forEach(t => {
+          const tDate = new Date(t.date);
+          // Apply math only for transactions that happened STRICTLY AFTER the anchor SMS
+          // (Since the anchor SMS's availableBalance already includes its own transaction amount)
+          if (tDate > anchorDate) {
+            if (t.type === "income") computedBalance += t.amount;
+            else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+          }
+        });
+        map[key].balance = computedBalance;
       } else {
         const seedData = state.initialBankBalances?.[key];
         const seedDate = seedData?.date ? new Date(seedData.date) : null;
         let computedBalance = seedData ? (parseFloat(seedData.amount) || 0) : 0;
         
-        allTx.forEach(t => {
-          if (`${t.bankName}_${t.accountEnding}` === key) {
-            if (seedDate && new Date(t.date) < seedDate) return;
-            if (t.type === "income") computedBalance += t.amount;
-            else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
-          }
+        accountTxs.forEach(t => {
+          if (seedDate && new Date(t.date) < seedDate) return;
+          if (t.type === "income") computedBalance += t.amount;
+          else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
         });
         map[key].balance = computedBalance;
       }
