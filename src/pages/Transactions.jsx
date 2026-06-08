@@ -70,6 +70,11 @@ const Transactions = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
+    // PDF Password State
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [pdfPassword, setPdfPassword] = useState('');
+    const [pendingFile, setPendingFile] = useState(null);
+
     const handleSyncSms = async () => {
         if (refreshing) return;
         setRefreshing(true);
@@ -213,14 +218,20 @@ const Transactions = () => {
     };
 
     // Process file for parsing (shared by upload and drag&drop)
-    const processFile = async (file) => {
+    const processFile = async (file, password = null) => {
         if (!file) return;
 
         setIsParsing(true);
         setUploadError('');
 
         try {
-            const results = await parseStatement(file);
+            const results = await parseStatement(file, password);
+            
+            // If successful, reset password states
+            setShowPasswordModal(false);
+            setPdfPassword('');
+            setPendingFile(null);
+
             if (results.length === 0) {
                 setUploadError('No transactions found in file.');
             } else {
@@ -229,9 +240,21 @@ const Transactions = () => {
             }
         } catch (err) {
             console.error(err);
-            setUploadError(err.message || 'Failed to parse file.');
+            if (err.name === 'PasswordException') {
+                setPendingFile(file);
+                setShowPasswordModal(true);
+                setUploadError('Password required to open this PDF.');
+            } else {
+                setUploadError(err.message || 'Failed to parse file.');
+            }
         } finally {
             setIsParsing(false);
+        }
+    };
+
+    const handlePasswordSubmit = () => {
+        if (pendingFile && pdfPassword) {
+            processFile(pendingFile, pdfPassword);
         }
     };
 
@@ -1009,6 +1032,59 @@ const Transactions = () => {
                 onImport={(txs) => addTransactions(txs)} 
                 categories={categories} 
             />
+
+            {/* PDF Password Modal */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-card border border-border w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                                🔒 Encrypted PDF
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-6">
+                                This bank statement is password protected. Please enter the password (often your Customer ID or DOB) to unlock it.
+                            </p>
+                            
+                            <div className="space-y-4">
+                                <input
+                                    type="password"
+                                    value={pdfPassword}
+                                    onChange={(e) => setPdfPassword(e.target.value)}
+                                    placeholder="Enter PDF password"
+                                    className="w-full h-12 rounded-xl border border-input bg-background px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handlePasswordSubmit();
+                                    }}
+                                />
+                                {uploadError && uploadError.includes('Password required') && (
+                                    <p className="text-xs text-red-500 font-medium">{uploadError}</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-border bg-muted/20 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowPasswordModal(false);
+                                    setPendingFile(null);
+                                    setPdfPassword('');
+                                    setUploadError('');
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handlePasswordSubmit}
+                                disabled={!pdfPassword || isParsing}
+                                className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                                {isParsing ? 'Decrypting...' : 'Unlock & Parse'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };
