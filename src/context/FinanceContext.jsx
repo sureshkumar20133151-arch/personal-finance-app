@@ -332,15 +332,26 @@ export function FinanceProvider({ children }) {
         .filter(t => t.availableBalance != null)
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+      const seedData = state.initialBankBalances?.[key];
+      const seedDate = seedData?.date ? new Date(seedData.date) : null;
+
       if (withBalance.length > 0) {
-        const anchorTx = withBalance[0];
-        let computedBalance = anchorTx.availableBalance;
-        const anchorDate = new Date(anchorTx.date);
+        const smsAnchor = withBalance[0];
+        let computedBalance;
+        let anchorDate;
+
+        if (seedDate && seedDate > new Date(smsAnchor.date)) {
+          // Manual seed is newer than the latest SMS
+          computedBalance = parseFloat(seedData.amount) || 0;
+          anchorDate = seedDate;
+        } else {
+          // SMS is newer or no valid manual seed
+          computedBalance = smsAnchor.availableBalance;
+          anchorDate = new Date(smsAnchor.date);
+        }
 
         accountTxs.forEach(t => {
           const tDate = new Date(t.date);
-          // Apply math only for transactions that happened STRICTLY AFTER the anchor SMS
-          // (Since the anchor SMS's availableBalance already includes its own transaction amount)
           if (tDate > anchorDate) {
             if (t.type === "income") computedBalance += t.amount;
             else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
@@ -348,8 +359,6 @@ export function FinanceProvider({ children }) {
         });
         map[key].balance = computedBalance;
       } else {
-        const seedData = state.initialBankBalances?.[key];
-        const seedDate = seedData?.date ? new Date(seedData.date) : null;
         let computedBalance = seedData ? (parseFloat(seedData.amount) || 0) : 0;
         
         accountTxs.forEach(t => {
