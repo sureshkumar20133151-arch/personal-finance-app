@@ -271,31 +271,8 @@ export function FinanceProvider({ children }) {
   }, [state.transactions]);
 
   const bankBalance = React.useMemo(() => {
-    const allTx = validTransactions;
-    let totalInitial = 0;
-    
-    if (state.initialBankBalances) {
-      Object.values(state.initialBankBalances).forEach(data => {
-        totalInitial += parseFloat(data.amount) || 0;
-      });
-    }
-
-    const validTx = allTx.filter(t => {
-      const key = (t.bankName && t.accountEnding) ? `${t.bankName}_${t.accountEnding}` : null;
-      const seedData = key ? state.initialBankBalances?.[key] : null;
-      const seedDate = seedData?.date ? new Date(seedData.date) : null;
-      return !(seedDate && new Date(t.date) < seedDate);
-    });
-
-    const bankIn  = validTx.filter(t => t.type === "income" && t.paymentMode !== "cash");
-    const bankOut = validTx.filter(t =>
-      (t.type === "expense" || t.type === "debt") &&
-      (t.paymentMode !== "cash" || t.description?.toLowerCase().includes("atm") || t.description?.toLowerCase().includes("cash withdrawal"))
-    );
-    const inflow  = bankIn.reduce((s, t) => s + t.amount, 0);
-    const outflow = bankOut.reduce((s, t) => s + t.amount, 0);
-    return totalInitial + inflow - outflow;
-  }, [validTransactions, state.initialBankBalances]);
+    return bankAccountBalances.reduce((sum, b) => sum + b.balance, 0);
+  }, [bankAccountBalances]);
 
   const cashBalance = React.useMemo(() => {
     const allTx   = validTransactions;
@@ -336,15 +313,31 @@ export function FinanceProvider({ children }) {
     allTx.forEach(t => {
       if (t.bankName && t.accountEnding) {
         const key = `${t.bankName}_${t.accountEnding}`;
+        if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
+        map[key].transactionCount++;
+      }
+    });
+
+    Object.keys(map).forEach(key => {
+      const withBalance = allTx
+        .filter(t => `${t.bankName}_${t.accountEnding}` === key && t.availableBalance != null)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      if (withBalance.length > 0) {
+        map[key].balance = withBalance[0].availableBalance;
+      } else {
         const seedData = state.initialBankBalances?.[key];
         const seedDate = seedData?.date ? new Date(seedData.date) : null;
+        let computedBalance = seedData ? (parseFloat(seedData.amount) || 0) : 0;
         
-        if (seedDate && new Date(t.date) < seedDate) return;
-
-        if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
-        if (t.type === "income") map[key].balance += t.amount;
-        else if (t.type === "expense" || t.type === "debt") map[key].balance -= t.amount;
-        map[key].transactionCount++;
+        allTx.forEach(t => {
+          if (`${t.bankName}_${t.accountEnding}` === key) {
+            if (seedDate && new Date(t.date) < seedDate) return;
+            if (t.type === "income") computedBalance += t.amount;
+            else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+          }
+        });
+        map[key].balance = computedBalance;
       }
     });
     return Object.values(map);
