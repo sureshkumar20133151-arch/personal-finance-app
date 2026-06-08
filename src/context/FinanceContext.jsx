@@ -19,7 +19,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db }                from "../lib/firebase";          // ← your firebase.js path
 import { useAuth }           from "./AuthContext";       // ← your auth context path
-import { autoScanTransactions, autoCategory } from "./autoScanSms";
+import { autoScanTransactions, autoCategory, getAvailableBalance } from "./autoScanSms";
 import { v4 as uuidv4 }     from "uuid";
 
 const App = registerPlugin("App");
@@ -261,7 +261,14 @@ export function FinanceProvider({ children }) {
 
   // ─── Computed balances ────────────────────────────────────────────────────
   const validTransactions = React.useMemo(() => {
-    return (state.transactions || []).filter(t => {
+    return (state.transactions || [])
+      .map(t => {
+        if (t.source === 'sms' && t.rawSms && t.availableBalance === undefined) {
+          return { ...t, availableBalance: getAvailableBalance(t.rawSms) };
+        }
+        return t;
+      })
+      .filter(t => {
       if (t.source === 'sms') {
         if (!t.bankName || t.bankName === 'Unknown Bank' || t.bankName === 'Bank Account') return false;
         if (!t.accountEnding || t.accountEnding === 'null') return false;
