@@ -83,22 +83,53 @@ const parseCSV = (file) => {
 
 const parsePDF = async (file, password = null) => {
     const arrayBuffer = await file.arrayBuffer();
+    const fullText = [];
     
-    // Pass the password to PDF.js. If it's wrong or missing and the PDF is encrypted, it throws PasswordException.
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password }).promise;
-    let fullText = [];
+    // Attempt parsing with password if provided
+    let pdf;
+    try {
+        pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+            password: password
+        }).promise;
+    } catch (error) {
+        if (error.name === 'PasswordException') {
+            throw error; // Re-throw to be caught by the UI
+        }
+        throw new Error('Failed to parse PDF: ' + error.message);
+    }
 
-    // Crude extraction: get all text items with their Y coordinates
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-
-        // Group by Y coordinate (row) with some tolerance
+        
         const rows = groupTextItemsByRow(textContent.items);
-        fullText = [...fullText, ...rows];
+        fullText.push(...rows);
     }
 
-    return normalizePDFRows(fullText);
+    // Attempt to detect Bank Name from global text
+    const rawText = fullText.join(' ').toLowerCase();
+    let bankName = 'Bank Account';
+    if (rawText.includes('canara') || rawText.includes('cnrb')) bankName = 'Canara Bank';
+    else if (rawText.includes('indian bank')) bankName = 'Indian Bank';
+    else if (rawText.includes('sbi') || rawText.includes('state bank')) bankName = 'SBI';
+    else if (rawText.includes('hdfc')) bankName = 'HDFC Bank';
+    else if (rawText.includes('icici')) bankName = 'ICICI Bank';
+    else if (rawText.includes('axis')) bankName = 'Axis Bank';
+    else if (rawText.includes('kotak')) bankName = 'Kotak Bank';
+
+    // Attempt to detect Account Number ending
+    let accountEnding = null;
+    const rawStr = fullText.join(' ');
+    // Matches patterns like "A/C No. 1234567890", "Account: 123456"
+    const accMatch = rawStr.match(/(?:a\/c|account)(?:\s+no\.?)?(?:\s*number)?[\s:]+(\d{4,})/i);
+    if (accMatch && accMatch[1]) {
+        const digits = accMatch[1];
+        accountEnding = digits.length >= 3 ? digits.substring(digits.length - 3) : digits;
+    }
+
+    const transactions = normalizePDFRows(fullText, bankName, accountEnding);
+    return transactions;
 };
 
 // Helper: Group PDF text items into lines based on Y position
@@ -238,14 +269,10 @@ const normalizeTransactions = (rawData) => {
     }).filter(t => t !== null);
 };
 
-// Heuristic Normalizer for PDF Text Lines
-const normalizePDFRows = (rows) => {
+// Heuristic Normalizer for Text-Based PDF Rows
+const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null) => {
+    const transactions = [];
     // Looking for lines that start with a date pattern
-    // Regex for date: \d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4} or \d{4}-\d{2}-\d{2}
-    // const dateRegex = /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{1,2}\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s\d{2,4})/i;
-    // Regex for date: Supports DD/MM/YYYY, YYYY-MM-DD, and textual months like 12 Jan 2024
-    // Regex for date: Supports DD/MM/YYYY, YYYY-MM-DD, DD.MM.YYYY, and textual months like 12 Jan 2024
-    const dateRegex = /(\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b)|(\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b)|(\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4}\b)/i;
 
     const transactions = [];
 
@@ -345,12 +372,20 @@ const normalizePDFRows = (rows) => {
 
                 const isoDate = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
 
+                let availableBalance = null;
+                if (amounts.length >= 2) {
+                    availableBalance = amounts[amounts.length - 1]; // The last amount in the row is typically the running balance
+                }
+
                 transactions.push({
                     date: isoDate,
                     description: description || 'PDF Import',
                     amount: amount,
                     type: type,
                     categoryId: '',
+                    bankName: bankName,
+                    accountEnding: accountEnding,
+                    availableBalance: availableBalance,
                     originalRow: row
                 });
             }
