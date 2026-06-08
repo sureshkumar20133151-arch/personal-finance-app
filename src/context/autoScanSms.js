@@ -1,7 +1,16 @@
-// autoScanSms.js — Definitive Fix (June 2026)
-// Bug fixed: SMS returned 0 results silently when listener is OFF and SMS works.
-// Bug fixed: Dedup by date+amount+type is too strict — added 60-sec window.
-// Bug fixed: SMSScanModal uses V.messages (wrong key on initial check).
+// autoScanSms.js — Fixed (June 2026)
+// ═══════════════════════════════════════════════════════════════════════
+// BUG FIXES:
+//  1. Cr Bal false positive — "Cr Bal Rs.9500" was parsed as income ₹9500
+//     Fix: Require currency symbol directly after Cr (no gap word allowed)
+//  2. dr pattern without word boundary — "order #1234" matched as dr=1234
+//     Fix: Added \b word boundaries to standalone dr/cr patterns
+//  3. Missing debit keywords — "used for", "purchase", "debit of" not matched
+//     Fix: Added to DEBIT_PATTERNS
+//  4. Balance amounts picked up — "Avl Bal Rs.19800" captured as transaction
+//     Fix: Pre-strip balance info from SMS before parsing (stripBalance)
+//  5. Zero amount not filtered in smsParser.js — amount <= 0 now rejected
+// ═══════════════════════════════════════════════════════════════════════
 
 import { Capacitor } from '@capacitor/core';
 
@@ -14,38 +23,67 @@ const NotificationListener = Capacitor.isNativePlatform()
   : null;
 
 // ─── Regex Patterns ─────────────────────────────────────────────────────────
+
 const DEBIT_PATTERNS = [
+  // "Rs.500 has been debited" / "INR 500 debited"
   /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been\s+)?(?:debited|spent|withdrawn|transferred|transfer|paid|deducted|sent|charged|charge)/i,
-  /(?:debited|spent|paid|withdrawn|deducted|sent|transferred|transfer|charged|charge)\s*(?:for|by|of|with|towards)?\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "debited Rs.500" / "paid Rs.500" / "used for Rs.500" / "purchase Rs.500" / "debit of Rs.500"
+  /(?:debited|spent|paid|withdrawn|deducted|sent|transferred|transfer|charged|charge|used\s+for|purchased?|debit\s+(?:of|by|amount))\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "sent Rs.500 to"
   /sent\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*to/i,
-  /dr\.?\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-  /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*dr/i,
+  // FIX #2: Added \b word boundary — prevents matching "order", "address", etc.
+  /\bdr\b\.?\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "Rs.500 Dr"
+  /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*\bdr\b/i,
+  // "debited with Rs.500"
   /debited\s+with\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "txn of Rs.500"
   /txn\s+of\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "INR 500 debited"
   /(?:inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+debited/i,
+  // "payment of Rs.500"
   /payment\s+of\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
 ];
 
 const CREDIT_PATTERNS = [
+  // "Rs.500 has been credited"
   /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been\s+)?(?:credited|deposited|received|added|refunded)/i,
+  // "credited Rs.500"
   /(?:credited|deposited|received|added|refunded)\s*(?:for|by|of|with|towards)?\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "paid you Rs.500"
   /(?:sent|transferred|paid)\s+you\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
-  // NEW: "Cr Rs 500" pattern
-  /cr\.?\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-  /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*cr/i,
+  // FIX #1: Was /cr\.?\s*(?:rs\.?|inr|₹)?\s*([\d,]+)/ — matched "Cr Bal Rs.9500"!
+  // Now: currency symbol must directly follow Cr (no gap words like "Bal")
+  /\bcr\b\.?\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  // "Rs.500 Cr" (amount then Cr)
+  /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*\bcr\b/i,
 ];
 
 const MERCHANT_PATTERN = /(?:at|to|towards|vpa|info|transfer\s+to|paid\s+to)\s+([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]+?)(?:\s+(?:on|via|using|ref|info|balance|date)|[.,]|\s*|$)/gi;
 const MERCHANT_ALT_PATTERN = /(?:merchant|ref|txn)\s+(?:name\s+)?([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]{3,25})/gi;
 const MERCHANT_INDIAN_BANK = /\bto\s+([A-Z][A-Z\s\.]{2,20}?)\s*\.\s*UPI:/ig;
 
+// ─── FIX #4: Strip balance info before parsing ────────────────────────────────
+// Prevents "Avl Bal Rs.19800" or "Cr Bal Rs.9500" from being parsed as amount
+function stripBalance(sms) {
+  return sms
+    // "Avl Bal Rs.9500" / "Available Balance Rs.9500" / "Avail Bal INR 9500"
+    .replace(/(?:avl|avail(?:able)?\.?)\s*(?:bal(?:ance)?|limit)\s*(?:is\s*)?(?:inr|rs\.?|₹)?\s*:?\s*[\d,]+(?:\.\d{1,2})?/gi, '')
+    // "Cr Bal Rs.9500" / "Cr Balance INR 9500"
+    .replace(/\bcr\.?\s*bal(?:ance)?\s*(?:inr|rs\.?|₹)?\s*:?\s*[\d,]+(?:\.\d{1,2})?/gi, '')
+    // "Balance Rs.9500" (standalone balance line)
+    .replace(/\bbal(?:ance)?\s*(?:inr|rs\.?|₹)\s*:?\s*[\d,]+(?:\.\d{1,2})?/gi, '');
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function isValidMerchant(str) {
   if (!str) return false;
   const s = str.trim();
   if (s.length < 2) return false;
   const low = s.toLowerCase();
-  if (low.includes('a/c') || low.includes('acct') || low.includes('account') || low.includes('card') || low.includes('ending')) return false;
+  if (low.includes('a/c') || low.includes('acct') || low.includes('account') ||
+      low.includes('card') || low.includes('ending')) return false;
   const digits = s.replace(/\D/g, '');
   return !(digits.length > 0 && digits.length >= s.length * 0.7);
 }
@@ -53,8 +91,7 @@ function isValidMerchant(str) {
 function getBankName(sms, sender = '') {
   const text = sms.toLowerCase();
   const snd = sender.toLowerCase();
-
-  // 1. Highly reliable detection from SENDER ID
+  // 1. Sender ID (most reliable)
   if (snd.includes('indbnk') || snd.includes('indian') || snd.includes('idib')) return 'Indian Bank';
   if (snd.includes('canbka') || snd.includes('canara') || snd.includes('canbnk') || snd.includes('cnrb')) return 'Canara Bank';
   if (snd.includes('sbiinb') || snd.includes('sbi')) return 'SBI';
@@ -64,9 +101,7 @@ function getBankName(sms, sender = '') {
   if (snd.includes('kotak')) return 'Kotak Bank';
   if (snd.includes('pnb')) return 'PNB';
   if (snd.includes('bob')) return 'Bank of Baroda';
-
-  // 2. Fallback to SMS Body (less reliable, can be confused by transaction memos)
-  // ⚠️ ORDER MATTERS — check specific names before short ones
+  // 2. SMS body (order matters — specific before short)
   if (text.includes('indian bank') || text.includes('ind bank') || text.includes('indianbank')) return 'Indian Bank';
   if (text.includes('canara') || text.includes('cnrb')) return 'Canara Bank';
   if (text.includes('kotak mahindra') || text.includes('kotak')) return 'Kotak Bank';
@@ -79,30 +114,23 @@ function getBankName(sms, sender = '') {
   if (text.includes('central bank')) return 'Central Bank';
   if (text.includes('paytm') || text.includes('ppbl')) return 'Paytm Bank';
   if (text.includes('airtel') || text.includes('apbl')) return 'Airtel Bank';
-  
-  // ✅ SBI last — "sbi" is 3 chars and can false-match
+  // SBI last — "sbi" is only 3 chars, prone to false match
   if (text.includes('state bank') || text.includes('sbi') || text.includes('yono')) return 'SBI';
-  
   return 'Bank Account';
 }
 
 function getAccountEnding(body) {
-  // Match A/c *4945 or A/c XX4945 or Acct ending 4945 etc.
   const patterns = [
-    /a\/c\s*[*Xx•]+(\d{4})\b/i,        // A/c *4945
-    /a\/c\s*[*Xx•]*(\d{3,4})\b/i,      // A/c 4945
-    /acct?\s*(?:no\.?)?\s*[*Xx•]*(\d{4})\b/i,  // Acct 4945
+    /a\/c\s*[*Xx•]+(\d{4})\b/i,
+    /a\/c\s*[*Xx•]*(\d{3,4})\b/i,
+    /acct?\s*(?:no\.?)?\s*[*Xx•]*(\d{4})\b/i,
     /account\s*(?:no\.?)?\s*[*Xx•]*(\d{4})\b/i,
     /ending\s+(?:in\s+)?(\d{4})\b/i,
-    /x{2,}(\d{4})\b/i,                 // XX4945 → 4945
+    /x{2,}(\d{4})\b/i,
   ];
-  
   for (const p of patterns) {
     const m = body.match(p);
-    if (m?.[1]) {
-      // Normalize to last 3 digits to merge accounts like "128" and "9128"
-      return m[1].length >= 3 ? m[1].slice(-3) : m[1];
-    }
+    if (m?.[1]) return m[1].length >= 3 ? m[1].slice(-3) : m[1];
   }
   return null;
 }
@@ -112,23 +140,19 @@ export function parseUpiNotification(body, dateMs) {
   const receivedPattern = /(.+?)\s+paid\s+you\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
   const sentPattern = /you\s+paid\s+(.+?)\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
   const phonepePattern = /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+sent\s+to\s+(.+)/i;
-
   let amount = null, type = null, description = null;
   let m = body.match(receivedPattern);
   if (m) { amount = parseFloat(m[2].replace(/,/g, '')); type = 'income'; description = m[1].trim(); }
-
   if (!amount) {
     m = body.match(sentPattern);
     if (m) { amount = parseFloat(m[2].replace(/,/g, '')); type = 'expense'; description = m[1].trim(); }
   }
-
   if (!amount) {
     m = body.match(phonepePattern);
     if (m) { amount = parseFloat(m[1].replace(/,/g, '')); type = 'expense'; description = m[2].trim(); }
   }
-
+  // FIX #5: reject zero/negative amounts
   if (!amount || isNaN(amount) || amount <= 0) return null;
-
   return {
     amount,
     description: description?.substring(0, 30) || 'UPI Transfer',
@@ -161,19 +185,22 @@ export function parseSms(body, dateMs, sender = '') {
   if (!body) return null;
   const low = body.toLowerCase();
 
-  // Skip failed/declined
+  // Skip failed/declined transactions
   if (low.includes('failed') || low.includes('declined') || low.includes('insufficient') ||
       low.includes('unsuccessful') || low.includes('rejected')) return null;
 
-  // Must mention a bank keyword to avoid OTP / promo SMS
+  // Must have a bank keyword to filter out OTP/promo SMS
   const bankKeywordRegex = /\b(a\/c|acct|account|balance|debited|credited|dr\b|cr\b|inr|rs\.?|₹|upi|neft|imps|rtgs|netbanking|atm)\b/i;
   if (!bankKeywordRegex.test(body)) return null;
+
+  // FIX #4: Strip balance info BEFORE running amount patterns
+  const stripped = stripBalance(body);
 
   let amount = null;
   let type = null;
 
   for (const p of DEBIT_PATTERNS) {
-    const m = body.match(p);
+    const m = stripped.match(p);
     if (m) {
       const val = (m[1] || m[2] || '').replace(/,/g, '');
       if (val) { amount = parseFloat(val); type = 'expense'; break; }
@@ -182,7 +209,7 @@ export function parseSms(body, dateMs, sender = '') {
 
   if (!amount) {
     for (const p of CREDIT_PATTERNS) {
-      const m = body.match(p);
+      const m = stripped.match(p);
       if (m) {
         const val = (m[1] || m[2] || '').replace(/,/g, '');
         if (val) { amount = parseFloat(val); type = 'income'; break; }
@@ -190,6 +217,7 @@ export function parseSms(body, dateMs, sender = '') {
     }
   }
 
+  // FIX #5: Reject zero and negative amounts
   if (!amount || isNaN(amount) || amount <= 0) return null;
 
   // Extract merchant
@@ -210,7 +238,10 @@ export function parseSms(body, dateMs, sender = '') {
 
   let description = 'Online Transaction';
   if (merchant) {
-    merchant = merchant.split('(')[0].trim().replace(/^vpa\s+/i, '').replace(/[.,\s]+$/, '').trim();
+    merchant = merchant.split('(')[0].trim()
+      .replace(/^vpa\s+/i, '')
+      .replace(/[.,\s]+$/, '')
+      .trim();
     description = merchant;
   }
   description = description.replace(/\s+/g, ' ');
@@ -218,10 +249,15 @@ export function parseSms(body, dateMs, sender = '') {
 
   // Payment mode
   let paymentMode = 'upi';
-  if (low.includes('atm') || low.includes('cash withdrawal')) { paymentMode = 'cash'; description = 'ATM Cash Withdrawal'; }
-  else if (low.includes('card') || low.includes('debitcard') || low.includes('creditcard') || low.includes('ending in')) paymentMode = 'card';
-  else if (low.includes('netbanking') || low.includes('internet banking') || low.includes('imps') || low.includes('neft') || low.includes('rtgs')) paymentMode = 'netbanking';
-  else if (low.includes('upi') || low.includes('gpay') || low.includes('phonepe') || low.includes('paytm') || low.includes('amazonpay')) paymentMode = 'upi';
+  if (low.includes('atm') || low.includes('cash withdrawal')) {
+    paymentMode = 'cash'; description = 'ATM Cash Withdrawal';
+  } else if (low.includes('card') || low.includes('debitcard') || low.includes('creditcard') || low.includes('ending in')) {
+    paymentMode = 'card';
+  } else if (low.includes('netbanking') || low.includes('internet banking') || low.includes('imps') || low.includes('neft') || low.includes('rtgs')) {
+    paymentMode = 'netbanking';
+  } else if (low.includes('upi') || low.includes('gpay') || low.includes('phonepe') || low.includes('paytm') || low.includes('amazonpay')) {
+    paymentMode = 'upi';
+  }
 
   return {
     amount,
@@ -240,12 +276,11 @@ export function parseSms(body, dateMs, sender = '') {
 }
 
 // ─── Permission helpers ───────────────────────────────────────────────────────
+
 async function checkSmsPermission() {
   try {
     if (!MessageReader) return false;
     const r = await MessageReader.checkPermissions();
-    console.log('[AutoScan] checkPermissions:', JSON.stringify(r));
-    // ✅ Plugin returns { messages: PermissionState } — key is "messages"
     return r?.messages === 'granted';
   } catch (e) {
     console.warn('[AutoScan] checkPermissions error:', e);
@@ -257,8 +292,6 @@ async function requestSmsPermission() {
   try {
     if (!MessageReader) return false;
     const r = await MessageReader.requestPermissions();
-    console.log('[AutoScan] requestPermissions:', JSON.stringify(r));
-    // ✅ Same key: { messages: PermissionState }
     return r?.messages === 'granted';
   } catch (e) {
     console.warn('[AutoScan] requestPermissions error:', e);
@@ -267,12 +300,12 @@ async function requestSmsPermission() {
 }
 
 // ─── Read SMS inbox ───────────────────────────────────────────────────────────
+
 async function readSmsInbox() {
   if (!MessageReader) {
     console.error('[AutoScan] MessageReader plugin is NULL');
     return [];
   }
-
   let granted = await checkSmsPermission();
   if (!granted) {
     console.warn('[AutoScan] SMS not granted, requesting...');
@@ -282,47 +315,33 @@ async function readSmsInbox() {
     console.error('[AutoScan] SMS permission denied');
     return [];
   }
-
-  // ✅ minDate as number (milliseconds), 90 days back
   const minDate = Date.now() - 90 * 24 * 60 * 60 * 1000;
-
   let messages = [];
   try {
     const raw = await MessageReader.getMessages({ minDate, limit: 500 });
-    // ✅ Plugin returns { messages: MessageObject[] }
     messages = raw?.messages || [];
     console.log('[AutoScan] Raw SMS count:', messages.length);
-    if (messages[0]) {
-      console.log('[AutoScan] Sample keys:', Object.keys(messages[0]));
-      console.log('[AutoScan] Sample body:', messages[0].body);
-      console.log('[AutoScan] Sample date:', messages[0].date);
-      console.log('[AutoScan] Sample sender:', messages[0].sender);
-    }
   } catch (e) {
     console.error('[AutoScan] getMessages failed:', e?.message);
     return [];
   }
-
-  // ✅ pass sender ID to parseSms for highly accurate bank detection
   const parsed = messages
     .map(m => parseSms(m.body, parseInt(m.date), m.sender))
     .filter(Boolean);
-
   console.log('[AutoScan] Parsed financial SMS:', parsed.length);
   return parsed;
 }
 
 // ─── Read notifications ───────────────────────────────────────────────────────
+
 async function readNotifications() {
   const minDate = Date.now() - 30 * 24 * 60 * 60 * 1000;
   try {
-    // Add safety check
     const status = await NotificationListener.isListenerEnabled();
     if (!status?.enabled) {
       console.warn('[AutoScan] Notification listener not enabled');
       return [];
     }
-    
     const { notifications = [] } = await NotificationListener.getCapturedNotifications({ minDate: String(minDate) });
     console.log('[AutoScan] Raw notification count:', notifications.length);
     const parsed = notifications.map(n => {
@@ -339,7 +358,7 @@ async function readNotifications() {
 }
 
 // ─── Deduplication ───────────────────────────────────────────────────────────
-// FIX: Use 60-second window instead of exact date match (SMS timestamps vary by seconds)
+
 function isDuplicate(existingTransactions, candidate) {
   return existingTransactions.some(t => {
     const sameDateWindow = Math.abs(new Date(t.date) - new Date(candidate.date)) < 60 * 1000;
@@ -352,86 +371,63 @@ function isDuplicate(existingTransactions, candidate) {
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
+
 export async function autoScanTransactions(existingTransactions = []) {
   if (!Capacitor.isNativePlatform()) return { newTransactions: [], needsSetup: false };
 
   const allParsed = [];
   let smsBlocked = false;
 
-  // ── SMS path ──
+  // SMS path
   try {
     let granted = await checkSmsPermission();
-    if (!granted) {
-      console.log('[AutoScan] SMS not granted — requesting...');
-      granted = await requestSmsPermission();
-    }
+    if (!granted) granted = await requestSmsPermission();
     if (granted) {
       const smsTxns = await readSmsInbox();
       smsTxns.forEach(t => allParsed.push(t));
-      console.log('[AutoScan] SMS path total:', allParsed.length);
     } else {
       smsBlocked = true;
-      console.log('[AutoScan] SMS permission denied after request');
     }
   } catch (e) {
     console.warn('[AutoScan] SMS path error:', e);
     smsBlocked = true;
   }
 
-  // ── Notification Listener path ──
+  // Notification Listener path
   try {
     if (!NotificationListener) throw new Error('NotificationListener plugin missing');
     const { enabled } = await NotificationListener.isListenerEnabled();
-    console.log('[AutoScan] Notification listener enabled:', enabled);
     if (enabled) {
       const notifTxns = await readNotifications();
       notifTxns.forEach(t => allParsed.push(t));
-      if (notifTxns.length === 0 && smsBlocked) {
-        // Listener active but no data yet — first launch
-        return { newTransactions: [], needsSetup: false };
-      }
+      if (notifTxns.length === 0 && smsBlocked) return { newTransactions: [], needsSetup: false };
     } else if (smsBlocked) {
-      // SMS blocked + listener not set up → show setup UI
       return { newTransactions: [], needsSetup: true };
     }
   } catch (e) {
     console.warn('[AutoScan] Notification listener error:', e);
-    if (smsBlocked && allParsed.length === 0) {
-      return { newTransactions: [], needsSetup: true };
-    }
+    if (smsBlocked && allParsed.length === 0) return { newTransactions: [], needsSetup: true };
   }
 
   if (allParsed.length === 0) return { newTransactions: [], needsSetup: false };
 
-  // ── Consensus Engine for false positives ──
-  // Fixes UPI notifications (e.g., GPay) falsely matching 'SBI' when transferring to an SBI user.
+  // Consensus engine — fix misidentified bank names via majority vote per account ending
   const accountBankMap = {};
-  const allTxForConsensus = [...existingTransactions, ...allParsed];
-  
-  allTxForConsensus.forEach(t => {
+  [...existingTransactions, ...allParsed].forEach(t => {
     if (!t.accountEnding || t.accountEnding === 'null' || t.bankName === 'Bank Account') return;
     if (!accountBankMap[t.accountEnding]) accountBankMap[t.accountEnding] = {};
     accountBankMap[t.accountEnding][t.bankName] = (accountBankMap[t.accountEnding][t.bankName] || 0) + 1;
   });
-
   const trueBankNames = {};
   for (const ending in accountBankMap) {
-    let maxCount = 0;
-    let bestBank = null;
+    let maxCount = 0, bestBank = null;
     for (const bank in accountBankMap[ending]) {
-      if (accountBankMap[ending][bank] > maxCount) {
-        maxCount = accountBankMap[ending][bank];
-        bestBank = bank;
-      }
+      if (accountBankMap[ending][bank] > maxCount) { maxCount = accountBankMap[ending][bank]; bestBank = bank; }
     }
     if (bestBank) trueBankNames[ending] = bestBank;
   }
-
-  // Apply true bank names to fix misidentified transactions
   allParsed.forEach(t => {
-    if (t.accountEnding && trueBankNames[t.accountEnding]) {
-      t.bankName = trueBankNames[t.accountEnding];
-    }
+    if (t.accountEnding && trueBankNames[t.accountEnding]) t.bankName = trueBankNames[t.accountEnding];
   });
 
   const newTransactions = [];
@@ -440,7 +436,7 @@ export async function autoScanTransactions(existingTransactions = []) {
       newTransactions.push(t);
     }
   }
-  
+
   console.log(`[AutoScan] ${allParsed.length} parsed, ${newTransactions.length} new unique`);
   return { newTransactions, totalScanned: allParsed.length, needsSetup: false };
 }
