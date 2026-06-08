@@ -125,7 +125,7 @@ const parsePDF = async (file, password = null) => {
     const accMatch = rawStr.match(/(?:a\/c|account)(?:\s+no\.?)?(?:\s*number)?[\s:]+(\d{4,})/i);
     if (accMatch && accMatch[1]) {
         const digits = accMatch[1];
-        accountEnding = digits.length >= 3 ? digits.substring(digits.length - 3) : digits;
+        accountEnding = digits.length >= 4 ? digits.substring(digits.length - 4) : digits;
     }
 
     const transactions = normalizePDFRows(fullText, bankName, accountEnding);
@@ -271,8 +271,8 @@ const normalizeTransactions = (rawData) => {
 
 // Heuristic Normalizer for Text-Based PDF Rows
 const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null) => {
-    const transactions = [];
-    // Looking for lines that start with a date pattern
+    // Regex for date: Supports DD/MM/YYYY, YYYY-MM-DD, DD.MM.YYYY, and textual months like 12 Jan 2024
+    const dateRegex = /(\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b)|(\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b)|(\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4}\b)/i;
 
     const transactions = [];
 
