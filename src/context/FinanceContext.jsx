@@ -316,6 +316,9 @@ export function FinanceProvider({ children }) {
     }
 
     allTx.forEach(t => {
+      const isUPI = t.bankName === 'GPay/UPI' || t.bankName === 'PhonePe';
+      if (isUPI) return; // Do not create a bank card for UPI apps since they are not real accounts
+
       if (t.bankName && t.accountEnding) {
         const key = `${t.bankName}_${t.accountEnding}`;
         if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
