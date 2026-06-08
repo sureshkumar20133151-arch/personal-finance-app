@@ -270,9 +270,6 @@ export function FinanceProvider({ children }) {
     });
   }, [state.transactions]);
 
-  const bankBalance = React.useMemo(() => {
-    return bankAccountBalances.reduce((sum, b) => sum + b.balance, 0);
-  }, [bankAccountBalances]);
 
   const cashBalance = React.useMemo(() => {
     const allTx   = validTransactions;
@@ -342,6 +339,10 @@ export function FinanceProvider({ children }) {
     });
     return Object.values(map);
   }, [validTransactions, state.initialBankBalances]);
+
+  const bankBalance = React.useMemo(() => {
+    return bankAccountBalances.reduce((sum, b) => sum + b.balance, 0);
+  }, [bankAccountBalances]);
 
   // ─── formatMoney ─────────────────────────────────────────────────────────
   const formatMoney = useCallback((amount) =>
@@ -496,8 +497,6 @@ export function FinanceProvider({ children }) {
     cashBalance,
     totalBalance: bankBalance + cashBalance,
     bankAccountBalances,
-    clearData,
-    bankAccountBalances,   // per-bank breakdown array
 
     // helpers
     formatMoney,
