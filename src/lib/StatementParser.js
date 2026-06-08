@@ -13,14 +13,14 @@ try {
     console.warn("Could not set PDF worker source", e);
 }
 
-export const parseStatement = async (file) => {
+export const parseStatement = async (file, password = null) => {
     const fileName = file.name.toLowerCase();
     const fileType = file.type;
 
     if (fileType.includes('csv') || fileName.endsWith('.csv')) {
         return await parseCSV(file);
     } else if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
-        return await parsePDF(file);
+        return await parsePDF(file, password);
     } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileType.includes('spreadsheet') || fileType.includes('excel')) {
         return await parseXLSX(file);
     } else if (fileName.endsWith('.docx') || fileName.endsWith('.doc') || fileType.includes('word') || fileType.includes('document')) {
@@ -81,9 +81,11 @@ const parseCSV = (file) => {
     });
 };
 
-const parsePDF = async (file) => {
+const parsePDF = async (file, password = null) => {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    // Pass the password to PDF.js. If it's wrong or missing and the PDF is encrypted, it throws PasswordException.
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password }).promise;
     let fullText = [];
 
     // Crude extraction: get all text items with their Y coordinates
@@ -268,15 +270,44 @@ const normalizePDFRows = (rows) => {
             if (amounts.length > 0) {
                 // If 1 amount: Assume it's the transaction amount.
                 // If 2 amounts: Likely [Txn Amount, Balance].
-                // If 3 amounts: Likely [Debit, Credit, Balance] or similar.
+                // If 3 amounts: Likely [Withdrawal, Deposit, Balance] or similar.
 
                 let amount = 0;
                 let type = 'expense';
 
-                // Simplified Logic: Take the first amount found. 
-                // Detection of Cr/Dr from text is needed.
+                if (amounts.length >= 3) {
+                    // Usually Indian bank format: Date | ... | Withdrawal | Deposit | Balance
+                    const withdrawal = amounts[amounts.length - 3];
+                    const deposit = amounts[amounts.length - 2];
+                    if (withdrawal > 0) {
+                        amount = withdrawal;
+                        type = 'expense';
+                    } else if (deposit > 0) {
+                        amount = deposit;
+                        type = 'income';
+                    } else {
+                        // fallback
+                        amount = amounts[0];
+                    }
+                } else if (amounts.length === 2) {
+                    // Usually: Date | ... | Txn Amount | Balance
+                    amount = amounts[0];
+                } else {
+                    amount = amounts[0];
+                }
 
-                amount = amounts[0];
+                // Heuristic override for Income/Expense based on text
+                const textLower = remaining.toLowerCase();
+                if (textLower.includes('/cr/') || textLower.includes(' cr') || textLower.includes('neft cr') || textLower.includes('credit') || textLower.includes('inp') || textLower.includes('salary')) {
+                    type = 'income';
+                } else if (textLower.includes('/dr/') || textLower.includes(' dr') || textLower.includes('debit') || textLower.includes('atm') || textLower.includes('pos') || textLower.includes('upi/')) {
+                    // Ensure it stays expense unless overriden by specific deposit field
+                    if (amounts.length >= 3 && amounts[amounts.length - 2] > 0) {
+                        type = 'income'; // Trust the deposit column over text
+                    } else {
+                        type = 'expense';
+                    }
+                }
 
                 // Check for Cr/Dr keywords in description
                 if (remaining.toLowerCase().includes(' cr ') || remaining.toLowerCase().endsWith(' cr')) {
