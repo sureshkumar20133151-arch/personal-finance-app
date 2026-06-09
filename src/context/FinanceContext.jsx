@@ -530,7 +530,28 @@ export function FinanceProvider({ children }) {
       next.categories = [...next.categories, ...newCategories.map(c => ({ ...c, id: c.id || uuidv4() }))];
     }
     if (newTransactions && newTransactions.length > 0) {
-      next.transactions = [...next.transactions, ...newTransactions.map(t => ({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() }))];
+      const existingTxs = next.transactions || [];
+      const existingCounts = {};
+      
+      existingTxs.forEach(t => {
+        const dateStr = t.date.split('T')[0];
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName}_${t.accountEnding}_${t.description}`;
+        existingCounts[key] = (existingCounts[key] || 0) + 1;
+      });
+
+      const uniqueNew = [];
+      newTransactions.forEach(t => {
+        const dateStr = (t.date || new Date().toISOString()).split('T')[0];
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName}_${t.accountEnding}_${t.description}`;
+        
+        if (existingCounts[key] && existingCounts[key] > 0) {
+          existingCounts[key]--; // Skip duplicate
+        } else {
+          uniqueNew.push({ ...t, id: uuidv4(), date: t.date || new Date().toISOString() });
+        }
+      });
+
+      next.transactions = [...existingTxs, ...uniqueNew];
     }
     saveImmediate(next);
   }, [state, saveImmediate]);
