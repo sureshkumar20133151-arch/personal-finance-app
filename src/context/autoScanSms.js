@@ -59,7 +59,7 @@ const CREDIT_PATTERNS = [
   /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*\bcr\b/i,
 ];
 
-const MERCHANT_PATTERN = /(?:at|to|towards|vpa|info|transfer\s+to|paid\s+to)\s+([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]+?)(?:\s+(?:on|via|using|ref|info|balance|date)|[.,]|\s*|$)/gi;
+const MERCHANT_PATTERN = /(?:at|to|towards|vpa|info|transfer\s+to|paid\s+to)\s+([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]{3,})(?:\s+(?:on|via|using|ref|info|balance|date)|[.,]|\s*|$)/gi;
 const MERCHANT_ALT_PATTERN = /(?:merchant|ref|txn)\s+(?:name\s+)?([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]{3,25})/gi;
 const MERCHANT_INDIAN_BANK = /\bto\s+([A-Z][A-Z\s\.]{2,20}?)\s*\.\s*UPI:/ig;
 
@@ -91,6 +91,7 @@ function isValidMerchant(str) {
 function getBankName(sms, sender = '') {
   const text = sms.toLowerCase();
   const snd = sender.toLowerCase();
+
   // 1. Sender ID (most reliable)
   if (snd.includes('indbnk') || snd.includes('indian') || snd.includes('idib')) return 'Indian Bank';
   if (snd.includes('canbka') || snd.includes('canara') || snd.includes('canbnk') || snd.includes('cnrb')) return 'Canara Bank';
@@ -101,21 +102,36 @@ function getBankName(sms, sender = '') {
   if (snd.includes('kotak')) return 'Kotak Bank';
   if (snd.includes('pnb')) return 'PNB';
   if (snd.includes('bob')) return 'Bank of Baroda';
-  // 2. SMS body (order matters — specific before short)
-  if (text.includes('indian bank') || text.includes('ind bank') || text.includes('indianbank')) return 'Indian Bank';
-  if (text.includes('canara') || text.includes('cnrb')) return 'Canara Bank';
-  if (text.includes('kotak mahindra') || text.includes('kotak')) return 'Kotak Bank';
-  if (text.includes('axis bank') || text.includes('axis')) return 'Axis Bank';
-  if (text.includes('hdfc bank') || text.includes('hdfc')) return 'HDFC Bank';
-  if (text.includes('icici bank') || text.includes('icici')) return 'ICICI Bank';
-  if (text.includes('punjab national') || text.includes('pnb')) return 'PNB';
-  if (text.includes('bank of baroda') || text.includes('bob')) return 'Bank of Baroda';
-  if (text.includes('union bank')) return 'Union Bank';
-  if (text.includes('central bank')) return 'Central Bank';
-  if (text.includes('paytm') || text.includes('ppbl')) return 'Paytm Bank';
-  if (text.includes('airtel') || text.includes('apbl')) return 'Airtel Bank';
-  // SBI last — "sbi" is only 3 chars, prone to false match
-  if (text.includes('state bank') || text.includes('sbi') || text.includes('yono')) return 'SBI';
+
+  // 2. NEW — IFSC prefix in UPI string (identifies YOUR bank, not receiver)
+  if (text.includes('/idib/') || text.includes('idib/**')) return 'Indian Bank';
+  if (text.includes('/cnrb/') || text.includes('cnrb/**')) return 'Canara Bank';
+  if (text.includes('/sbin/') || text.includes('sbin/**')) return 'SBI';
+  if (text.includes('/utib/') || text.includes('utib/**')) return 'Axis Bank';
+  if (text.includes('/hdfc/') || text.includes('hdfc/**')) return 'HDFC Bank';
+  if (text.includes('/icic/') || text.includes('icic/**')) return 'ICICI Bank';
+  if (text.includes('/punb/') || text.includes('punb/**')) return 'PNB';
+  if (text.includes('/ubin/') || text.includes('ubin/**')) return 'Union Bank';
+
+  // 3. SMS body — strip @ok handles and UPI strings first
+  const cleanText = text
+    .replace(/@ok[a-z]+/gi, '')      // remove @okicici @okaxis @oksbi etc
+    .replace(/\/upi\/\/.+/gi, '');   // remove full UPI reference string
+
+  if (cleanText.includes('indian bank') || cleanText.includes('ind bank') || cleanText.includes('indianbank')) return 'Indian Bank';
+  if (cleanText.includes('canara') || cleanText.includes('cnrb')) return 'Canara Bank';
+  if (cleanText.includes('kotak mahindra') || cleanText.includes('kotak')) return 'Kotak Bank';
+  if (cleanText.includes('axis bank') || cleanText.includes('axis')) return 'Axis Bank';
+  if (cleanText.includes('hdfc bank') || cleanText.includes('hdfc')) return 'HDFC Bank';
+  if (cleanText.includes('icici bank') || cleanText.includes('icici')) return 'ICICI Bank';
+  if (cleanText.includes('punjab national') || cleanText.includes('pnb')) return 'PNB';
+  if (cleanText.includes('bank of baroda') || cleanText.includes('bob')) return 'Bank of Baroda';
+  if (cleanText.includes('union bank')) return 'Union Bank';
+  if (cleanText.includes('central bank')) return 'Central Bank';
+  if (cleanText.includes('paytm') || cleanText.includes('ppbl')) return 'Paytm Bank';
+  if (cleanText.includes('airtel') || cleanText.includes('apbl')) return 'Airtel Bank';
+  if (cleanText.includes('state bank') || cleanText.includes('sbi') || cleanText.includes('yono')) return 'SBI';
+
   return 'Bank Account';
 }
 
@@ -342,7 +358,7 @@ async function readNotifications() {
       console.warn('[AutoScan] Notification listener not enabled');
       return [];
     }
-    const { notifications = [] } = await NotificationListener.getCapturedNotifications({ minDate: String(minDate) });
+    const { notifications = [] } = await NotificationListener.getCapturedNotifications({ minDate: minDate });
     console.log('[AutoScan] Raw notification count:', notifications.length);
     const parsed = notifications.map(n => {
       const body = n.body || n.text || n.content || '';
