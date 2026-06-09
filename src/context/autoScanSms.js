@@ -384,7 +384,17 @@ async function readNotifications() {
 
 function isDuplicate(existingTransactions, candidate) {
   return existingTransactions.some(t => {
-    const sameDateWindow = Math.abs(new Date(t.date) - new Date(candidate.date)) < 60 * 1000;
+    let sameDateWindow = false;
+    if (t.source !== 'sms') {
+      // PDF transactions have no exact time, so we just check if it's the same day
+      const tDate = t.date.split('T')[0];
+      const candDate = candidate.date.split('T')[0];
+      sameDateWindow = (tDate === candDate);
+    } else {
+      // SMS-to-SMS check uses the 60-second window
+      sameDateWindow = Math.abs(new Date(t.date) - new Date(candidate.date)) < 60 * 1000;
+    }
+    
     const sameAmount = Math.abs(t.amount - candidate.amount) < 0.01;
     const sameType = t.type === candidate.type;
     const sameBank = t.bankName === candidate.bankName;
