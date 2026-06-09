@@ -59,7 +59,7 @@ const CREDIT_PATTERNS = [
   /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*\bcr\b/i,
 ];
 
-const MERCHANT_PATTERN = /(?:at|to|towards|vpa|info|transfer\s+to|paid\s+to)\s+([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]{3,})(?:\s+(?:on|via|using|ref|info|balance|date)|[.,]|\s*|$)/gi;
+const MERCHANT_PATTERN = /(?:at|to|towards|vpa|info|transfer\s+to|paid\s+to)\s+([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]{3,}?)(?:\s+(?:on|via|using|ref|info|balance|date)|[.,]|\s*|$)/gi;
 const MERCHANT_ALT_PATTERN = /(?:merchant|ref|txn)\s+(?:name\s+)?([a-zA-Z0-9\s\-_\.\\*@\/,\(\)]{3,25})/gi;
 const MERCHANT_INDIAN_BANK = /\bto\s+([A-Z][A-Z\s\.]{2,20}?)\s*\.\s*UPI:/ig;
 
