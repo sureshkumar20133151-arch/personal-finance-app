@@ -319,6 +319,15 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null)
                 } else if (amounts.length === 2) {
                     // Usually: Date | ... | Txn Amount | Balance
                     amount = amounts[0];
+                    
+                    // Indian Bank explicit format check (hyphen marks empty column)
+                    if (bankName === 'Indian Bank') {
+                        if (/(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) {
+                            type = 'income'; // Hyphen before first amount -> Empty Debit column
+                        } else if (/(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) {
+                            type = 'expense'; // Hyphen between amounts -> Empty Credit column
+                        }
+                    }
                 } else {
                     amount = amounts[0];
                 }
