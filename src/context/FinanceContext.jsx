@@ -345,9 +345,17 @@ export function FinanceProvider({ children }) {
 
     Object.keys(map).forEach(key => {
       const accountTxs = allTx.filter(t => `${t.bankName}_${t.accountEnding}` === key);
-      const withBalance = accountTxs
+      
+      // We need a stable tie-breaker for identical dates (like PDF imports which all share T00:00:00)
+      const txsWithIndex = accountTxs.map((t, i) => ({ ...t, _originalIdx: i }));
+      
+      const withBalance = txsWithIndex
         .filter(t => t.availableBalance != null)
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
+        .sort((a, b) => {
+          const dateDiff = new Date(b.date) - new Date(a.date);
+          if (dateDiff !== 0) return dateDiff;
+          return b._originalIdx - a._originalIdx; // LATER index = newer transaction
+        });
 
       const seedData = state.initialBankBalances?.[key];
       const seedDate = seedData?.date ? new Date(seedData.date) : null;
@@ -356,20 +364,27 @@ export function FinanceProvider({ children }) {
         const smsAnchor = withBalance[0];
         let computedBalance;
         let anchorDate;
+        let anchorIdx = -1;
 
         if (seedDate && seedDate > new Date(smsAnchor.date)) {
-          // Manual seed is newer than the latest SMS
+          // Manual seed is newer than the latest SMS/PDF balance
           computedBalance = parseFloat(seedData.amount) || 0;
           anchorDate = seedDate;
         } else {
-          // SMS is newer or no valid manual seed
+          // SMS/PDF balance is newer
           computedBalance = smsAnchor.availableBalance;
           anchorDate = new Date(smsAnchor.date);
+          anchorIdx = smsAnchor._originalIdx;
         }
 
-        accountTxs.forEach(t => {
+        txsWithIndex.forEach(t => {
           const tDate = new Date(t.date);
-          if (tDate > anchorDate) {
+          // Only add transactions that happened strictly AFTER the anchor
+          // If dates are identical (like same day PDF imports), only add if it appeared LATER in the array
+          const isStrictlyNewer = tDate > anchorDate;
+          const isSameTimeButNewer = (tDate.getTime() === anchorDate.getTime()) && (t._originalIdx > anchorIdx);
+
+          if (isStrictlyNewer || isSameTimeButNewer) {
             if (t.type === "income") computedBalance += t.amount;
             else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
           }
