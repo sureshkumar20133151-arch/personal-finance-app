@@ -275,6 +275,13 @@ export function parseSms(body, dateMs, sender = '') {
     paymentMode = 'upi';
   }
 
+  const bName = getBankName(body, sender);
+  let accEnd = getAccountEnding(body);
+  
+  // Normalization: Canara SMS genuinely only sends 3 digits (128). 
+  // We explicitly map it to 9128 to match the PDF parser.
+  if (bName === 'Canara Bank' && accEnd === '128') accEnd = '9128';
+
   return {
     amount,
     description,
@@ -283,8 +290,8 @@ export function parseSms(body, dateMs, sender = '') {
     date: dateMs ? new Date(dateMs).toISOString() : new Date().toISOString(),
     merchant,
     paymentMode,
-    bankName: getBankName(body, sender),
-    accountEnding: getAccountEnding(body),
+    bankName: bName,
+    accountEnding: accEnd,
     availableBalance: getAvailableBalance(body),
     source: 'sms',
     rawSms: body,
