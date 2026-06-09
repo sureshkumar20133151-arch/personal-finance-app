@@ -210,12 +210,17 @@ export function FinanceProvider({ children }) {
 
   // ─── Foreground rescan ────────────────────────────────────────────────────
   const rescanLock = useRef(false);
+  const lastScan = useRef(0);
   const stateRef   = useRef(state);
   useEffect(() => { stateRef.current = state; }, [state]);
 
   const rescanTransactions = useCallback(async () => {
-    if (!window.Capacitor?.isNativePlatform() || rescanLock.current) return { count: 0, totalScanned: 0 };
+    const RESCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+    const now = Date.now();
+    if (!window.Capacitor?.isNativePlatform() || rescanLock.current || (now - lastScan.current < RESCAN_INTERVAL_MS)) return { count: 0, totalScanned: 0 };
+    
     rescanLock.current = true;
+    lastScan.current = now;
     try {
       const current = stateRef.current;
       const { newTransactions: newTxs, totalScanned } = await autoScanTransactions(current.transactions || []);
