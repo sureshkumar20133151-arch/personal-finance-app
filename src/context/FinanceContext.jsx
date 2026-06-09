@@ -493,7 +493,17 @@ export function FinanceProvider({ children }) {
   const deleteLoan      = (id) => saveImmediate({ ...state, loans: (state.loans || []).filter(l => l.id !== id) });
 
   const clearData = async () => {
-    const fresh = { ...DEFAULT_STATE, theme: state.theme, currency: state.currency };
+    const fresh = { 
+      ...DEFAULT_STATE, 
+      theme: state.theme, 
+      currency: state.currency,
+      categories: state.categories,
+      subscription: state.subscription,
+      monthlyBudget: state.monthlyBudget,
+      salaryDate: state.salaryDate,
+      recurring: state.recurring,
+      loans: state.loans
+    };
     
     // 1. Force wipe local storage instantly to prevent ghost data
     localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
