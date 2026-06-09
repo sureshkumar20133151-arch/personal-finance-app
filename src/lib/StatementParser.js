@@ -107,16 +107,16 @@ const parsePDF = async (file, password = null) => {
         fullText.push(...rows);
     }
 
-    // Attempt to detect Bank Name from global text
-    const rawText = fullText.join(' ').toLowerCase();
+    // Attempt to detect Bank Name from the header (first 50 rows) to avoid matching IFSC codes in transactions
+    const headerText = fullText.slice(0, 50).join(' ').toLowerCase();
     let bankName = 'Bank Account';
-    if (rawText.includes('canara') || rawText.includes('cnrb')) bankName = 'Canara Bank';
-    else if (rawText.includes('indian bank')) bankName = 'Indian Bank';
-    else if (rawText.includes('sbi') || rawText.includes('state bank')) bankName = 'SBI';
-    else if (rawText.includes('hdfc')) bankName = 'HDFC Bank';
-    else if (rawText.includes('icici')) bankName = 'ICICI Bank';
-    else if (rawText.includes('axis')) bankName = 'Axis Bank';
-    else if (rawText.includes('kotak')) bankName = 'Kotak Bank';
+    if (headerText.includes('indian bank')) bankName = 'Indian Bank';
+    else if (headerText.includes('canara') || headerText.includes('cnrb')) bankName = 'Canara Bank';
+    else if (headerText.includes('sbi') || headerText.includes('state bank')) bankName = 'SBI';
+    else if (headerText.includes('hdfc')) bankName = 'HDFC Bank';
+    else if (headerText.includes('icici')) bankName = 'ICICI Bank';
+    else if (headerText.includes('axis')) bankName = 'Axis Bank';
+    else if (headerText.includes('kotak')) bankName = 'Kotak Bank';
 
     // Attempt to detect Account Number ending
     let accountEnding = null;
