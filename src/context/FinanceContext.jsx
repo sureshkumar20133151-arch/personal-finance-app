@@ -511,8 +511,7 @@ export function FinanceProvider({ children }) {
     // 2. Wipe Firebase safely
     if (currentUser && !currentUser.isAnonymous) {
       try {
-        // Use deleteDoc so Firebase actually removes the document, then set fresh config
-        await deleteDoc(doc(db, "users", currentUser.uid));
+        // Atomic single write: overwrites the entire document, effectively deleting unwanted arrays like transactions
         await setDoc(doc(db, "users", currentUser.uid), fresh);
         // Wait to allow Firebase to process before reloading
         await new Promise(r => setTimeout(r, 500));
