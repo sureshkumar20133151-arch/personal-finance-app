@@ -110,13 +110,13 @@ const parsePDF = async (file, password = null) => {
     // Attempt to detect Bank Name from the header (first 50 rows) to avoid matching IFSC codes in transactions
     const headerText = fullText.slice(0, 50).join(' ').toLowerCase();
     let bankName = 'Bank Account';
-    if (headerText.includes('indian bank')) bankName = 'Indian Bank';
-    else if (headerText.includes('canara') || headerText.includes('cnrb')) bankName = 'Canara Bank';
-    else if (headerText.includes('sbi') || headerText.includes('state bank')) bankName = 'SBI';
-    else if (headerText.includes('hdfc')) bankName = 'HDFC Bank';
-    else if (headerText.includes('icici')) bankName = 'ICICI Bank';
-    else if (headerText.includes('axis')) bankName = 'Axis Bank';
-    else if (headerText.includes('kotak')) bankName = 'Kotak Bank';
+    if (headerText.includes('indian bank') || /\bidib/i.test(headerText)) bankName = 'Indian Bank';
+    else if (headerText.includes('canara') || /\bcnrb/i.test(headerText)) bankName = 'Canara Bank';
+    else if (headerText.includes('sbi ') || headerText.includes('state bank') || /\bsbin\d/i.test(headerText)) bankName = 'SBI';
+    else if (headerText.includes('hdfc') || /\bhdfc/i.test(headerText)) bankName = 'HDFC Bank';
+    else if (headerText.includes('icici') || /\bicic/i.test(headerText)) bankName = 'ICICI Bank';
+    else if (headerText.includes('axis') || /\butib/i.test(headerText)) bankName = 'Axis Bank';
+    else if (headerText.includes('kotak') || /\bkkbk/i.test(headerText)) bankName = 'Kotak Bank';
 
     // Attempt to detect Account Number ending
     let accountEnding = null;
