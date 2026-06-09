@@ -278,7 +278,7 @@ export function FinanceProvider({ children }) {
 
   // ─── Computed balances ────────────────────────────────────────────────────
   const validTransactions = React.useMemo(() => {
-    return (state.transactions || [])
+    let txs = (state.transactions || [])
       .map(t => {
         if (t.source === 'sms' && t.rawSms && t.availableBalance === undefined) {
           return { ...t, availableBalance: getAvailableBalance(t.rawSms) };
@@ -290,6 +290,30 @@ export function FinanceProvider({ children }) {
         if (!t.bankName || t.bankName === 'Unknown Bank' || t.bankName === 'Bank Account') return false;
         const isUPI = t.bankName === 'GPay/UPI' || t.bankName === 'PhonePe';
         if ((!t.accountEnding || t.accountEnding === 'null') && !isUPI) return false;
+      }
+      return true;
+    });
+
+    // --- Smart Deduplication ---
+    // If a PDF was imported, it might overlap with SMS transactions.
+    // We count identical PDF transactions per day to safely cancel out duplicate SMS ones.
+    const pdfTxCounts = {};
+    txs.forEach(t => {
+      if (t.source !== 'sms') {
+        const dateStr = t.date.split('T')[0];
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName}_${t.accountEnding}`;
+        pdfTxCounts[key] = (pdfTxCounts[key] || 0) + 1;
+      }
+    });
+
+    return txs.filter(t => {
+      if (t.source === 'sms') {
+        const dateStr = t.date.split('T')[0];
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName}_${t.accountEnding}`;
+        if (pdfTxCounts[key] && pdfTxCounts[key] > 0) {
+          pdfTxCounts[key]--; // Use up one match
+          return false; // Drop this SMS duplicate!
+        }
       }
       return true;
     });
