@@ -130,7 +130,7 @@ function getAccountEnding(body) {
   ];
   for (const p of patterns) {
     const m = body.match(p);
-    if (m?.[1]) return m[1].length >= 3 ? m[1].slice(-3) : m[1];
+    if (m?.[1]) return m[1].length >= 4 ? m[1].slice(-4) : m[1];
   }
   return null;
 }
