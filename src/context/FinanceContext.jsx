@@ -115,8 +115,7 @@ export function FinanceProvider({ children }) {
           });
           if (migrated) {
             console.log("[FinanceContext] Migrated Canara Bank 128 -> 9128");
-            // Optionally, we could saveImmediate here, but boot already sets state and 
-            // the app will persist on next change, or we can just let it persist naturally.
+            saveImmediate(loadedState);
           }
         }
         // --------------------------------------------------------
