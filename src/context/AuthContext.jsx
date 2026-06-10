@@ -7,7 +7,6 @@ import {
     signOut,
     onAuthStateChanged,
     signInWithPopup,
-    signInWithRedirect,
     updateProfile,
     signInWithCredential,
     GoogleAuthProvider
@@ -65,7 +64,7 @@ export function AuthProvider({ children }) {
             const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
             return signInWithCredential(auth, credential);
         } else {
-            return signInWithRedirect(auth, googleProvider);
+            return signInWithPopup(auth, googleProvider);
         }
     }
 
