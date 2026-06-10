@@ -382,12 +382,14 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null,
                 const isoDatePart = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
                 
                 // User's brilliant idea: Use the statement creation (download) time as the boundary!
-                let finalDateStr = isoDatePart + 'T00:00:00.000Z';
+                // By default, a PDF statement covers the entire day, so we set the time to the END of the day.
+                // This ensures SMS messages from that same day are correctly recognized as already included (not newer).
+                let finalDateStr = isoDatePart + 'T23:59:59.999Z';
                 if (fileLastModifiedMs) {
                     const fileDate = new Date(fileLastModifiedMs);
                     const fileDatePart = fileDate.toISOString().split('T')[0];
                     if (isoDatePart === fileDatePart) {
-                        // If the transaction happened on the day the statement was generated,
+                        // If the transaction happened on the EXACT day the statement was downloaded,
                         // use the EXACT generation time as the cutoff boundary!
                         finalDateStr = fileDate.toISOString();
                     }
