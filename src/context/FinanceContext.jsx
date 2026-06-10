@@ -567,8 +567,17 @@ export function FinanceProvider({ children }) {
   }, [state.theme]);
 
 
-  const importData = useCallback(({ categories: newCategories, transactions: newTransactions }) => {
+  const importData = useCallback((importedProps) => {
+    const { categories: newCategories, transactions: newTransactions, ...otherSettings } = importedProps;
     const next = { ...state };
+    
+    // Merge settings like subscription, theme, monthlyBudget, etc.
+    Object.keys(otherSettings).forEach(key => {
+      if (otherSettings[key] !== undefined && otherSettings[key] !== null) {
+        next[key] = otherSettings[key];
+      }
+    });
+
     if (newCategories && newCategories.length > 0) {
       next.categories = [...next.categories, ...newCategories.map(c => ({ ...c, id: c.id || uuidv4() }))];
     }
