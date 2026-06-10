@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle } from "lucide-react";
+import { auth } from "../../lib/firebase";
+import { signInWithCredential, GoogleAuthProvider } from "firebase/auth";
 
 const Login = () => {
     const { login, loginWithGoogle, loginAsDemoUser } = useAuth();
@@ -12,15 +14,50 @@ const Login = () => {
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
 
+    useEffect(() => {
+        // Expose function for Electron to call when deep link is received
+        window.handleElectronDeepLink = async (url) => {
+            try {
+                const urlObj = new URL(url);
+                const idToken = urlObj.searchParams.get('idToken');
+                if (idToken) {
+                    setGoogleLoading(true);
+                    const credential = GoogleAuthProvider.credential(idToken);
+                    await signInWithCredential(auth, credential);
+                    navigate("/dashboard");
+                }
+            } catch (err) {
+                console.error("Deep link auth error:", err);
+                setError("Failed to authenticate from desktop browser.");
+                setGoogleLoading(false);
+            }
+        };
+    }, [navigate]);
+
     async function handleGoogleLogin() {
+        if (window.isElectronApp) {
+            // Open system browser for OAuth
+            window.open(window.location.origin + '/login?electronAuthFlow=true', '_blank');
+            return;
+        }
+
         try {
             setError("");
             setGoogleLoading(true);
-            await loginWithGoogle();
+            const res = await loginWithGoogle();
+
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('electronAuthFlow') === 'true') {
+                const credential = GoogleAuthProvider.credentialFromResult(res);
+                if (credential && credential.idToken) {
+                    window.location.href = `budget-tracker://auth?idToken=${credential.idToken}`;
+                    return; 
+                }
+            }
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError(err.message || "Failed to sign in with Google. Please try again.");
+            setError(err.message || "Failed to sign in with Google.");
         }
         setGoogleLoading(false);
     }
