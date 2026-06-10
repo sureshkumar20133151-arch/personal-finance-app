@@ -1,8 +1,51 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
+const PROTOCOL = 'budget-tracker';
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL);
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+let mainWindow = null;
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    // Handle deep link (budget-tracker://...)
+    const url = commandLine.find(arg => arg.startsWith(`${PROTOCOL}://`));
+    if (url && mainWindow) {
+      mainWindow.webContents.executeJavaScript(`if(window.handleElectronDeepLink) window.handleElectronDeepLink("${url}");`);
+    }
+  });
+
+  app.whenReady().then(() => {
+    // Set app to run at startup
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: app.getPath("exe")
+    });
+
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
+
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     autoHideMenuBar: true,
@@ -13,47 +56,20 @@ function createWindow() {
     }
   });
 
-  // Spoof User-Agent to bypass Google's "unsecure browser" block for OAuth
-  const customUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  app.userAgentFallback = customUserAgent;
-  mainWindow.webContents.userAgent = customUserAgent;
-
-  // Ensure any popup windows also get the spoofed User-Agent
-  mainWindow.webContents.on('did-create-window', (childWindow) => {
-    childWindow.webContents.userAgent = customUserAgent;
+  // Let Vercel app know it's running inside Electron
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.executeJavaScript('window.isElectronApp = true;');
   });
 
-  // Load the live Vercel App. This ensures the .exe always has the latest version automatically!
   mainWindow.loadURL('https://personal-finance-app-mauve.vercel.app');
 
-  // Handle external popups (important for Google Login)
+  // Intercept window.open or target="_blank"
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Let Firebase Google Auth popups open inside the app
-    if (url.includes('accounts.google.com') || url.includes('firebase')) {
-      return { 
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          autoHideMenuBar: true,
-          webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true
-          }
-        }
-      };
-    }
-    // Open other links in the user's default browser
+    // Open all external links in system browser
     shell.openExternal(url);
     return { action: 'deny' };
   });
 }
-
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
