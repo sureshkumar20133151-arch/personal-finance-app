@@ -283,12 +283,31 @@ export function FinanceProvider({ children }) {
 
   // ─── Computed balances ────────────────────────────────────────────────────
   const validTransactions = React.useMemo(() => {
-    let txs = (state.transactions || [])
+    const rawTxs = state.transactions || [];
+    
+    // Find known account endings for each bank
+    const knownAccounts = {};
+    rawTxs.forEach(t => {
+      if (t.bankName && t.accountEnding && t.accountEnding !== 'null') {
+        if (!knownAccounts[t.bankName]) knownAccounts[t.bankName] = new Set();
+        knownAccounts[t.bankName].add(t.accountEnding);
+      }
+    });
+
+    let txs = rawTxs
       .map(t => {
-        if (t.source === 'sms' && t.rawSms && t.availableBalance === undefined) {
-          return { ...t, availableBalance: getAvailableBalance(t.rawSms) };
+        let updatedT = { ...t };
+        if (updatedT.source === 'sms' && updatedT.rawSms && updatedT.availableBalance === undefined) {
+          updatedT.availableBalance = getAvailableBalance(updatedT.rawSms);
         }
-        return t;
+        
+        // Infer missing account ending if unambiguously known
+        if (updatedT.bankName && (!updatedT.accountEnding || updatedT.accountEnding === 'null')) {
+          if (knownAccounts[updatedT.bankName] && knownAccounts[updatedT.bankName].size === 1) {
+            updatedT.accountEnding = Array.from(knownAccounts[updatedT.bankName])[0];
+          }
+        }
+        return updatedT;
       })
       .filter(t => {
       if (t.source === 'sms') {
