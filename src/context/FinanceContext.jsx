@@ -330,7 +330,7 @@ export function FinanceProvider({ children }) {
     txs.forEach(t => {
       if (t.source !== 'sms') {
         const dateStr = getLocalDay(t.date);
-        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}`;
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName || ''}_${t.accountEnding || ''}`;
         pdfTxCounts[key] = (pdfTxCounts[key] || 0) + 1;
       }
     });
@@ -338,7 +338,7 @@ export function FinanceProvider({ children }) {
     return txs.filter(t => {
       if (t.source === 'sms') {
         const dateStr = getLocalDay(t.date);
-        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}`;
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName || ''}_${t.accountEnding || ''}`;
         if (pdfTxCounts[key] && pdfTxCounts[key] > 0) {
           pdfTxCounts[key]--; // Use up one match
           return false; // Drop this SMS duplicate!
