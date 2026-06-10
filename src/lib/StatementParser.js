@@ -110,19 +110,19 @@ const parsePDF = async (file, password = null) => {
     // Attempt to detect Bank Name from the header (first 50 rows) to avoid matching IFSC codes in transactions
     const headerText = fullText.slice(0, 50).join(' ').toLowerCase();
     let bankName = 'Bank Account';
-    if (headerText.includes('indian bank') || /\bidib/i.test(headerText)) bankName = 'Indian Bank';
-    else if (headerText.includes('canara') || /\bcnrb/i.test(headerText)) bankName = 'Canara Bank';
-    else if (headerText.includes('sbi ') || headerText.includes('state bank') || /\bsbin\d/i.test(headerText)) bankName = 'SBI';
-    else if (headerText.includes('hdfc') || /\bhdfc/i.test(headerText)) bankName = 'HDFC Bank';
-    else if (headerText.includes('icici') || /\bicic/i.test(headerText)) bankName = 'ICICI Bank';
-    else if (headerText.includes('axis') || /\butib/i.test(headerText)) bankName = 'Axis Bank';
-    else if (headerText.includes('kotak') || /\bkkbk/i.test(headerText)) bankName = 'Kotak Bank';
+    if (headerText.includes('indian bank') || /\bidib0/i.test(headerText)) bankName = 'Indian Bank';
+    else if (headerText.includes('canara') || /\bcnrb0/i.test(headerText)) bankName = 'Canara Bank';
+    else if (headerText.includes('sbi ') || headerText.includes('state bank') || /\bsbin0/i.test(headerText)) bankName = 'SBI';
+    else if (headerText.includes('hdfc') || /\bhdfc0/i.test(headerText)) bankName = 'HDFC Bank';
+    else if (headerText.includes('icici') || /\bicic0/i.test(headerText)) bankName = 'ICICI Bank';
+    else if (headerText.includes('axis') || /\butib0/i.test(headerText)) bankName = 'Axis Bank';
+    else if (headerText.includes('kotak') || /\bkkbk0/i.test(headerText)) bankName = 'Kotak Bank';
 
     // Attempt to detect Account Number ending
     let accountEnding = null;
     const rawStr = fullText.join(' ');
-    // Matches patterns like "A/C No. 1234567890", "Account: 123456"
-    const accMatch = rawStr.match(/(?:a\/c|account)(?:\s+no\.?)?(?:\s*number)?[\s:]+(\d{4,})/i);
+    // Matches patterns like "A/C No. 1234567890", "Account: xxxxxxxx1234"
+    const accMatch = rawStr.match(/(?:a\/c|account)(?:\s+no\.?)?(?:\s*number)?[\s:]*(?:[x*X]+)?(\d{4,})/i);
     if (accMatch && accMatch[1]) {
         const digits = accMatch[1];
         accountEnding = digits.length >= 4 ? digits.substring(digits.length - 4) : digits;
@@ -275,145 +275,102 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null,
     const dateRegex = /(\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b)|(\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b)|(\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4}\b)/i;
 
     const transactions = [];
+    let currentBlock = null;
+
+    const processBlock = (block) => {
+        let cleanText = block.text.replace(/Ending Balance.*$/igm, '');
+        cleanText = cleanText.replace(/Total.*$/igm, '');
+        const remaining = cleanText;
+        const moneyRegex = /([\d,]+\.\d{2})/g;
+        const amounts = [...remaining.matchAll(moneyRegex)].map(m => parseFloat(m[0].replace(/,/g, '')));
+
+        if (amounts.length > 0) {
+            let amount = 0;
+            let type = 'expense';
+
+            if (amounts.length >= 3) {
+                const withdrawal = amounts[amounts.length - 3];
+                const deposit = amounts[amounts.length - 2];
+                if (withdrawal > 0) { amount = withdrawal; type = 'expense'; }
+                else if (deposit > 0) { amount = deposit; type = 'income'; }
+                else { amount = amounts[0]; }
+            } else if (amounts.length === 2) {
+                amount = amounts[0];
+                if (bankName === 'Indian Bank') {
+                    if (/(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) type = 'income';
+                    else if (/(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) type = 'expense';
+                }
+            } else {
+                amount = amounts[0];
+            }
+
+            const textLower = remaining.toLowerCase();
+            if (textLower.includes('/cr/') || textLower.includes(' cr') || textLower.includes('neft cr') || textLower.includes('credit') || textLower.includes('inp') || textLower.includes('salary')) {
+                type = 'income';
+            } else if (textLower.includes('/dr/') || textLower.includes(' dr') || textLower.includes('debit') || textLower.includes('atm') || textLower.includes('pos') || textLower.includes('upi/')) {
+                if (amounts.length >= 3 && amounts[amounts.length - 2] > 0) type = 'income';
+                else type = 'expense';
+            }
+            if (remaining.toLowerCase().includes(' cr ') || remaining.toLowerCase().endsWith(' cr')) type = 'income';
+
+            const description = remaining.replace(moneyRegex, '').trim().replace(/\s+/g, ' ');
+
+            let dateObj = new Date(block.dateStr);
+            const isNumericDate = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(block.dateStr);
+            if (isNumericDate) {
+                const parts = block.dateStr.split(/[\/\-]/);
+                if (parts[0].length === 4) dateObj = new Date(block.dateStr);
+                else if (parseInt(parts[0]) > 12) dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                else dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            }
+
+            const isoDatePart = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            let finalDateStr = isoDatePart + 'T23:59:59.999Z';
+            if (fileLastModifiedMs) {
+                const fileDate = new Date(fileLastModifiedMs);
+                const fileDatePart = fileDate.toISOString().split('T')[0];
+                if (isoDatePart === fileDatePart) finalDateStr = fileDate.toISOString();
+            }
+
+            let availableBalance = null;
+            if (amounts.length >= 2) availableBalance = amounts[amounts.length - 1];
+
+            transactions.push({
+                date: finalDateStr,
+                description: description || 'PDF Import',
+                amount: amount,
+                type: type,
+                categoryId: '',
+                bankName: bankName,
+                accountEnding: accountEnding,
+                availableBalance: availableBalance,
+                originalRow: block.text
+            });
+            return true;
+        }
+        return false;
+    };
+
+    let pendingPrefixText = '';
 
     rows.forEach(row => {
         const dateMatch = row.match(dateRegex);
         if (dateMatch) {
-            // Potential transaction row
-            // Strategy: Extract date. Look for numbers at the end (amounts). Everything in between is description.
-
-            const dateStr = dateMatch[0];
-            const remaining = row.replace(dateStr, '').trim();
-
-            // Find amounts. Look for number with decimal or commas at the end of string
-            // Regex to find the LAST number in the string which is likely the transaction amount or balance
-            // Often bank statements have: Date | Desc | Withdrawal | Deposit | Balance
-            // or: Date | Desc | Amount
-
-            // We'll try to find all money-like patterns
-            const moneyRegex = /([\d,]+\.\d{2})/g;
-            const amounts = [...remaining.matchAll(moneyRegex)].map(m => parseFloat(m[0].replace(/,/g, '')));
-
-            if (amounts.length > 0) {
-                // If 1 amount: Assume it's the transaction amount.
-                // If 2 amounts: Likely [Txn Amount, Balance].
-                // If 3 amounts: Likely [Withdrawal, Deposit, Balance] or similar.
-
-                let amount = 0;
-                let type = 'expense';
-
-                if (amounts.length >= 3) {
-                    // Usually Indian bank format: Date | ... | Withdrawal | Deposit | Balance
-                    const withdrawal = amounts[amounts.length - 3];
-                    const deposit = amounts[amounts.length - 2];
-                    if (withdrawal > 0) {
-                        amount = withdrawal;
-                        type = 'expense';
-                    } else if (deposit > 0) {
-                        amount = deposit;
-                        type = 'income';
-                    } else {
-                        // fallback
-                        amount = amounts[0];
-                    }
-                } else if (amounts.length === 2) {
-                    // Usually: Date | ... | Txn Amount | Balance
-                    amount = amounts[0];
-                    
-                    // Indian Bank explicit format check (hyphen marks empty column)
-                    if (bankName === 'Indian Bank') {
-                        if (/(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) {
-                            type = 'income'; // Hyphen before first amount -> Empty Debit column
-                        } else if (/(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) {
-                            type = 'expense'; // Hyphen between amounts -> Empty Credit column
-                        }
-                    }
+            if (currentBlock) {
+                const hasAmounts = processBlock(currentBlock);
+                if (!hasAmounts) {
+                    pendingPrefixText += ' ' + currentBlock.dateStr + ' ' + currentBlock.text;
                 } else {
-                    amount = amounts[0];
+                    pendingPrefixText = '';
                 }
-
-                // Heuristic override for Income/Expense based on text
-                const textLower = remaining.toLowerCase();
-                if (textLower.includes('/cr/') || textLower.includes(' cr') || textLower.includes('neft cr') || textLower.includes('credit') || textLower.includes('inp') || textLower.includes('salary')) {
-                    type = 'income';
-                } else if (textLower.includes('/dr/') || textLower.includes(' dr') || textLower.includes('debit') || textLower.includes('atm') || textLower.includes('pos') || textLower.includes('upi/')) {
-                    // Ensure it stays expense unless overriden by specific deposit field
-                    if (amounts.length >= 3 && amounts[amounts.length - 2] > 0) {
-                        type = 'income'; // Trust the deposit column over text
-                    } else {
-                        type = 'expense';
-                    }
-                }
-
-                // Check for Cr/Dr keywords in description
-                if (remaining.toLowerCase().includes(' cr ') || remaining.toLowerCase().endsWith(' cr')) {
-                    type = 'income';
-                }
-
-                const description = remaining.replace(moneyRegex, '').trim().replace(/\s+/g, ' ');
-
-                // Parse Date
-                let dateObj = new Date(dateStr);
-
-                // If regex matched DD/MM/YYYY or similar, we need to be careful
-                // If textual (12 Jan 2024), Date() usually handles it.
-                // If numeric (12/01/2024), we should assume DD/MM/YYYY for international context usually
-
-                const isNumericDate = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(dateStr);
-                if (isNumericDate) {
-                    const parts = dateStr.split(/[\/\-]/);
-                    // If first part > 12, definitely DD/MM/YYYY (or YYYY-MM-DD but that's handled by Date())
-                    // If YYYY is first, Date() handles it.
-                    if (parts[0].length === 4) {
-                        // YYYY-MM-DD - standard
-                        dateObj = new Date(dateStr);
-                    } else if (parseInt(parts[0]) > 12) {
-                        // DD-MM-YYYY
-                        dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                    } else {
-                        // Ambiguous. Default to DD-MM-YYYY for consistency with most bank statements outside US
-                        // Note: If user is US based, this might flip dates. 
-                        // For now, we assume DD-MM-YYYY preference or try to detect.
-                        // Let's force DD-MM-YYYY for now as a safer default for international 'budget tracker'
-                        dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                    }
-                }
-
-                const isoDatePart = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-                
-                // User's brilliant idea: Use the statement creation (download) time as the boundary!
-                // By default, a PDF statement covers the entire day, so we set the time to the END of the day.
-                // This ensures SMS messages from that same day are correctly recognized as already included (not newer).
-                let finalDateStr = isoDatePart + 'T23:59:59.999Z';
-                if (fileLastModifiedMs) {
-                    const fileDate = new Date(fileLastModifiedMs);
-                    const fileDatePart = fileDate.toISOString().split('T')[0];
-                    if (isoDatePart === fileDatePart) {
-                        // If the transaction happened on the EXACT day the statement was downloaded,
-                        // use the EXACT generation time as the cutoff boundary!
-                        finalDateStr = fileDate.toISOString();
-                    }
-                }
-
-                let availableBalance = null;
-                if (amounts.length >= 2) {
-                    availableBalance = amounts[amounts.length - 1]; // The last amount in the row is typically the running balance
-                }
-
-                transactions.push({
-                    date: finalDateStr,
-                    description: description || 'PDF Import',
-                    amount: amount,
-                    type: type,
-                    categoryId: '',
-                    bankName: bankName,
-                    accountEnding: accountEnding,
-                    availableBalance: availableBalance,
-                    originalRow: row
-                });
             }
+            currentBlock = { dateStr: dateMatch[0], text: (pendingPrefixText + ' ' + row.replace(dateMatch[0], '')).trim() };
+            pendingPrefixText = '';
+        } else if (currentBlock) {
+            currentBlock.text += ' ' + row.trim();
         }
     });
+    if (currentBlock) processBlock(currentBlock);
 
     return transactions;
 };

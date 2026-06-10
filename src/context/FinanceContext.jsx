@@ -320,20 +320,25 @@ export function FinanceProvider({ children }) {
 
     // --- Smart Deduplication ---
     // If a PDF was imported, it might overlap with SMS transactions.
-    // We count identical PDF transactions per day to safely cancel out duplicate SMS ones.
+    // We count identical PDF transactions per local day to safely cancel out duplicate SMS ones.
     const pdfTxCounts = {};
+    const getLocalDay = (iso) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    };
+
     txs.forEach(t => {
       if (t.source !== 'sms') {
-        const dateStr = t.date.split('T')[0];
-        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName}_${t.accountEnding}`;
+        const dateStr = getLocalDay(t.date);
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}`;
         pdfTxCounts[key] = (pdfTxCounts[key] || 0) + 1;
       }
     });
 
     return txs.filter(t => {
       if (t.source === 'sms') {
-        const dateStr = t.date.split('T')[0];
-        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName}_${t.accountEnding}`;
+        const dateStr = getLocalDay(t.date);
+        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}`;
         if (pdfTxCounts[key] && pdfTxCounts[key] > 0) {
           pdfTxCounts[key]--; // Use up one match
           return false; // Drop this SMS duplicate!
@@ -350,13 +355,18 @@ export function FinanceProvider({ children }) {
     const cashIn  = validTx.filter(t => t.type === "income" && t.paymentMode === "cash");
     const atmOut  = validTx.filter(t =>
       t.type === "expense" &&
-      (t.description?.toLowerCase().includes("atm") || t.description?.toLowerCase().includes("cash withdrawal"))
+      (
+        (t.description?.toLowerCase().includes("atm") && !t.description?.toLowerCase().includes("atm service branch")) || 
+        t.description?.toLowerCase().includes("cash withdrawal")
+      )
     );
     const cashOut = validTx.filter(t =>
       (t.type === "expense" || t.type === "debt") &&
       t.paymentMode === "cash" &&
-      !t.description?.toLowerCase().includes("atm") &&
-      !t.description?.toLowerCase().includes("cash withdrawal")
+      !(
+        (t.description?.toLowerCase().includes("atm") && !t.description?.toLowerCase().includes("atm service branch")) || 
+        t.description?.toLowerCase().includes("cash withdrawal")
+      )
     );
     const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
     const outflow = cashOut.reduce((s, t) => s + t.amount, 0);
