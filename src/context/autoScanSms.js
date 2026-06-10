@@ -398,9 +398,9 @@ function isDuplicate(existingTransactions, candidate) {
     const sameAmount = Math.abs(t.amount - candidate.amount) < 0.01;
     const sameType = t.type === candidate.type;
     const sameBank = t.bankName === candidate.bankName;
-    const sameAccount = t.accountEnding != null && candidate.accountEnding != null 
-      ? t.accountEnding === candidate.accountEnding 
-      : false; // unknown account → not a confirmed duplicate
+    const sameAccount = (t.accountEnding == null || candidate.accountEnding == null) 
+      ? true 
+      : t.accountEnding === candidate.accountEnding;
       
     return sameDateWindow && sameAmount && sameType && sameBank && sameAccount;
   });
