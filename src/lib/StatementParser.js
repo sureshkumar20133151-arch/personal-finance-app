@@ -128,7 +128,7 @@ const parsePDF = async (file, password = null) => {
         accountEnding = digits.length >= 4 ? digits.substring(digits.length - 4) : digits;
     }
 
-    const transactions = normalizePDFRows(fullText, bankName, accountEnding);
+    const transactions = normalizePDFRows(fullText, bankName, accountEnding, file.lastModified);
     return transactions;
 };
 
@@ -270,7 +270,7 @@ const normalizeTransactions = (rawData) => {
 };
 
 // Heuristic Normalizer for Text-Based PDF Rows
-const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null) => {
+const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null, fileLastModifiedMs = null) => {
     // Regex for date: Supports DD/MM/YYYY, YYYY-MM-DD, DD.MM.YYYY, and textual months like 12 Jan 2024
     const dateRegex = /(\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b)|(\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b)|(\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4}\b)/i;
 
@@ -379,7 +379,19 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null)
                     }
                 }
 
-                const isoDate = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                const isoDatePart = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                
+                // User's brilliant idea: Use the statement creation (download) time as the boundary!
+                let finalDateStr = isoDatePart + 'T00:00:00.000Z';
+                if (fileLastModifiedMs) {
+                    const fileDate = new Date(fileLastModifiedMs);
+                    const fileDatePart = fileDate.toISOString().split('T')[0];
+                    if (isoDatePart === fileDatePart) {
+                        // If the transaction happened on the day the statement was generated,
+                        // use the EXACT generation time as the cutoff boundary!
+                        finalDateStr = fileDate.toISOString();
+                    }
+                }
 
                 let availableBalance = null;
                 if (amounts.length >= 2) {
@@ -387,7 +399,7 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null)
                 }
 
                 transactions.push({
-                    date: isoDate,
+                    date: finalDateStr,
                     description: description || 'PDF Import',
                     amount: amount,
                     type: type,
