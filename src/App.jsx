@@ -37,7 +37,8 @@ const App = () => {
       <AuthProvider>
         <FinanceProvider>
           <Routes>
-            <Route path="/" element={isNative ? <Navigate to="/dashboard" replace /> : <Landing />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/welcome" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             
