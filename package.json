@@ -1,8 +1,11 @@
 {
   "name": "personal-finance-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "A smart personal finance and budget tracking application.",
+  "author": "Budget Tracker Team",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,7 +13,33 @@
     "preview": "vite preview",
     "cap:sync": "cap sync",
     "cap:open": "cap open android",
-    "android:run": "cap run android"
+    "android:run": "cap run android",
+    "electron:build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.budgettracker.app",
+    "productName": "Budget Tracker",
+    "asar": true,
+    "directories": {
+      "output": "dist_nsis",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Budget Tracker"
+    },
+    "files": [
+      "electron/**/*",
+      "build/icon.png"
+    ]
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
@@ -33,6 +62,7 @@
     "react-router-dom": "^7.11.0",
     "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
+    "transaction-sms-parser": "^3.3.3",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
   },
@@ -44,6 +74,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
