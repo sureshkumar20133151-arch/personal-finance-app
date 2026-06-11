@@ -228,7 +228,9 @@ export function FinanceProvider({ children }) {
              localStorage.removeItem(STORAGE_KEY);
              
              // Merge Pro status and other primitive settings
-             if (localData.subscription === "pro") data.subscription = "pro";
+             if (localData.subscription && localData.subscription !== 'free') {
+                 data.subscription = localData.subscription;
+             }
              if (localData.monthlyBudget) data.monthlyBudget = localData.monthlyBudget;
              if (localData.salaryDate) data.salaryDate = localData.salaryDate;
              
