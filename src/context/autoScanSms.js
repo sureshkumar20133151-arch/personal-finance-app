@@ -13,6 +13,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { Capacitor } from '@capacitor/core';
+import { getTransactionInfo } from 'transaction-sms-parser';
 
 const MessageReader = Capacitor.isNativePlatform()
   ? (() => { try { return window.Capacitor.Plugins.MessageReader; } catch { return null; } })()
@@ -209,31 +210,49 @@ export function parseSms(body, dateMs, sender = '') {
   const bankKeywordRegex = /\b(a\/c|acct|account|balance|debited|credited|dr\b|cr\b|inr|rs\.?|₹|upi|neft|imps|rtgs|netbanking|atm)\b/i;
   if (!bankKeywordRegex.test(body)) return null;
 
-  // FIX #4: Strip balance info BEFORE running amount patterns
-  const stripped = stripBalance(body);
-
   let amount = null;
   let type = null;
+  let availableBalance = null;
+  let accEnd = null;
 
-  for (const p of DEBIT_PATTERNS) {
-    const m = stripped.match(p);
-    if (m) {
-      const val = (m[1] || m[2] || '').replace(/,/g, '');
-      if (val) { amount = parseFloat(val); type = 'expense'; break; }
+  // 1. Try robust open-source parser first
+  try {
+    const parsed = getTransactionInfo(body);
+    if (parsed && parsed.transaction && parsed.transaction.amount) {
+      const parsedAmt = parseFloat(parsed.transaction.amount);
+      if (parsedAmt > 0) {
+        amount = parsedAmt;
+        type = parsed.transaction.type === 'credit' ? 'income' : 'expense';
+        if (parsed.balance?.available) availableBalance = parseFloat(parsed.balance.available);
+        if (parsed.account?.number) accEnd = parsed.account.number;
+      }
     }
+  } catch (e) {
+    // Parser library failed or threw error, ignore and fallback
   }
 
+  // 2. Fallback to our custom logic if library missed it
   if (!amount) {
-    for (const p of CREDIT_PATTERNS) {
+    const stripped = stripBalance(body);
+    for (const p of DEBIT_PATTERNS) {
       const m = stripped.match(p);
       if (m) {
         const val = (m[1] || m[2] || '').replace(/,/g, '');
-        if (val) { amount = parseFloat(val); type = 'income'; break; }
+        if (val) { amount = parseFloat(val); type = 'expense'; break; }
+      }
+    }
+    if (!amount) {
+      for (const p of CREDIT_PATTERNS) {
+        const m = stripped.match(p);
+        if (m) {
+          const val = (m[1] || m[2] || '').replace(/,/g, '');
+          if (val) { amount = parseFloat(val); type = 'income'; break; }
+        }
       }
     }
   }
 
-  // FIX #5: Reject zero and negative amounts
+  // Reject zero and negative amounts
   if (!amount || isNaN(amount) || amount <= 0) return null;
 
   // Extract merchant
@@ -276,11 +295,11 @@ export function parseSms(body, dateMs, sender = '') {
   }
 
   const bName = getBankName(body, sender);
-  let accEnd = getAccountEnding(body);
+  let finalAccEnd = accEnd || getAccountEnding(body);
   
   // Normalization: Canara SMS genuinely only sends 3 digits (128). 
   // We explicitly map it to 9128 to match the PDF parser.
-  if (bName === 'Canara Bank' && accEnd === '128') accEnd = '9128';
+  if (bName === 'Canara Bank' && finalAccEnd === '128') finalAccEnd = '9128';
 
   return {
     amount,
@@ -291,8 +310,8 @@ export function parseSms(body, dateMs, sender = '') {
     merchant,
     paymentMode,
     bankName: bName,
-    accountEnding: accEnd,
-    availableBalance: getAvailableBalance(body),
+    accountEnding: finalAccEnd,
+    availableBalance: availableBalance || getAvailableBalance(body),
     source: 'sms',
     rawSms: body,
   };
