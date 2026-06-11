@@ -203,18 +203,62 @@ export function FinanceProvider({ children }) {
       return;
     }
 
+    let hasMigrated = false;
     const unsub = onSnapshot(doc(db, "users", currentUser.uid),
       (snap) => {
-        if (snap.exists()) {
-          const data = {
+        let cloudData = snap.exists() ? snap.data() : null;
+        
+        // 1. Check for local data that needs migration
+        const savedStr = localStorage.getItem(STORAGE_KEY);
+        let localData = null;
+        if (savedStr) {
+           try { localData = JSON.parse(savedStr); } catch(e){}
+        }
+
+        if (cloudData) {
+          let data = {
             ...DEFAULT_STATE,
-            ...snap.data(),
-            theme:    snap.data().theme    || DEFAULT_STATE.theme,
-            currency: snap.data().currency || DEFAULT_STATE.currency,
+            ...cloudData,
+            theme:    cloudData.theme    || DEFAULT_STATE.theme,
+            currency: cloudData.currency || DEFAULT_STATE.currency,
           };
+          
+          if (localData && !hasMigrated) {
+             hasMigrated = true;
+             localStorage.removeItem(STORAGE_KEY);
+             
+             // Merge Pro status and other primitive settings
+             if (localData.subscription === "pro") data.subscription = "pro";
+             if (localData.monthlyBudget) data.monthlyBudget = localData.monthlyBudget;
+             if (localData.salaryDate) data.salaryDate = localData.salaryDate;
+             
+             // Merge transactions (simple deduplication by ID)
+             if (localData.transactions && localData.transactions.length > 0) {
+                 const existingIds = new Set((data.transactions || []).map(t => t.id));
+                 const newTxs = localData.transactions.filter(t => !existingIds.has(t.id));
+                 data.transactions = [...(data.transactions || []), ...newTxs];
+             }
+             // Merge categories
+             if (localData.categories) {
+                 const existingNames = new Set((data.categories || []).map(c => c.name));
+                 const newCats = localData.categories.filter(c => !existingNames.has(c.name));
+                 data.categories = [...(data.categories || []), ...newCats];
+             }
+             
+             // Write back the merged data to cloud (this will trigger onSnapshot again, but hasMigrated is true now)
+             setDoc(doc(db, "users", currentUser.uid), data, { merge: true });
+          }
+          
           boot(data);
         } else {
-          setDoc(doc(db, "users", currentUser.uid), DEFAULT_STATE).then(() => boot(DEFAULT_STATE));
+          // NEW USER
+          let data = DEFAULT_STATE;
+          if (localData && !hasMigrated) {
+              hasMigrated = true;
+              data = { ...DEFAULT_STATE, ...localData };
+              localStorage.removeItem(STORAGE_KEY);
+          }
+          setDoc(doc(db, "users", currentUser.uid), data).then(() => boot(data));
         }
       },
       (err) => { console.error("Firebase snapshot error", err); setLoading(false); }
