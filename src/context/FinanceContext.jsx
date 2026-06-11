@@ -19,7 +19,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { doc, setDoc, onSnapshot, deleteDoc } from "firebase/firestore";
 import { db }                from "../lib/firebase";          // ← your firebase.js path
 import { useAuth }           from "./AuthContext";       // ← your auth context path
-import { autoScanTransactions, autoCategory, getAvailableBalance } from "./autoScanSms";
+import { autoScanTransactions, autoCategory, getAvailableBalance, parseSms } from "./autoScanSms";
 import { v4 as uuidv4 }     from "uuid";
 
 const App = registerPlugin("App");
@@ -103,18 +103,33 @@ export function FinanceProvider({ children }) {
 
     const boot = async (loadedState) => {
       if (!cancelled) {
-        // --- MIGRATION: Fix duplicate Canara Bank 128 -> 9128 ---
+        // --- MIGRATION: Data Healing ---
         if (loadedState.transactions) {
           let migrated = false;
           loadedState.transactions = loadedState.transactions.map(t => {
-            if (t.bankName === 'Canara Bank' && t.accountEnding === '128') {
+            let updatedT = { ...t };
+            
+            // Fix Canara Bank 128 -> 9128
+            if (updatedT.bankName === 'Canara Bank' && updatedT.accountEnding === '128') {
               migrated = true;
-              return { ...t, accountEnding: '9128' };
+              updatedT.accountEnding = '9128';
             }
-            return t;
+            
+            // Re-parse SMS transactions to fix missing availableBalance and wrong amounts from old bugs
+            if (updatedT.source === 'sms' && updatedT.rawSms) {
+                const reParsed = parseSms(updatedT.rawSms, Date.parse(updatedT.date));
+                if (reParsed) {
+                    if (updatedT.availableBalance !== reParsed.availableBalance || updatedT.amount !== reParsed.amount) {
+                        migrated = true;
+                        updatedT.availableBalance = reParsed.availableBalance;
+                        updatedT.amount = reParsed.amount;
+                    }
+                }
+            }
+            return updatedT;
           });
           if (migrated) {
-            console.log("[FinanceContext] Migrated Canara Bank 128 -> 9128");
+            console.log("[FinanceContext] Applied data migrations");
             saveImmediate(loadedState);
           }
         }
