@@ -128,7 +128,16 @@ const parsePDF = async (file, password = null) => {
         accountEnding = digits.length >= 4 ? digits.substring(digits.length - 4) : digits;
     }
 
-    const transactions = normalizePDFRows(fullText, bankName, accountEnding, file.lastModified);
+    // Extract Opening and Ending balance from PDF header
+    const headerBlock = fullText.slice(0, 80).join(' ');
+    let openingBalance = null;
+    let endingBalance = null;
+    const openMatch = headerBlock.match(/opening\s+balance\s*(?:inr|rs\.?|₹)?\s*([\d,]+\.\d{2})/i);
+    if (openMatch) openingBalance = parseFloat(openMatch[1].replace(/,/g, ''));
+    const endMatch = headerBlock.match(/ending\s+balance\s*(?:inr|rs\.?|₹)?\s*([\d,]+\.\d{2})/i);
+    if (endMatch) endingBalance = parseFloat(endMatch[1].replace(/,/g, ''));
+
+    const transactions = normalizePDFRows(fullText, bankName, accountEnding, file.lastModified, openingBalance);
     return transactions;
 };
 
@@ -270,7 +279,7 @@ const normalizeTransactions = (rawData) => {
 };
 
 // Heuristic Normalizer for Text-Based PDF Rows
-const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null, fileLastModifiedMs = null) => {
+const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null, fileLastModifiedMs = null, openingBalance = null) => {
     // Regex for date: Supports DD/MM/YYYY, YYYY-MM-DD, DD.MM.YYYY, and textual months like 12 Jan 2024
     const dateRegex = /(\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b)|(\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b)|(\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4}\b)/i;
 
@@ -279,7 +288,9 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null,
 
     const processBlock = (block) => {
         let cleanText = block.text.replace(/Ending Balance.*$/igm, '');
+        cleanText = cleanText.replace(/Closing Balance.*$/igm, '');
         cleanText = cleanText.replace(/Total.*$/igm, '');
+        cleanText = cleanText.replace(/DISCLAIMER.*$/igm, '');
         const remaining = cleanText;
         const moneyRegex = /([\d,]+\.\d{2})/g;
         const amounts = [...remaining.matchAll(moneyRegex)].map(m => parseFloat(m[0].replace(/,/g, '')));
@@ -296,22 +307,9 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null,
                 else { amount = amounts[0]; }
             } else if (amounts.length === 2) {
                 amount = amounts[0];
-                if (bankName === 'Indian Bank') {
-                    if (/(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) type = 'income';
-                    else if (/(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*(?:-)\s*(?:inr|rs\.?|₹)?\s*[\d,]+\.\d{2}\s*$/i.test(remaining)) type = 'expense';
-                }
             } else {
                 amount = amounts[0];
             }
-
-            const textLower = remaining.toLowerCase();
-            if (textLower.includes('/cr/') || textLower.includes(' cr') || textLower.includes('neft cr') || textLower.includes('credit') || textLower.includes('inp') || textLower.includes('salary')) {
-                type = 'income';
-            } else if (textLower.includes('/dr/') || textLower.includes(' dr') || textLower.includes('debit') || textLower.includes('atm') || textLower.includes('pos') || textLower.includes('upi/')) {
-                if (amounts.length >= 3 && amounts[amounts.length - 2] > 0) type = 'income';
-                else type = 'expense';
-            }
-            if (remaining.toLowerCase().includes(' cr ') || remaining.toLowerCase().endsWith(' cr')) type = 'income';
 
             const description = remaining.replace(moneyRegex, '').trim().replace(/\s+/g, ' ');
 
@@ -372,7 +370,44 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null,
     });
     if (currentBlock) processBlock(currentBlock);
 
-    return transactions;
+    // ── Post-Processing: Balance-Comparison Type Correction ──────────────
+    // The heuristic type detection above is unreliable for many PDF formats.
+    // Instead, we use the DEFINITIVE balance column: if the balance went DOWN,
+    // it was an expense; if it went UP, it was income. This is mathematically
+    // guaranteed to be correct when consecutive balances are present.
+    //
+    // Step 1: Filter out any spurious "transaction" from the header area
+    // (e.g., "Opening Balance: 612.00" parsed as a fake transaction)
+    const filtered = transactions.filter(t => {
+        const descLow = (t.description || '').toLowerCase();
+        if (descLow.includes('account details') || descLow.includes('account summary') ||
+            descLow.includes('account holder') || descLow.includes('for period')) {
+            return false;
+        }
+        return true;
+    });
+
+    // Step 2: Use openingBalance (from header) as the "previous balance" for the first real transaction
+    let prevBalance = openingBalance;
+
+    for (let i = 0; i < filtered.length; i++) {
+        const curr = filtered[i];
+        if (curr.availableBalance != null && prevBalance != null) {
+            const balDiff = curr.availableBalance - prevBalance;
+            if (Math.abs(balDiff) > 0.005) {
+                // Balance changed → determine type from direction
+                curr.type = balDiff > 0 ? 'income' : 'expense';
+                curr.amount = Math.abs(balDiff);
+            }
+            // If balDiff is ~0 (rounding), keep original heuristic
+        }
+        // Update prevBalance for next iteration
+        if (curr.availableBalance != null) {
+            prevBalance = curr.availableBalance;
+        }
+    }
+
+    return filtered;
 };
 
 // Parse XLSX/XLS files using SheetJS
