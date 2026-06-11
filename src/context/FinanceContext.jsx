@@ -562,6 +562,26 @@ export function FinanceProvider({ children }) {
     saveDebounced(next);
   }, [state, saveDebounced]);
 
+  const adjustBankBalance = useCallback((bankName, accountEnding, newBalance) => {
+    const currentBal = bankAccountBalances.find(b => b.bankName === bankName && b.accountEnding === accountEnding)?.balance || 0;
+    const diff = newBalance - currentBal;
+    if (diff === 0) return;
+
+    const adjustmentTx = {
+        id: uuidv4(),
+        date: new Date().toISOString(),
+        amount: Math.abs(diff),
+        type: diff > 0 ? 'income' : 'expense',
+        description: 'Manual Balance Adjustment',
+        categoryId: 'manual_adjustment',
+        bankName: bankName,
+        accountEnding: accountEnding,
+        availableBalance: newBalance,
+        source: 'manual'
+    };
+    addTransaction(adjustmentTx);
+  }, [bankAccountBalances, addTransaction]);
+
   const addCategory    = (cat)    => saveImmediate({ ...state, categories: [...state.categories, { ...cat, id: uuidv4() }] });
   const deleteCategory = (id)     => saveImmediate({ ...state, categories: state.categories.filter(c => c.id !== id) });
   const updateCategory = (id, up) => saveImmediate({ ...state, categories: state.categories.map(c => c.id === id ? { ...c, ...up } : c) });
@@ -729,6 +749,7 @@ export function FinanceProvider({ children }) {
     rescanTransactions,
     importData,
     getLoanDetails,
+    adjustBankBalance,
 
     // CRUD
     addCategory, deleteCategory, updateCategory,

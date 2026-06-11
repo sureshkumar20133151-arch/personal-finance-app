@@ -13,7 +13,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from "react";
-import { useFinanceData } from "./FinanceContext";
+import { useFinance } from "./FinanceContext";
+import { Pencil } from "lucide-react";
 
 // Bank name → emoji
 const BANK_EMOJI = {
@@ -47,7 +48,16 @@ const BANK_GRADIENT = {
   "PhonePe":       ["#5f259f", "#4a1d96"],
 };
 
-function BalanceCard({ bankName, accountEnding, balance, transactionCount, formatMoney }) {
+function BalanceCard({ bankName, accountEnding, balance, transactionCount, formatMoney, adjustBankBalance }) {
+  const handleEdit = () => {
+    const input = prompt(`Enter actual balance for ${bankName}:`, balance);
+    if (input !== null && input.trim() !== "") {
+      const num = parseFloat(input);
+      if (!isNaN(num)) {
+        adjustBankBalance(bankName, accountEnding, num);
+      }
+    }
+  };
   const emoji    = BANK_EMOJI[bankName]    || "🏦";
   const gradient = BANK_GRADIENT[bankName] || ["#6366f1", "#4f46e5"];
 
@@ -75,12 +85,21 @@ function BalanceCard({ bankName, accountEnding, balance, transactionCount, forma
       </div>
 
       <div className="mt-4">
-        <p
-          className="text-2xl font-bold tracking-tight leading-none"
-          style={{ color: balance >= 0 ? gradient[0] : "#ef4444" }}
-        >
-          {formatMoney(balance)}
-        </p>
+        <div className="flex items-center gap-2">
+          <p
+            className="text-2xl font-bold tracking-tight leading-none"
+            style={{ color: balance >= 0 ? gradient[0] : "#ef4444" }}
+          >
+            {formatMoney(balance)}
+          </p>
+          <button 
+            onClick={handleEdit} 
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            title="Adjust Balance"
+          >
+            <Pencil size={14} className="text-muted-foreground hover:text-foreground transition-colors" />
+          </button>
+        </div>
         <p className="text-[9px] text-muted-foreground mt-1.5 font-medium">
           {transactionCount} transactions
         </p>
@@ -96,7 +115,8 @@ export default function DashboardBalanceCards() {
     totalBalance,
     bankAccountBalances,
     formatMoney,
-  } = useFinanceData();
+    adjustBankBalance,
+  } = useFinance();
 
   return (
     <div className="space-y-3">
@@ -136,6 +156,7 @@ export default function DashboardBalanceCards() {
               key={`${bank.bankName}_${bank.accountEnding}_${i}`}
               {...bank}
               formatMoney={formatMoney}
+              adjustBankBalance={adjustBankBalance}
             />
           ))}
         </div>
