@@ -504,8 +504,14 @@ export function FinanceProvider({ children }) {
           const isSameTimeButNewer = (tDate.getTime() === anchorDate.getTime()) && (t._originalIdx > anchorIdx);
 
           if (isStrictlyNewer || isSameTimeButNewer) {
-            if (t.type === "income") computedBalance += t.amount;
-            else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+            // If this transaction has its own availableBalance, USE IT as the new anchor
+            // instead of computing from type (which may be wrong for PDF imports)
+            if (t.availableBalance != null) {
+              computedBalance = t.availableBalance;
+            } else {
+              if (t.type === "income") computedBalance += t.amount;
+              else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+            }
           }
         });
         map[key].balance = computedBalance;
