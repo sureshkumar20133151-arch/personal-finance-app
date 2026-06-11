@@ -37,7 +37,7 @@ const Login = () => {
     async function handleGoogleLogin() {
         if (window.isElectronApp) {
             // Open system browser for OAuth
-            window.open(window.location.origin + '/login?electronAuthFlow=true', '_blank');
+            window.open(window.location.origin + '/?electronAuthFlow=true#/login', '_blank');
             return;
         }
 
