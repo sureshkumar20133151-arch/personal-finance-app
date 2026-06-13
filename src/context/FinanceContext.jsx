@@ -13,10 +13,10 @@
 //  Everything else (categories, loans, recurring, Firebase sync) unchanged.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { registerPlugin }    from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { doc, setDoc, onSnapshot, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db }                from "../lib/firebase";          // ← your firebase.js path
 import { useAuth }           from "./AuthContext";       // ← your auth context path
 import { autoScanTransactions, autoCategory, getAvailableBalance, parseSms } from "./autoScanSms";
@@ -45,6 +45,7 @@ const DEFAULT_STATE = {
   currency:           { code: "INR", symbol: "₹", locale: "en-IN", name: "Indian Rupee" },
   theme:              { mode: "light", accent: "blue" },
   subscription:       "free",
+  trialEndDate:       null,
   recurring:          [],
   loans:              [],
   monthlyBudget:      50000,
@@ -53,6 +54,7 @@ const DEFAULT_STATE = {
   initialBankBalances: {},
   initialCashBalance: 0,
   cashSeedDate: null,
+  accountingStartDate: null,
 };
 
 const STORAGE_KEY = "fintrack_data";
@@ -76,24 +78,30 @@ export function FinanceProvider({ children }) {
 
   const saveImmediate = useCallback((data) => {
     setState(data);
-    if (currentUser && !currentUser.isAnonymous) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    
+    const sub = data.subscription;
+    const isProUser = sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || (sub === 'trial' && new Date(data.trialEndDate) > new Date());
+
+    if (currentUser && !currentUser.isAnonymous && isProUser) {
       setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
         .catch(e => console.error("Firebase save failed", e));
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
   }, [currentUser]);
 
   const saveDebounced = useCallback((data) => {
     setState(data);
-    if (currentUser && !currentUser.isAnonymous) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    
+    const sub = data.subscription;
+    const isProUser = sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || (sub === 'trial' && new Date(data.trialEndDate) > new Date());
+
+    if (currentUser && !currentUser.isAnonymous && isProUser) {
       if (persistDebounce.current) clearTimeout(persistDebounce.current);
       persistDebounce.current = setTimeout(() => {
         setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
           .catch(e => console.error("Firebase save failed", e));
       }, 800);
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
   }, [currentUser]);
 
@@ -103,6 +111,26 @@ export function FinanceProvider({ children }) {
 
     const boot = async (loadedState) => {
       if (!cancelled) {
+        // --- TRIAL CONFIGURATION & AUTO-DOWNGRADE ---
+        let stateChanged = false;
+        if (loadedState.subscription === 'free' && !loadedState.trialEndDate) {
+          loadedState.subscription = 'trial';
+          loadedState.trialEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          stateChanged = true;
+        } else if (loadedState.subscription === 'trial' && loadedState.trialEndDate) {
+          const remainingMs = new Date(loadedState.trialEndDate) - new Date();
+          if (remainingMs <= 0) {
+            loadedState.subscription = 'free';
+            stateChanged = true;
+          }
+        }
+        if (stateChanged) {
+          saveImmediate(loadedState);
+        }
+
+        const sub = loadedState.subscription;
+        const isProUser = sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || (sub === 'trial' && new Date(loadedState.trialEndDate) > new Date());
+
         // --- MIGRATION: Data Healing ---
         if (loadedState.transactions) {
           let migrated = false;
@@ -152,15 +180,24 @@ export function FinanceProvider({ children }) {
           }
         }
 
-        // Run auto SMS scan immediately after load
-        const { newTransactions: newTxs, totalScanned, needsSetup } = await autoScanTransactions(loadedState.transactions || []);
+        // Run auto SMS scan immediately after load (gated for PRO/TRIAL users)
+        let newTxs = [];
+        let totalScanned = 0;
+        let needsSetup = false;
 
-        if (needsSetup && !cancelled) {
+        if (isProUser) {
+          const res = await autoScanTransactions(loadedState.transactions || []);
+          newTxs = res.newTransactions;
+          totalScanned = res.totalScanned;
+          needsSetup = res.needsSetup;
+        }
+
+        if (isProUser && needsSetup && !cancelled) {
           // Notify app to show SmsSetupGuide modal
           window.dispatchEvent(new CustomEvent("sms_needs_setup"));
         }
 
-        if (window.Capacitor?.isNativePlatform() && totalScanned !== undefined && !cancelled) {
+        if (isProUser && window.Capacitor?.isNativePlatform() && totalScanned !== undefined && !cancelled) {
            try {
              await LocalNotifications.schedule({
                notifications: [{
@@ -174,7 +211,7 @@ export function FinanceProvider({ children }) {
            } catch(e) { console.error("Notification failed", e); }
         }
 
-        if (newTxs && newTxs.length > 0 && !cancelled) {
+        if (isProUser && newTxs && newTxs.length > 0 && !cancelled) {
           console.log(`[FinanceContext] Auto-imported ${newTxs.length} SMS transactions`);
           const withCategory = newTxs.map(tx => ({
             ...tx,
@@ -211,9 +248,13 @@ export function FinanceProvider({ children }) {
         // 1. Check for local data that needs migration
         const savedStr = localStorage.getItem(STORAGE_KEY);
         let localData = null;
-        if (savedStr) {
-           try { localData = JSON.parse(savedStr); } catch(e){}
-        }
+         if (savedStr) {
+           try {
+             localData = JSON.parse(savedStr);
+           } catch {
+             console.warn("[FinanceContext] Failed to parse localData for migration.");
+           }
+         }
 
         if (cloudData) {
           let data = {
@@ -269,6 +310,19 @@ export function FinanceProvider({ children }) {
     return () => { cancelled = true; unsub(); };
   }, [currentUser, saveImmediate]);
 
+  // ─── Subscription Pro Status ──────────────────────────────────────────────
+  const isPro = useMemo(() => {
+    const sub = state.subscription;
+    if (sub === 'monthly' || sub === 'yearly' || sub === 'lifetime') {
+      return true;
+    }
+    if (sub === 'trial' && state.trialEndDate) {
+      const remainingMs = new Date(state.trialEndDate) - new Date();
+      return remainingMs > 0;
+    }
+    return false;
+  }, [state.subscription, state.trialEndDate]);
+
   // ─── Foreground rescan ────────────────────────────────────────────────────
   const rescanLock = useRef(false);
   const lastScan = useRef(0);
@@ -278,7 +332,7 @@ export function FinanceProvider({ children }) {
   const rescanTransactions = useCallback(async () => {
     const RESCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
     const now = Date.now();
-    if (!window.Capacitor?.isNativePlatform() || rescanLock.current || (now - lastScan.current < RESCAN_INTERVAL_MS)) return { count: 0, totalScanned: 0 };
+    if (!isPro || !window.Capacitor?.isNativePlatform() || rescanLock.current || (now - lastScan.current < RESCAN_INTERVAL_MS)) return { count: 0, totalScanned: 0 };
     
     rescanLock.current = true;
     lastScan.current = now;
@@ -380,59 +434,109 @@ export function FinanceProvider({ children }) {
     });
 
     // --- Smart Deduplication ---
-    // If a PDF was imported, it might overlap with SMS transactions.
-    // We count identical PDF transactions per local day to safely cancel out duplicate SMS ones.
-    const pdfTxCounts = {};
+    const pdfAndManualTxs = txs.filter(t => t.source !== 'sms');
+    const smsTxs = txs.filter(t => t.source === 'sms');
+
     const getLocalDay = (iso) => {
       const d = new Date(iso);
       return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     };
 
-    txs.forEach(t => {
-      if (t.source !== 'sms') {
-        const dateStr = getLocalDay(t.date);
-        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName || ''}_${t.accountEnding || ''}`;
-        pdfTxCounts[key] = (pdfTxCounts[key] || 0) + 1;
+    const isGenericOrUpi = (name) => {
+      const n = name ? name.toLowerCase() : '';
+      return n === 'gpay/upi' || n === 'phonepe' || n === 'bank account' || n === 'unknown bank' || n === 'gpay' || n === 'google pay';
+    };
+
+    const matchedSmsIds = new Set();
+
+    pdfAndManualTxs.forEach(pdf => {
+      const pdfDateStr = getLocalDay(pdf.date);
+      const pdfAmt = Math.abs(pdf.amount);
+      
+      const match = smsTxs.find(sms => {
+        if (matchedSmsIds.has(sms.id)) return false;
+        
+        const smsDateStr = getLocalDay(sms.date);
+        if (pdfDateStr !== smsDateStr) return false;
+        
+        const smsAmt = Math.abs(sms.amount);
+        if (Math.abs(pdfAmt - smsAmt) > 0.01) return false;
+        
+        if (pdf.type !== sms.type) return false;
+        
+        const sameBank = pdf.bankName === sms.bankName || 
+                         isGenericOrUpi(pdf.bankName) || 
+                         isGenericOrUpi(sms.bankName);
+        if (!sameBank) return false;
+        
+        const sameAccount = (pdf.accountEnding == null || sms.accountEnding == null || pdf.accountEnding === 'null' || sms.accountEnding === 'null')
+          ? true 
+          : pdf.accountEnding === sms.accountEnding;
+        if (!sameAccount) return false;
+        
+        return true;
+      });
+
+      if (match) {
+        matchedSmsIds.add(match.id);
       }
     });
 
-    return txs.filter(t => {
-      if (t.source === 'sms') {
-        const dateStr = getLocalDay(t.date);
-        const key = `${dateStr}_${Math.abs(t.amount)}_${t.type}_${t.bankName || ''}_${t.accountEnding || ''}`;
-        if (pdfTxCounts[key] && pdfTxCounts[key] > 0) {
-          pdfTxCounts[key]--; // Use up one match
-          return false; // Drop this SMS duplicate!
-        }
-      }
-      return true;
-    });
+    return [
+      ...pdfAndManualTxs,
+      ...smsTxs.filter(t => !matchedSmsIds.has(t.id))
+    ];
   }, [state.transactions]);
+
+  const filteredTransactions = React.useMemo(() => {
+    if (!state.accountingStartDate) return validTransactions;
+    const start = new Date(state.accountingStartDate);
+    return validTransactions.filter(t => new Date(t.date) >= start);
+  }, [validTransactions, state.accountingStartDate]);
 
 
   const cashBalance = React.useMemo(() => {
     const allTx   = validTransactions;
-    const validTx = state.cashSeedDate ? allTx.filter(t => new Date(t.date) >= new Date(state.cashSeedDate)) : allTx;
+    const startLimit = state.accountingStartDate ? new Date(state.accountingStartDate) : null;
+    const seedLimit = state.cashSeedDate ? new Date(state.cashSeedDate) : null;
+    
+    let finalSeedDate = seedLimit;
+    if (startLimit) {
+      if (!finalSeedDate || finalSeedDate < startLimit) {
+        finalSeedDate = startLimit;
+      }
+    }
+    
+    const validTx = finalSeedDate ? allTx.filter(t => new Date(t.date) >= finalSeedDate) : allTx;
+    
+    const isAtmWithdrawal = (t) => {
+      if (t.type !== "expense") return false;
+      const desc = (t.description || "").toLowerCase();
+      // Exclude false positives like "ATM SERVICE BRANCH", "ATM AMC CHARGES", "ATM CARD CHARGES"
+      if (desc.includes("atm service") || desc.includes("amc") || desc.includes("charges") || desc.includes("fee")) {
+        return false;
+      }
+      return (
+        desc.includes("atm wdl") ||
+        desc.includes("cash withdrawal") ||
+        desc.includes("atm cash") ||
+        desc.includes("cash wdl") ||
+        desc.includes("atm withdrawal") ||
+        /self-\d+/i.test(desc)
+      );
+    };
+
     const cashIn  = validTx.filter(t => t.type === "income" && t.paymentMode === "cash");
-    const atmOut  = validTx.filter(t =>
-      t.type === "expense" &&
-      (
-        (t.description?.toLowerCase().includes("atm") && !t.description?.toLowerCase().includes("atm service branch")) || 
-        t.description?.toLowerCase().includes("cash withdrawal")
-      )
-    );
+    const atmOut  = validTx.filter(isAtmWithdrawal);
     const cashOut = validTx.filter(t =>
       (t.type === "expense" || t.type === "debt") &&
       t.paymentMode === "cash" &&
-      !(
-        (t.description?.toLowerCase().includes("atm") && !t.description?.toLowerCase().includes("atm service branch")) || 
-        t.description?.toLowerCase().includes("cash withdrawal")
-      )
+      !isAtmWithdrawal(t)
     );
     const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
     const outflow = cashOut.reduce((s, t) => s + t.amount, 0);
     return (state.initialCashBalance || 0) + inflow - outflow;
-  }, [validTransactions, state.initialCashBalance, state.cashSeedDate]);
+  }, [validTransactions, state.initialCashBalance, state.cashSeedDate, state.accountingStartDate]);
 
   // ─── Per-bank balances (for dashboard cards) ──────────────────────────────
   const bankAccountBalances = React.useMemo(() => {
@@ -458,7 +562,10 @@ export function FinanceProvider({ children }) {
       if (t.bankName && t.accountEnding) {
         const key = `${t.bankName}_${t.accountEnding}`;
         if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
-        map[key].transactionCount++;
+        const isVisible = !state.accountingStartDate || new Date(t.date) >= new Date(state.accountingStartDate);
+        if (isVisible) {
+          map[key].transactionCount++;
+        }
       }
     });
 
@@ -477,7 +584,15 @@ export function FinanceProvider({ children }) {
         });
 
       const seedData = state.initialBankBalances?.[key];
-      const seedDate = seedData?.date ? new Date(seedData.date) : null;
+      let seedDate = seedData?.date ? new Date(seedData.date) : null;
+
+      const hasManualAmount = seedData && seedData.amount !== undefined && seedData.amount !== '';
+      if (state.accountingStartDate && hasManualAmount) {
+        const startD = new Date(state.accountingStartDate);
+        if (!seedDate || seedDate < startD) {
+          seedDate = startD;
+        }
+      }
 
       if (withBalance.length > 0) {
         const smsAnchor = withBalance[0];
@@ -517,9 +632,11 @@ export function FinanceProvider({ children }) {
         map[key].balance = computedBalance;
       } else {
         let computedBalance = seedData ? (parseFloat(seedData.amount) || 0) : 0;
+        const effectiveLimitDate = state.accountingStartDate ? new Date(state.accountingStartDate) : null;
         
         accountTxs.forEach(t => {
           if (seedDate && new Date(t.date) < seedDate) return;
+          if (effectiveLimitDate && new Date(t.date) < effectiveLimitDate) return;
           if (t.type === "income") computedBalance += t.amount;
           else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
         });
@@ -527,7 +644,7 @@ export function FinanceProvider({ children }) {
       }
     });
     return Object.values(map);
-  }, [validTransactions, state.initialBankBalances]);
+  }, [validTransactions, state.initialBankBalances, state.accountingStartDate]);
 
   const bankBalance = React.useMemo(() => {
     return bankAccountBalances.reduce((sum, b) => sum + b.balance, 0);
@@ -599,6 +716,7 @@ export function FinanceProvider({ children }) {
   const updateSubscription= (s)    => saveImmediate({ ...state, subscription: s });
   const updateBudget      = (b)    => saveImmediate({ ...state, monthlyBudget: parseFloat(b) });
   const updateSalaryDate  = (d)    => saveImmediate({ ...state, salaryDate: parseInt(d) });
+  const updateAccountingStartDate = (date) => saveImmediate({ ...state, accountingStartDate: date || null });
 
   const updateStartingBalances = (bankBalances, cash, cashDate) =>
     saveImmediate({ ...state, initialBankBalances: bankBalances || {}, initialCashBalance: parseFloat(cash) || 0, cashSeedDate: cashDate || null });
@@ -733,10 +851,13 @@ export function FinanceProvider({ children }) {
   const value = {
     // data
     categories:           state.categories   || [],
-    transactions:         validTransactions,
+    transactions:         filteredTransactions,
+    accountingStartDate:  state.accountingStartDate || null,
     currency:             state.currency,
     theme:                state.theme,
     subscription:         state.subscription,
+    trialEndDate:         state.trialEndDate || null,
+    isPro,
     recurring:            state.recurring     || [],
     loans:                state.loans         || [],
     monthlyBudget:        state.monthlyBudget || 50000,
@@ -764,7 +885,7 @@ export function FinanceProvider({ children }) {
     addTransaction, addTransactions,
     updateTransaction, deleteTransaction,
     updateCurrency, updateTheme, updateSubscription,
-    updateBudget, updateSalaryDate, updateStartingBalances,
+    updateBudget, updateSalaryDate, updateAccountingStartDate, updateStartingBalances,
     addRecurringTransaction:    addRecurring,
     deleteRecurringTransaction: deleteRecurring,
     addLoan, deleteLoan,

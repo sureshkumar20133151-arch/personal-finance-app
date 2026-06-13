@@ -1,11 +1,52 @@
 import React, { useState } from 'react';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { Plus, Trash2, Calendar, CreditCard, Building2, Car } from 'lucide-react';
+import { Plus, Trash2, Calendar, CreditCard, Building2, Car, Crown, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format, addMonths, differenceInMonths } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const Loans = () => {
-    const { loans, addLoan, deleteLoan, formatMoney, getLoanDetails } = useFinanceData();
+    const { loans, isPro, addLoan, deleteLoan, formatMoney, getLoanDetails } = useFinanceData();
+    const navigate = useNavigate();
+
+    if (!isPro) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center space-y-6 max-w-lg mx-auto py-10 animate-in fade-in duration-500">
+                <div className="p-4 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-400/20 animate-bounce">
+                    <Crown className="w-12 h-12" />
+                </div>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Loans & Debts Tracker</h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                    Track your loans, debts, repayments, EMI schedules, and interest rates automatically in one place.
+                </p>
+                <div className="w-full bg-card/50 backdrop-blur-md border border-border/80 rounded-2xl p-6 space-y-4 shadow-sm text-left">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-amber-500" /> Pro Feature Details
+                    </h3>
+                    <ul className="space-y-3 text-sm text-muted-foreground">
+                        <li className="flex items-start gap-2">
+                            <span className="text-amber-500 font-bold">•</span>
+                            <span>Track loans lent or borrowed separate from bank transactions.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="text-amber-500 font-bold">•</span>
+                            <span>Automatic EMI progress tracking & interest accrual calculation.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="text-amber-500 font-bold">•</span>
+                            <span>Detailed loan payment histories and remaining balances.</span>
+                        </li>
+                    </ul>
+                </div>
+                <button 
+                    onClick={() => navigate('/account')} 
+                    className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 text-white font-bold hover:shadow-lg hover:shadow-amber-400/10 transition-all"
+                >
+                    Upgrade to Pro Plan
+                </button>
+            </div>
+        );
+    }
     const [isAdding, setIsAdding] = useState(false);
 
     // Form State

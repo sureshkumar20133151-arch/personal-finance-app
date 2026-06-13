@@ -89,7 +89,11 @@ function isValidMerchant(str) {
   return !(digits.length > 0 && digits.length >= s.length * 0.7);
 }
 
-function getBankName(sms, sender = '') {
+function getBankName(sms, sender = '', accountEnding = null) {
+  // If we have a known account ending, map it directly to the bank
+  if (accountEnding === '4945') return 'Indian Bank';
+  if (accountEnding === '9128' || accountEnding === '128') return 'Canara Bank';
+
   const text = sms.toLowerCase();
   const snd = sender.toLowerCase();
 
@@ -210,6 +214,10 @@ export function parseSms(body, dateMs, sender = '') {
   const bankKeywordRegex = /\b(a\/c|acct|account|balance|debited|credited|dr\b|cr\b|inr|rs\.?|₹|upi|neft|imps|rtgs|netbanking|atm)\b/i;
   if (!bankKeywordRegex.test(body)) return null;
 
+  // Must contain transaction verbs/nouns to avoid order/promo spam
+  const transactionKeywordRegex = /\b(debited|credited|spent|withdrawn|transferred|transfer|paid|deducted|sent|charged|charge|purchased?|debit|credit|dr\b|cr\b|deposit|received|added|refunded)\b/i;
+  if (!transactionKeywordRegex.test(body)) return null;
+
   let amount = null;
   let type = null;
   let availableBalance = null;
@@ -227,7 +235,7 @@ export function parseSms(body, dateMs, sender = '') {
         if (parsed.account?.number) accEnd = parsed.account.number;
       }
     }
-  } catch (e) {
+  } catch {
     // Parser library failed or threw error, ignore and fallback
   }
 
@@ -294,8 +302,8 @@ export function parseSms(body, dateMs, sender = '') {
     paymentMode = 'upi';
   }
 
-  const bName = getBankName(body, sender);
   let finalAccEnd = accEnd || getAccountEnding(body);
+  const bName = getBankName(body, sender, finalAccEnd);
   
   // Normalization: Canara SMS genuinely only sends 3 digits (128). 
   // We explicitly map it to 9128 to match the PDF parser.
@@ -402,25 +410,65 @@ async function readNotifications() {
 // ─── Deduplication ───────────────────────────────────────────────────────────
 
 function isDuplicate(existingTransactions, candidate) {
+  const isGenericOrUpi = (name) => {
+    const n = name ? name.toLowerCase() : '';
+    return n === 'gpay/upi' || n === 'phonepe' || n === 'bank account' || n === 'unknown bank' || n === 'gpay' || n === 'google pay';
+  };
+
+  const getUpiRef = (tx) => {
+    const searchStr = `${tx.description || ''} ${tx.rawSms || ''} ${tx.originalRow || ''}`;
+    const match = searchStr.match(/\b\d{12}\b/);
+    return match ? match[0] : null;
+  };
+
+  const candUpi = getUpiRef(candidate);
+
   return existingTransactions.some(t => {
-    let sameDateWindow = false;
-    if (t.source !== 'sms') {
-      // PDF transactions have no exact time, so we just check if it's the same day
-      const tDate = t.date.split('T')[0];
-      const candDate = candidate.date.split('T')[0];
-      sameDateWindow = (tDate === candDate);
-    } else {
-      // SMS-to-SMS check uses the 60-second window
-      sameDateWindow = Math.abs(new Date(t.date) - new Date(candidate.date)) < 60 * 1000;
+    // 1. UPI reference number check (if both have one)
+    const tUpi = getUpiRef(t);
+    if (candUpi && tUpi) {
+      if (candUpi === tUpi) {
+        return true; // Match found -> duplicate!
+      } else {
+        return false; // Different UPI refs -> NOT a duplicate, even if other fields match!
+      }
     }
-    
+
+    // 2. Exact body match check (100% duplicate)
+    if (t.rawSms && candidate.rawSms && t.rawSms.trim() === candidate.rawSms.trim()) {
+      return true;
+    }
+
+    let sameDateWindow = false;
+    if (t.source !== 'sms' || candidate.source !== 'sms') {
+      // PDF statement vs SMS/notification check.
+      // Timezones or late deliveries can shift transaction dates by 1 day.
+      const tTime = new Date(t.date.split('T')[0]).getTime();
+      const candTime = new Date(candidate.date.split('T')[0]).getTime();
+      const diffDays = Math.abs(tTime - candTime) / (1000 * 60 * 60 * 24);
+      sameDateWindow = (diffDays <= 1.1); // Allow +/- 1 day difference
+    } else {
+      // SMS-to-SMS / notification check
+      const diffMs = Math.abs(new Date(t.date) - new Date(candidate.date));
+      const hasUpiGeneric = isGenericOrUpi(t.bankName) || isGenericOrUpi(candidate.bankName);
+      
+      // If one of them is generic/UPI, use a 10-minute window. Otherwise 2 minutes.
+      const allowedWindowMs = hasUpiGeneric ? 10 * 60 * 1000 : 2 * 60 * 1000;
+      sameDateWindow = diffMs < allowedWindowMs;
+    }
+
     const sameAmount = Math.abs(t.amount - candidate.amount) < 0.01;
     const sameType = t.type === candidate.type;
-    const sameBank = t.bankName === candidate.bankName;
-    const sameAccount = (t.accountEnding == null || candidate.accountEnding == null) 
+    
+    // Bank check: either they match, or one is generic/UPI
+    const sameBank = t.bankName === candidate.bankName || 
+                     isGenericOrUpi(t.bankName) || 
+                     isGenericOrUpi(candidate.bankName);
+
+    const sameAccount = (t.accountEnding == null || candidate.accountEnding == null || t.accountEnding === 'null' || candidate.accountEnding === 'null') 
       ? true 
       : t.accountEnding === candidate.accountEnding;
-      
+
     return sameDateWindow && sameAmount && sameType && sameBank && sameAccount;
   });
 }
