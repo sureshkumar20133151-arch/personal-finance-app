@@ -260,30 +260,62 @@ const Landing = () => {
                         </div>
                         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                             {/* Free Plan */}
-                            <div className="p-8 rounded-3xl border border-slate-200 bg-white hover:border-slate-300 transition-all">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Free Plan</h3>
-                                <div className="text-4xl font-black text-slate-900 mb-6">₹0<span className="text-base font-medium text-slate-500">/mo</span></div>
-                                <p className="text-slate-600 mb-8 pb-8 border-b border-slate-100">For individuals getting started.</p>
-                                <ul className="space-y-4 mb-8">
-                                    <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500" /> Basic Income/Expense Tracking</li>
-                                    <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500" /> Limited Entries (50/mo)</li>
-                                    <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500" /> Basic Summary</li>
-                                </ul>
+                            <div className="p-8 rounded-3xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col justify-between">
+                                <div>
+                                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Free Plan</h3>
+                                    <div className="text-4xl font-black text-slate-900 mb-6">₹0<span className="text-base font-medium text-slate-500">/mo</span></div>
+                                    <p className="text-slate-600 mb-8 pb-8 border-b border-slate-100 text-sm">For individuals getting started.</p>
+                                    <ul className="space-y-4 mb-8">
+                                        <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Manual Transaction Entry</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Bank Statement File Import</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Multiple Bank Accounts</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Cash Tracker / Wallet</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Automatic SMS Scan</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Real-time UPI Notifications</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Category budgets & Limit alerts</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Loans & Debts Tracker</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> PDF & Excel Data Export</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Real-time Cloud Sync</li>
+                                    </ul>
+                                </div>
                                 <Link to="/signup" className="block w-full py-3 px-6 text-center rounded-xl border border-slate-200 font-bold text-slate-700 hover:bg-slate-50 transition-colors">Start Free</Link>
                             </div>
 
                             {/* Pro Plan */}
-                            <div className="relative p-8 rounded-3xl border-2 border-primary bg-slate-900 text-white shadow-2xl">
-                                <div className="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-2xl">RECOMMENDED</div>
-                                <h3 className="text-2xl font-bold mb-2">Pro Plan</h3>
-                                <div className="text-4xl font-black mb-6">₹10<span className="text-base font-medium text-slate-400">/mo</span></div>
-                                <p className="text-slate-300 mb-8 pb-8 border-b border-slate-800">For serious savers and businesses.</p>
-                                <ul className="space-y-4 mb-8">
-                                    <li className="flex items-center gap-3 text-sm"><CheckCircle2 className="w-5 h-5 text-primary" /> <strong>Unlimited</strong> Entries</li>
-                                    <li className="flex items-center gap-3 text-sm"><CheckCircle2 className="w-5 h-5 text-primary" /> Advanced Reports & Insights</li>
-                                    <li className="flex items-center gap-3 text-sm"><CheckCircle2 className="w-5 h-5 text-primary" /> Priority Email Support</li>
-                                    <li className="flex items-center gap-3 text-sm"><CheckCircle2 className="w-5 h-5 text-primary" /> Export Data</li>
-                                </ul>
+                            <div className="relative p-8 rounded-3xl border-2 border-primary bg-slate-900 text-white shadow-2xl flex flex-col justify-between">
+                                <div>
+                                    <div className="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-2xl">RECOMMENDED</div>
+                                    <h3 className="text-2xl font-bold mb-2">Pro Plan</h3>
+                                    <div className="flex flex-col gap-1 mb-6 pb-6 border-b border-slate-800">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black">₹100</span>
+                                            <span className="text-base font-medium text-slate-400">/month</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-3xl font-black text-slate-200">₹900</span>
+                                            <span className="text-base font-medium text-slate-400">/year</span>
+                                            <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full ml-1">Save 25%</span>
+                                        </div>
+                                        <div className="text-xs text-amber-400 font-semibold mt-2">
+                                            Includes 30 Days Free Trial
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-300 mb-8 text-sm">For serious savers and businesses.</p>
+                                    <ul className="space-y-4 mb-8">
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Automatic SMS Scan</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Real-time UPI Notifications</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Category budgets & Limit alerts</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Loans & Debts Tracker</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> PDF & Excel Data Export</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Real-time Cloud Sync</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Manual Transaction Entry</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Bank Statement File Import</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Multiple Bank Accounts</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Cash Tracker / Wallet</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
+                                    </ul>
+                                </div>
                                 <Link to="/account" className="block w-full py-3 px-6 text-center rounded-xl bg-primary font-bold text-white hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25">Upgrade to Pro</Link>
                             </div>
                         </div>

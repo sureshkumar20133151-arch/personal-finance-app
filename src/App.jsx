@@ -20,7 +20,6 @@ import SmsSetupGuide from './context/SmsSetupGuide';
 import Budget from './pages/Budget';
 
 const App = () => {
-  const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
   const [showSmsSetup, setShowSmsSetup] = useState(false);
 
   useEffect(() => {

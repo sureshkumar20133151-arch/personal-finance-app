@@ -8,7 +8,13 @@ import mammoth from 'mammoth/mammoth.browser';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+    const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    if (isCapacitor) {
+        const version = pdfjsLib.version || '5.6.205';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+    } else {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+    }
 } catch (e) {
     console.warn("Could not set PDF worker source", e);
 }
@@ -131,11 +137,8 @@ const parsePDF = async (file, password = null) => {
     // Extract Opening and Ending balance from PDF header
     const headerBlock = fullText.slice(0, 80).join(' ');
     let openingBalance = null;
-    let endingBalance = null;
     const openMatch = headerBlock.match(/opening\s+balance\s*(?:inr|rs\.?|₹)?\s*([\d,]+\.\d{2})/i);
     if (openMatch) openingBalance = parseFloat(openMatch[1].replace(/,/g, ''));
-    const endMatch = headerBlock.match(/ending\s+balance\s*(?:inr|rs\.?|₹)?\s*([\d,]+\.\d{2})/i);
-    if (endMatch) endingBalance = parseFloat(endMatch[1].replace(/,/g, ''));
 
     const transactions = normalizePDFRows(fullText, bankName, accountEnding, file.lastModified, openingBalance);
     return transactions;

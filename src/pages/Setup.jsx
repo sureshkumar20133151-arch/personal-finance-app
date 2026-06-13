@@ -19,7 +19,8 @@ const Setup = () => {
     const { 
         categories, addCategory, deleteCategory, updateCategory, 
         salaryDate, updateSalaryDate, initialBankBalances, bankAccountBalances, clearData,
-        initialCashBalance, cashSeedDate, updateStartingBalances 
+        initialCashBalance, cashSeedDate, updateStartingBalances,
+        accountingStartDate, updateAccountingStartDate
     } = useFinanceData();
 
     // Form State
@@ -164,6 +165,32 @@ const Setup = () => {
                                 return `${cycleStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${cycleEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
                             })()}
                         </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+                        <h3 className="font-semibold mb-1 flex items-center gap-2">
+                            <span style={{ fontSize: '16px' }}>📅</span> Accounting Start Date
+                        </h3>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Transactions before this date will be hidden, and bank/cash balances will anchor to this date. Leave blank to show all history.
+                        </p>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="date"
+                                value={accountingStartDate ? accountingStartDate.split('T')[0] : ''}
+                                onChange={(e) => updateAccountingStartDate(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                            />
+                            {accountingStartDate && (
+                                <button
+                                    onClick={() => updateAccountingStartDate(null)}
+                                    className="p-2 text-muted-foreground hover:text-foreground bg-muted/50 rounded-xl hover:bg-muted"
+                                    title="Reset Start Date"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6">

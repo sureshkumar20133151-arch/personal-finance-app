@@ -6,9 +6,11 @@ import CategoryIcon from '../components/CategoryIcon';
 import BudgetTargetModal from '../components/BudgetTargetModal';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import CircleProgress from '../components/CircleProgress';
+import { useNavigate } from 'react-router-dom';
 
 const Budget = () => {
-    const { categories, transactions, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
+    const { categories, transactions, isPro, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
+    const navigate = useNavigate();
 
     // Selection State
     const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -73,6 +75,12 @@ const Budget = () => {
     };
 
     const startEditing = () => {
+        if (!isPro) {
+            if (confirm("Category budgets are a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                navigate('/account');
+            }
+            return;
+        }
         setTargetInputValue(selectedCategory?.budget?.toString() || '');
         setEditingTarget(true);
     };
@@ -88,7 +96,15 @@ const Budget = () => {
                             Budget
                         </h2>
                         <button
-                            onClick={() => setShowTargetModal(true)}
+                            onClick={() => {
+                                if (!isPro) {
+                                    if (confirm("Category budgets are a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                                        navigate('/account');
+                                    }
+                                    return;
+                                }
+                                setShowTargetModal(true);
+                            }}
                             className="text-xs font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors"
                         >
                             Set Limit

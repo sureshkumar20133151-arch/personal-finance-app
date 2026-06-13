@@ -9,8 +9,10 @@ import { parseStatement } from '../lib/StatementParser';
 import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
+import { useNavigate } from 'react-router-dom';
 
 const Transactions = () => {
+    const navigate = useNavigate();
     const {
         transactions,
         categories,
@@ -22,6 +24,7 @@ const Transactions = () => {
         addRecurringTransaction,
         deleteRecurringTransaction,
         subscription,
+        isPro,
 
         recurring,
         loans,
@@ -300,8 +303,10 @@ const Transactions = () => {
 
     const handleExportData = () => {
         // Enforce Pro Plan check
-        if (subscription !== 'monthly' && subscription !== 'lifetime') {
-            alert("Upgrade to Pro: Exporting transactions to CSV is a Pro feature. Please upgrade on the Account page.");
+        if (!isPro) {
+            if (confirm("Exporting transactions to CSV is a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                navigate('/account');
+            }
             return;
         }
 
@@ -768,7 +773,15 @@ const Transactions = () => {
                                 <span className="hidden md:inline">Export CSV</span>
                             </button>
                             <button
-                                onClick={handleSyncSms}
+                                onClick={() => {
+                                    if (!isPro) {
+                                        if (confirm("Auto Syncing SMS receipts is a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                                            navigate('/account');
+                                        }
+                                        return;
+                                    }
+                                    handleSyncSms();
+                                }}
                                 disabled={refreshing}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
                                 title="Auto-sync SMS receipts"
@@ -777,7 +790,15 @@ const Transactions = () => {
                                 <span className="hidden md:inline">Auto Sync</span>
                             </button>
                             <button
-                                onClick={() => setShowSMSScan(true)}
+                                onClick={() => {
+                                    if (!isPro) {
+                                        if (confirm("Manual SMS Inbox Scanning is a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                                            navigate('/account');
+                                        }
+                                        return;
+                                    }
+                                    setShowSMSScan(true);
+                                }}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
                                 title="Scan SMS Inbox for UPI/Bank alert receipts"
                             >
