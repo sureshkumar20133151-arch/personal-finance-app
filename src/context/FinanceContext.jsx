@@ -156,8 +156,48 @@ export function FinanceProvider({ children }) {
             }
             return updatedT;
           });
+
+          // --- DEDUPLICATION DATA HEALING ---
+          const originalLength = loadedState.transactions.length;
+          const uniqueTxs = [];
+          const seenUpi = new Set();
+          const seenRawSms = new Set();
+          const seenManualKeys = new Set();
+
+          const getUpiRefLocal = (tx) => {
+            const searchStr = `${tx.description || ''} ${tx.rawSms || ''} ${tx.originalRow || ''}`;
+            const match = searchStr.match(/\b\d{12}\b/);
+            return match ? match[0] : null;
+          };
+
+          loadedState.transactions.forEach(t => {
+            const upi = getUpiRefLocal(t);
+            if (upi) {
+              const upiKey = `${upi}_${Math.abs(t.amount)}`;
+              if (seenUpi.has(upiKey)) return; // skip duplicate
+              seenUpi.add(upiKey);
+            }
+            if (t.rawSms) {
+              const trimmedSms = t.rawSms.trim();
+              if (seenRawSms.has(trimmedSms)) return; // skip duplicate
+              seenRawSms.add(trimmedSms);
+            }
+            if (!upi && !t.rawSms) {
+              const key = `${t.date}_${t.amount}_${t.description}_${t.type}_${t.bankName}_${t.accountEnding}`;
+              if (seenManualKeys.has(key)) return; // skip duplicate
+              seenManualKeys.add(key);
+            }
+            uniqueTxs.push(t);
+          });
+
+          if (uniqueTxs.length < originalLength) {
+            loadedState.transactions = uniqueTxs;
+            console.log(`[FinanceContext] Auto-cleaned ${originalLength - uniqueTxs.length} duplicates during boot`);
+            migrated = true;
+          }
+
           if (migrated) {
-            console.log("[FinanceContext] Applied data migrations");
+            console.log("[FinanceContext] Applied data migrations & deduplication");
             saveImmediate(loadedState);
           }
         }
