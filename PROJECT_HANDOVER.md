@@ -1,112 +1,116 @@
-# Budget Tracker Pro - Project Handover Document
+# 📋 Budget Tracker Pro: Master Project Handover & Resume Guide
 
-## Project Overview
-This document serves as a handover file to continue development in a new conversation, saving API tokens. The project is a **Budget Tracking App** built as a Progressive Web App (PWA) and converted to a Native Android App using Capacitor.
-
-- **Stack:** React, Vite, TailwindCSS, Firebase (Auth & Firestore), Capacitor (Android Native).
-- **Project Directory:** `d:\anti gravity\Demo\4.Budget tracker`
-- **Live Vercel URL:** `https://personal-finance-app-mauve.vercel.app`
-- **Current Debug APK:** [app-debug.apk](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/app-debug.apk) (generated on June 6, 2026, 9:08 PM)
+This document serves as the single source of truth for the project setup, completed features, resolved bugs, known issues, and next tasks. Provide this file to any new AI coding assistant session to resume development instantly.
 
 ---
 
-## 🟢 Features Successfully Implemented (Completed)
-
-### 1. Database & User Syncing (Firestore)
-- Configured Firebase Firestore (`users/{uid}`) to sync user data in real-time.
-- **Fixed Database Lock Issue:** Successfully updated Firestore Security Rules (`allow read, write: if request.auth != null...`) so Pro account status and transactions save permanently and persist across app uninstalls.
-- Created local storage fallbacks for anonymous usage.
-
-### 2. Native Android Integration (Capacitor)
-- Swapped Vite router to `HashRouter` for native offline routing.
-- Configured `variables.gradle` to target Android SDK 34 (Android 14).
-- Implemented **Native Google Sign-In** using `@codetrix-studio/capacitor-google-auth`.
-
-### 3. SMS Transaction Reader & Notification Listener
-- Integrated `@solimanware/capacitor-sms-reader` to parse bank SMS alerts automatically.
-- Created custom Regex extraction engine (`smsParser.js`).
-- Created a background `NotificationListener` service to capture real-time transaction notifications when SMS read permission is denied.
-
-### 4. Pro Subscription & Monetization (Razorpay)
-- Integrated Razorpay Checkout SDK for Web and **Native Capacitor-Razorpay Plugin** for Android (bypasses WebView blocks).
-- Added Legal Compliance Pages (`/terms`, `/privacy`, `/refund`, `/shipping`, `/contact`) to App and Footer for Razorpay Approval.
-- Set up feature gates (Free users limited to 50 transactions/month, cannot export CSV).
-- Upgrading visually changes the UI (Crown badge, golden profile ring).
-
-### 5. UI / UX Enhancements
-- Sticky bottom navigation bar for mobile screens.
-- Separated "Bank Balance" and "Cash in Hand" on the main Dashboard.
-- Automated ATM withdrawal routing.
-- Profile Photo local Base64 upload & cropping.
-- **Dashboard Balance Cards Row:** Added Bank Balance, Cash in Hand, and Total Balance summary cards directly above the KPI cards grid on the Dashboard.
+## 📌 Project Overview & Stack
+* **Project Name:** Budget Tracker Pro
+* **Architecture:** Unified React 19 codebase, Tailwind CSS, Lucide icons, Vite.
+* **Database & Auth:** Google Firebase (Firestore Database, Firebase Authentication).
+* **Payment Integration:** Razorpay Checkout SDK & Capacitor Native Razorpay Plugin.
+* **Native Wrappers:**
+  1. **🌐 Progressive Web App (PWA):** Deployed on Vercel at `https://personal-finance-app-mauve.vercel.app`
+  2. **📱 Native Android Mobile App:** Wrapped using **Capacitor.js** (`com.budgettracker.app`) targeting Android SDK 34 (Android 14).
+  3. **💻 Native Desktop Client:** Electron wrapper (`electron/main.cjs`) supporting system-level protocols.
 
 ---
 
-## 🛠️ Errors Faced & Resolved (Crucial Context)
+## 🛠️ Errors Faced & How They Were Resolved
 
-### 1. Payment Overlay Freeze / Google Sign-in Crash ("Payment stack / App work aagala")
-- **Cause:** Capacitor plugins registered using legacy `@NativePlugin` annotations (like Razorpay Checkout and Google Auth) were **not auto-registered** by the modern Capacitor bridge. This caused JavaScript native bridge promises to hang indefinitely, freezing buttons like Google Sign-In and Razorpay Payment.
-- **Fix:** Manually imported and registered all native plugins in [MainActivity.java](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/android/app/src/main/java/com/budgettracker/app/MainActivity.java):
+### 1. Google Sign-In & Payment Overlay Freeze on Android
+* **Problem:** Clicking "Continue with Google" or trying to upgrade to Pro would hang indefinitely on native Android devices.
+* **Cause:** Modern Capacitor versions do not auto-register plugins built with legacy `@NativePlugin` annotations.
+* **Fix:** Manually registered the plugins inside `MainActivity.java`:
   ```java
-  import com.ionicframework.capacitor.Checkout;
+  import com.ionicframework.capacitor.Checkout; // Razorpay
   import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
-  import ai.soliman.plugins.messagereader.MessageReaderPlugin;
+  import ai.soliman.plugins.messagereader.MessageReaderPlugin; // SMS Scan
 
-  // inside init() / onCreate():
   registerPlugin(Checkout.class);
   registerPlugin(GoogleAuth.class);
   registerPlugin(MessageReaderPlugin.class);
   ```
 
-### 2. SMS Permission Prompt Never Appearing
-- **Cause:** `autoScanTransactions` in `autoScanSms.js` was only *checking* permissions and silently exiting on fresh install without prompting the user.
-- **Fix:** Updated [autoScanSms.js](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/src/context/autoScanSms.js) to explicitly call `MessageReader.requestPermissions()` if permission is not yet granted.
+### 2. Google Authentication Blocks in Electron Desktop
+* **Problem:** Google OAuth blocks login requests originating inside Electron's built-in Chromium browser window, throwing a `"browser not supported"` error.
+* **Fix:** Implemented browser deep-linking:
+  * Electron launches the user's default external browser (e.g. Chrome) to open `/login?electronAuthFlow=true`.
+  * Once logged in, the web app redirects the credentials to the custom protocol `budget-tracker://auth?idToken=<TOKEN>`.
+  * Electron's main process listens for this protocol, extracts the auth token, and logs the user in securely.
 
-### 3. Setup Modal Looping / 0 Results treated as Failure
-- **Cause:** Fresh installs return 0 notifications. The code was treating "Notification Listener is Active but returns 0 results" identical to "Setup not complete," endlessly showing the Setup Guide modal to users.
-- **Fix:** Adjusted return structure in [autoScanSms.js](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/src/context/autoScanSms.js) to return `{ newTransactions, needsSetup }` and correctly skip prompting setup if the listener is already enabled.
-- **Fix:** Hooked up custom events `"sms_needs_setup"` and `"sms_rescan"` in [App.jsx](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/src/App.jsx) and [FinanceContext.jsx](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/src/context/FinanceContext.jsx) to open [SmsSetupGuide.jsx](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/src/context/SmsSetupGuide.jsx) and perform clean rescans post-authorization.
+### 3. Google Login Popup COOP Block on Localhost
+* **Problem:** Under modern Chrome versions, the Google Sign-in popup on `localhost:5173` failed to communicate credentials back to the main app window.
+* **Cause:** Chrome blocks cross-origin popup communications if Cross-Origin-Opener-Policy (COOP) headers are missing.
+* **Fix:** Added the following headers configuration to the Vite dev server inside `vite.config.js`:
+  ```javascript
+  headers: {
+    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
+  }
+  ```
+
+### 4. Duplicate UPI Transactions & Older Client Ingestion
+* **Problem:** The live Firestore database accumulated duplicate transactions for UPI transfers.
+* **Causes:**
+  1. Older mobile app builds without deduplication scan SMS inboxes and upload updates continuously.
+  2. Transactions scanned from SMS and payment app push notifications created duplicate logs.
+* **Fixes:**
+  * **Auto-Healing Sweeper:** Added a boot-time self-healing deduplication pass inside `FinanceContext.jsx` that automatically purges duplicate entries from the database upon loading.
+  * **UPI Ref Mapping:** Integrated parsing rules that extract 12-digit transaction numbers to block overlaps.
+  * **Database Purging:** Ran a custom script to sweep out duplicates from the Firestore backend directly.
+  * **Rebuilt APK:** Distributed a fresh APK to override old scanner rules on the user's device.
+
+### 5. Over-Aggressive Deduplication
+* **Problem:** Valid, distinct transactions of the exact same amount on the same day were being deleted.
+* **Fix:** Expanded the composite key in `FinanceContext.jsx` to include `bankName` and `accountEnding` to ensure unique tracking.
+
+### 6. Settings Loss During Data Import
+* **Problem:** Importing JSON data files from mobile/desktop overwrote user settings like themes, monthly budgets, and Pro subscription status.
+* **Fix:** Updated the `importData` method in `FinanceContext.jsx` to safely extract and merge settings variables alongside transaction lists.
 
 ---
 
-## ⏳ Razorpay Verification Status
-
-The Razorpay Live Account verification has been submitted.
-- **Submitted Website:** `https://personal-finance-app-mauve.vercel.app`
-- **Test Credentials provided to Razorpay Team:**
-  - **Email:** `testuser@gmail.com`
-  - **Password:** `TestPassword123`
+## 🟢 Currently Implemented Features
+* **Automated Scan:** Native Android service scanning transactional bank SMS (`@solimanware/capacitor-sms-reader`) and push notifications for UPI apps.
+* **Multi-Source Accounts:** Support for Bank Balances, Credit Cards, and Cash-in-Hand ledgers.
+* **ATM Auto-Routing:** Auto-routes ATM withdrawals from cards to cash.
+* **Smart Parsers:** PDF statement parser (Canara Bank e-Passbooks, Indian Bank) and Excel/CSV input/output engines.
+* **Budget Gating:** Color-coded limit indicator alerts.
+* **Loan Tracker:** Dedicated loan ledger with EMI tracking.
+* **Premium UI**: Golden crown icon overlays and profile rings for Pro subscriptions.
 
 ---
 
-## 🟡 Next Steps in New Conversation
+## ⏳ Active Status & Balance Verification
+* **Indian Bank Balance:** Verified at **₹355.69** (anchored to June 10th statement balance of **₹271.59**).
+* **Database State:** Successfully deduplicated to 482 clean transactions.
+* **Razorpay Status:** Verification submitted for live production credentials. Currently runs on test key.
 
-If resuming development, here is how you compile and build:
+---
 
-### 1. Build & Sync commands:
+## 🚀 Upcoming Tasks & Next Steps
+1. **Mobile APK Installation:** Ensure the rebuilt [app-debug.apk](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/app-debug.apk) is installed on the mobile device to activate the new scanning rules.
+2. **Razorpay Live Activation:** Once approved, update the `.env` file with `rzp_live_...` keys and rebuild the production bundles.
+3. **Monitor Vercel Builds:** Ensure auto-deployments build cleanly following commits on the `main` branch.
+
+---
+
+## 💻 Technical Build & Deploy Commands
+
+Run these commands in order from your shell:
 ```powershell
-# Compile the React frontend
+# 1. Compile the React frontend
 npm run build
 
-# Sync assets to Capacitor Android app
+# 2. Sync assets to Capacitor Android app
 npx cap sync android
 
-# Compile debug APK
+# 3. Compile debug APK
 cd android
 $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat assembleDebug
 
-# Copy output APK to workspace root
+# 4. Copy output APK to workspace root
 cd ..
 Copy-Item android/app/build/outputs/apk/debug/app-debug.apk -Destination . -Force
 ```
-
-### 2. Live credentials:
-Once Razorpay approves the account:
-- Update `.env` with the Live Razorpay Key (`rzp_live_...`).
-- Compile the production APK.
-
----
-
-### How to use this file in the new chat:
-Simply copy this file's contents into your first prompt in the new conversation and say: *"This is the handover document from my previous chat. Let's continue from here."*
