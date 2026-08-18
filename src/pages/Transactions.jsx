@@ -25,6 +25,7 @@ const Transactions = () => {
         deleteRecurringTransaction,
         subscription,
         isPro,
+        isSmsUnlocked,
 
         recurring,
         loans,
@@ -302,14 +303,6 @@ const Transactions = () => {
     const getCategoryColor = (id) => categories.find(c => c.id === id)?.color || '#ccc';
 
     const handleExportData = () => {
-        // Enforce Pro Plan check
-        if (!isPro) {
-            if (confirm("Exporting transactions to CSV is a Pro feature. Would you like to upgrade to the Pro Plan?")) {
-                navigate('/account');
-            }
-            return;
-        }
-
         if (!transactions || transactions.length === 0) {
             alert("No transactions to export.");
             return;
@@ -774,8 +767,8 @@ const Transactions = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    if (!isPro) {
-                                        if (confirm("Auto Syncing SMS receipts is a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                                    if (!isSmsUnlocked) {
+                                        if (confirm("Auto Syncing SMS receipts requires the SMS Pro Add-on. It's coming soon!")) {
                                             navigate('/account');
                                         }
                                         return;
@@ -791,8 +784,8 @@ const Transactions = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    if (!isPro) {
-                                        if (confirm("Manual SMS Inbox Scanning is a Pro feature. Would you like to upgrade to the Pro Plan?")) {
+                                    if (!isSmsUnlocked) {
+                                        if (confirm("Manual SMS Inbox Scanning requires the SMS Pro Add-on. It's coming soon!")) {
                                             navigate('/account');
                                         }
                                         return;
