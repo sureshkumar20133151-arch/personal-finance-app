@@ -141,8 +141,8 @@ const Account = () => {
 
     const handleUpgrade = async (planType) => {
         setCheckoutLoading(true);
-        const amount = planType === 'monthly' ? 10000 : 90000; // 100 INR = 10000 paise, 900 INR = 90000 paise
-        const planName = planType === 'monthly' ? 'Pro Monthly Plan' : 'Pro Yearly Plan';
+        const amount = planType === 'starter' ? 9900 : planType === 'monthly' ? 10000 : 90000; // ₹99=9900p, ₹100=10000p, ₹900=90000p
+        const planName = planType === 'starter' ? 'Starter Plan (6 months)' : planType === 'monthly' ? 'Pro Monthly Plan' : 'Pro Yearly Plan';
 
         const options = {
             key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SqWOpMmySq1KXZ',
@@ -363,151 +363,115 @@ const Account = () => {
 
                 {/* Subscription Plans Section */}
                 <div className="md:col-span-2">
-                    <h2 className="text-xl font-bold mb-4">Subscription Plans</h2>
+                    <h2 className="text-xl font-bold mb-1">Subscription Plans</h2>
+                    <p className="text-sm text-muted-foreground mb-5">All features included in Starter. Only SMS auto-scan is a future Pro add-on.</p>
                     <div className="grid md:grid-cols-2 gap-6">
-                        {/* Free Plan */}
-                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", !isPro ? "border-primary/50 ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card")}>
-                            <div>
-                                {!isPro && (
-                                    <div className="absolute top-0 right-0 bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
-                                        CURRENT PLAN
-                                    </div>
-                                )}
-                                <h3 className="text-2xl font-bold text-foreground mb-2">Free Plan</h3>
-                                <div className="text-3xl font-black text-foreground mb-6">₹0<span className="text-base font-medium text-muted-foreground">/mo</span></div>
-                                <p className="text-muted-foreground mb-6 pb-6 border-b border-border text-sm">For basic tracking with offline local storage.</p>
-                                <ul className="space-y-3 mb-8">
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Manual Transaction Entry</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Bank Statement File Import</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Multiple Bank Accounts</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Cash Tracker / Wallet</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground/60"><X className="w-5 h-5 text-destructive flex-shrink-0" /> Automatic SMS Scan</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground/60"><X className="w-5 h-5 text-destructive flex-shrink-0" /> Real-time UPI Notifications</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground/60"><X className="w-5 h-5 text-destructive flex-shrink-0" /> Category budgets & Limit alerts</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground/60"><X className="w-5 h-5 text-destructive flex-shrink-0" /> Loans & Debts Tracker</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground/60"><X className="w-5 h-5 text-destructive flex-shrink-0" /> PDF & Excel Data Export</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground/60"><X className="w-5 h-5 text-destructive flex-shrink-0" /> Real-time Cloud Sync</li>
-                                </ul>
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    if (confirm("Are you sure you want to downgrade to the Free Plan? You will lose access to cloud sync and Pro features immediately.")) {
-                                        updateSubscription('free');
-                                    }
-                                }}
-                                disabled={!isPro || subscription === 'free'} 
-                                className={cn("block w-full py-2.5 px-6 text-center rounded-xl font-bold transition-colors", (!isPro || subscription === 'free') ? "bg-muted text-muted-foreground cursor-default" : "border border-border hover:bg-muted")}
-                            >
-                                {(!isPro || subscription === 'free') ? "Current Plan" : "Downgrade to Free"}
-                            </button>
-                        </div>
 
-                        {/* Pro Plan */}
-                        <div className={cn("relative p-6 rounded-2xl border transition-all flex flex-col justify-between", isPro ? "border-primary ring-1 ring-primary bg-primary/5" : "border-border bg-card shadow-sm hover:shadow-md")}>
+                        {/* Starter Plan */}
+                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", isPro ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm")}>
                             <div>
                                 {isPro && (
                                     <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
-                                        {subscription === 'trial' ? 'TRIAL ACTIVE' : 'ACTIVE'}
+                                        {subscription === 'trial' ? '✨ TRIAL ACTIVE' : '✅ ACTIVE'}
                                     </div>
                                 )}
-                                <h3 className="text-2xl font-bold text-foreground mb-2">Pro Plan</h3>
-                                <div className="flex flex-col gap-1 mb-6 pb-6 border-b border-border">
+                                <h3 className="text-2xl font-bold text-foreground mb-2">Starter Plan</h3>
+                                <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-black text-foreground">₹100</span>
-                                        <span className="text-sm font-medium text-muted-foreground">/month</span>
+                                        <span className="text-3xl font-black text-foreground">₹99</span>
+                                        <span className="text-sm font-medium text-muted-foreground">/ 6 months</span>
+                                        <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full ml-1">~₹16.5/mo</span>
                                     </div>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-black text-foreground/85">₹900</span>
-                                        <span className="text-sm font-medium text-muted-foreground">/year</span>
-                                        <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full ml-1">Save 25%</span>
-                                    </div>
-                                    {subscription === 'trial' && (
-                                        <div className="text-xs text-amber-500 font-semibold mt-2">
-                                            Your 30-day Free Trial is active. Subscribe to continue.
+                                    {subscription === 'trial' && trialEndDate && (
+                                        <div className="text-xs text-amber-500 font-semibold mt-1">
+                                            🎉 6-month Free Trial active — {remainingTrialDays} days remaining. Subscribe to continue after trial.
+                                        </div>
+                                    )}
+                                    {subscription !== 'trial' && !isPro && (
+                                        <div className="text-xs text-primary font-semibold mt-1">
+                                            Start with a free 6-month trial — no credit card required!
                                         </div>
                                     )}
                                 </div>
-                                <ul className="space-y-3 mb-8">
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Automatic SMS Scan</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Real-time UPI Notifications</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Category budgets & Limit alerts</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Loans & Debts Tracker</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> PDF & Excel Data Export</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Real-time Cloud Sync</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Manual Transaction Entry</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Bank Statement File Import</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Multiple Bank Accounts</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Cash Tracker / Wallet</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
+                                <ul className="space-y-2.5 mb-6 mt-4">
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Manual Transaction Entry</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Multiple Bank Accounts & Cash Wallet</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Bank Statement PDF & CSV Import</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> CSV / Excel Data Export</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Category Budgets & Limit Alerts</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Loans & Debts EMI Tracker</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Real-time Cloud Sync (Firebase)</li>
+                                    <li className="flex items-center gap-2 text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" /> <span>SMS Auto-scan <span className="text-xs italic">(Pro add-on — coming soon)</span></span></li>
                                 </ul>
                             </div>
-                            <div className="space-y-3">
-                                {subscription === 'monthly' ? (
-                                    <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
-                                        Current Plan: Pro Monthly
-                                    </div>
+                            <div className="space-y-2">
+                                {isPro && subscription !== 'trial' ? (
+                                    <>
+                                        <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
+                                            ✅ Starter Plan Active
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm("Are you sure you want to cancel? You will lose access to all features.")) {
+                                                    updateSubscription('free');
+                                                }
+                                            }}
+                                            className="block w-full mt-1 py-2 px-6 text-center rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 font-bold transition-colors text-xs"
+                                        >
+                                            Cancel Subscription
+                                        </button>
+                                    </>
                                 ) : (
-                                    <button 
-                                        onClick={() => handleUpgrade('monthly')} 
+                                    <button
+                                        onClick={() => handleUpgrade('starter')}
                                         disabled={checkoutLoading}
-                                        className={cn(
-                                            "block w-full py-2.5 px-6 text-center rounded-xl font-bold transition-all text-sm",
-                                            subscription === 'yearly'
-                                                ? "border border-border hover:bg-muted text-foreground"
-                                                : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-                                        )}
+                                        className="block w-full py-3 px-6 text-center rounded-xl font-bold transition-all bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-sm"
                                     >
                                         {checkoutLoading ? (
-                                            <span className="flex items-center justify-center gap-2">
-                                                <Loader2 className="w-5 h-5 animate-spin" />
-                                                Processing...
-                                            </span>
-                                        ) : subscription === 'yearly' ? (
-                                            "Switch to Monthly (₹100/mo)"
+                                            <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
+                                        ) : subscription === 'trial' ? (
+                                            "Subscribe Now — ₹99 / 6 months"
                                         ) : (
-                                            "Subscribe Monthly (₹100/mo)"
+                                            "Start Free 6-Month Trial"
                                         )}
-                                    </button>
-                                )}
-
-                                {subscription === 'yearly' ? (
-                                    <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
-                                        Current Plan: Pro Yearly
-                                    </div>
-                                ) : (
-                                    <button 
-                                        onClick={() => handleUpgrade('yearly')} 
-                                        disabled={checkoutLoading}
-                                        className="block w-full py-2.5 px-6 text-center rounded-xl font-bold transition-all bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md text-sm"
-                                    >
-                                        {checkoutLoading ? (
-                                            <span className="flex items-center justify-center gap-2">
-                                                <Loader2 className="w-5 h-5 animate-spin" />
-                                                Processing...
-                                            </span>
-                                        ) : (
-                                            "Subscribe Yearly (₹900/yr)"
-                                        )}
-                                    </button>
-                                )}
-
-                                {(subscription === 'monthly' || subscription === 'yearly') && (
-                                    <button 
-                                        onClick={() => {
-                                            if (confirm("Are you sure you want to cancel your Pro subscription? You will lose access to Pro features immediately.")) {
-                                                updateSubscription('free');
-                                            }
-                                        }} 
-                                        className="block w-full mt-2 py-2 px-6 text-center rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 font-bold transition-colors text-xs"
-                                    >
-                                        Cancel Subscription
                                     </button>
                                 )}
                             </div>
                         </div>
+
+                        {/* SMS Pro Add-on — Coming Soon */}
+                        <div className="relative p-6 rounded-2xl border border-dashed border-border bg-muted/30 flex flex-col justify-between opacity-75">
+                            <div className="absolute top-0 right-0 bg-amber-400/20 text-amber-600 dark:text-amber-400 text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl border border-amber-400/30">
+                                🚧 COMING SOON
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Crown className="w-5 h-5 text-amber-500" />
+                                    <h3 className="text-2xl font-bold text-foreground">SMS Pro Add-on</h3>
+                                </div>
+                                <div className="flex items-baseline gap-2 mb-4 pb-4 border-b border-border">
+                                    <span className="text-2xl font-black text-muted-foreground">₹TBD</span>
+                                    <span className="text-sm text-muted-foreground">/ month</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-4 italic">
+                                    Automatic bank SMS scanning is currently under development and will be available as a future add-on.
+                                </p>
+                                <ul className="space-y-2.5 mb-6">
+                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> Auto SMS Transaction Scan</li>
+                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> Real-time UPI Push Notifications</li>
+                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> ATM Auto Cash Routing</li>
+                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> Zero-touch Background Import</li>
+                                </ul>
+                            </div>
+                            <button disabled className="block w-full py-3 px-6 text-center rounded-xl font-bold bg-muted text-muted-foreground cursor-not-allowed border border-border text-sm">
+                                🔔 Notify Me When Available
+                            </button>
+                        </div>
+
                     </div>
                 </div>
+
 
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:col-span-2">
                     <div className="flex items-center gap-4 mb-4">
