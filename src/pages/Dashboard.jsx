@@ -20,11 +20,11 @@ const SparkBar = ({ data, color }) => {
       {data.map((v, i) => (
         <div
           key={i}
-          className="flex-1 rounded-sm transition-all duration-300"
+          className="flex-1 rounded-sm transition-all duration-500"
           style={{
             height: `${Math.max((v / max) * 100, 4)}%`,
             backgroundColor: color,
-            opacity: 0.4 + (i / data.length) * 0.6,
+            opacity: 0.3 + (i / data.length) * 0.7,
           }}
         />
       ))}
@@ -35,24 +35,26 @@ const SparkBar = ({ data, color }) => {
 // ── KPI Card ─────────────────────────────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars
 const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor, sparkColor, sparkData, trend, children }) => (
-  <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+  <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-sm transition-all duration-250 hover:shadow-lg hover:-translate-y-1 group overflow-hidden relative">
+    {/* Subtle gradient overlay on hover */}
+    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-br from-primary/3 to-transparent rounded-2xl" />
     <div className="flex items-start justify-between mb-3">
-      <div className={cn('p-2 rounded-xl', bgColor)}>
-        <Icon className={cn('w-4 h-4', color)} />
+      <div className={cn('p-2.5 rounded-xl transition-all duration-200 group-hover:scale-110 group-hover:shadow-md', bgColor)}>
+        <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', color)} />
       </div>
       {trend !== undefined && trend !== null && (
         <span className={cn(
-          'text-xs font-bold px-2 py-0.5 rounded-full',
+          'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full transition-all',
           trend <= 0
-            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
             : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
         )}>
           {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
         </span>
       )}
     </div>
-    <p className="text-xs font-medium text-muted-foreground mb-1">{title}</p>
-    <p className={cn('text-lg sm:text-2xl font-bold tracking-tight', color)}>{value}</p>
+    <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">{title}</p>
+    <p className={cn('text-xl sm:text-2xl font-extrabold tracking-tight', color)}>{value}</p>
     {sparkData && (
       <div className="mt-3">
         <SparkBar data={sparkData} color={sparkColor} />
@@ -60,7 +62,7 @@ const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor,
     )}
     {subValue && (
       <p className="text-xs text-muted-foreground mt-2">
-        <span className="font-medium text-foreground">{subValue}</span> {subLabel}
+        <span className="font-semibold text-foreground">{subValue}</span> {subLabel}
       </p>
     )}
     {children}
@@ -71,18 +73,19 @@ const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor,
 const ProgressBar = ({ label, value, max, color, formatMoney }) => {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   const isOver = max > 0 && value > max;
+  const barColor = isOver ? '#ef4444' : pct > 80 ? '#f59e0b' : color;
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-xs">
-        <span className="font-medium text-foreground truncate max-w-[150px]">{label}</span>
-        <span className={cn('font-bold', isOver ? 'text-destructive' : 'text-muted-foreground')}>
+        <span className="font-semibold text-foreground truncate max-w-[150px]">{label}</span>
+        <span className={cn('font-bold', isOver ? 'text-destructive' : pct > 80 ? 'text-amber-500' : 'text-muted-foreground')}>
           {formatMoney(value)}{max > 0 ? ` / ${formatMoney(max)}` : ''}
         </span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div
-          className={cn('h-full rounded-full transition-all duration-700', isOver ? 'bg-destructive' : '')}
-          style={{ width: `${pct}%`, backgroundColor: isOver ? undefined : color }}
+          className={cn('h-full rounded-full transition-all duration-700', isOver && 'pulse-danger')}
+          style={{ width: `${pct}%`, backgroundColor: barColor }}
         />
       </div>
     </div>

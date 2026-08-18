@@ -9,7 +9,7 @@ import CircleProgress from '../components/CircleProgress';
 import { useNavigate } from 'react-router-dom';
 
 const Budget = () => {
-    const { categories, transactions, isPro, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
+    const { categories, transactions, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
     const navigate = useNavigate();
 
     // Selection State
@@ -75,50 +75,36 @@ const Budget = () => {
     };
 
     const startEditing = () => {
-        if (!isPro) {
-            if (confirm("Category budgets are a Pro feature. Would you like to upgrade to the Pro Plan?")) {
-                navigate('/account');
-            }
-            return;
-        }
         setTargetInputValue(selectedCategory?.budget?.toString() || '');
         setEditingTarget(true);
     };
 
     return (
-        <div className="max-w-6xl mx-auto h-[calc(100vh-100px)] min-h-[600px] flex flex-col md:flex-row gap-6 animate-in fade-in">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 animate-in fade-in pb-4" style={{ minHeight: 'calc(100dvh - 120px)' }}>
             {/* Left Sidebar: Category List */}
-            <div className="md:w-1/3 lg:w-1/4 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-border bg-muted/20 flex flex-col gap-3">
+            <div className="md:w-72 lg:w-80 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden md:max-h-[calc(100dvh-120px)] md:sticky md:top-0">
+                <div className="p-4 border-b border-border flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <h2 className="font-bold text-lg flex items-center gap-2">
-                            <Wallet className="w-5 h-5 text-primary" />
-                            Budget
+                        <h2 className="font-bold text-base flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-primary" />
+                            Budget Tracker
                         </h2>
                         <button
-                            onClick={() => {
-                                if (!isPro) {
-                                    if (confirm("Category budgets are a Pro feature. Would you like to upgrade to the Pro Plan?")) {
-                                        navigate('/account');
-                                    }
-                                    return;
-                                }
-                                setShowTargetModal(true);
-                            }}
-                            className="text-xs font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors"
+                            onClick={() => setShowTargetModal(true)}
+                            className="text-xs font-bold text-primary hover:bg-primary/10 px-2.5 py-1 rounded-lg transition-colors"
                         >
                             Set Limit
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs">
-                        <div className="flex-1 bg-background/50 p-2 rounded-lg border border-border/50">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex-1 bg-muted/50 p-2.5 rounded-xl border border-border/50">
                             <span className="text-muted-foreground block text-[10px] uppercase tracking-wider mb-0.5">Allocated</span>
-                            <span className="font-bold text-foreground">{formatMoney(totalCategoryBudget)}</span>
+                            <span className="font-bold text-sm text-foreground">{formatMoney(totalCategoryBudget)}</span>
                         </div>
-                        <div className="flex-1 bg-background/50 p-2 rounded-lg border border-border/50">
+                        <div className="flex-1 bg-muted/50 p-2.5 rounded-xl border border-border/50">
                             <span className="text-muted-foreground block text-[10px] uppercase tracking-wider mb-0.5">Global Limit</span>
-                            <span className="font-bold text-foreground">{formatMoney(monthlyBudget)}</span>
+                            <span className="font-bold text-sm text-foreground">{formatMoney(monthlyBudget)}</span>
                         </div>
                     </div>
                 </div>
@@ -126,6 +112,7 @@ const Budget = () => {
                     {expenseCategories.map(cat => {
                         const spent = categorySpending[cat.id] || 0;
                         const budget = cat.budget || 0;
+                        const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
                         const isOver = spent > budget && budget > 0;
                         const isSelected = selectedCategoryId === cat.id;
 
@@ -134,28 +121,41 @@ const Budget = () => {
                                 key={cat.id}
                                 onClick={() => setSelectedCategoryId(cat.id)}
                                 className={cn(
-                                    "w-full text-left p-3 rounded-xl transition-all flex items-center justify-between group",
-                                    isSelected ? "bg-primary/10 border border-primary/20 shadow-sm" : "hover:bg-muted border border-transparent"
+                                    "w-full text-left p-3 rounded-xl transition-all duration-200 group",
+                                    isSelected
+                                        ? "bg-primary/10 border border-primary/25 shadow-sm"
+                                        : "hover:bg-muted border border-transparent hover:border-border/50"
                                 )}
                             >
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-background border text-lg shadow-sm">
-                                        <CategoryIcon iconName={cat.icon || cat.emoji} size={20} color={cat.color} />
+                                <div className="flex items-center gap-2.5 mb-2">
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center border border-border/60 bg-background shadow-sm shrink-0">
+                                        <CategoryIcon iconName={cat.icon || cat.emoji} size={16} color={cat.color} />
                                     </div>
-                                    <div className="truncate">
-                                        <p className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={cn("text-sm font-semibold truncate", isSelected ? "text-primary" : "text-foreground")}>
                                             {cat.name}
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
+                                        <p className="text-[10px] text-muted-foreground">
                                             {budget > 0 ? (
-                                                isOver ? <span className="text-destructive">Overspent</span> : <span>{formatMoney(budget - spent)} left</span>
-                                            ) : (
-                                                'No target'
-                                            )}
+                                                isOver
+                                                    ? <span className="text-destructive font-medium">Over by {formatMoney(spent - budget)}</span>
+                                                    : <span>{formatMoney(budget - spent)} left</span>
+                                            ) : 'No target set'}
                                         </p>
                                     </div>
                                 </div>
-                                {isSelected && <div className="w-1 h-8 bg-primary rounded-full absolute right-0 mr-1" />}
+                                {/* Mini progress bar */}
+                                {budget > 0 && (
+                                    <div className="h-1 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full transition-all duration-700"
+                                            style={{
+                                                width: `${pct}%`,
+                                                backgroundColor: isOver ? '#ef4444' : pct > 80 ? '#f59e0b' : cat.color || 'hsl(var(--primary))'
+                                            }}
+                                        />
+                                    </div>
+                                )}
                             </button>
                         );
                     })}

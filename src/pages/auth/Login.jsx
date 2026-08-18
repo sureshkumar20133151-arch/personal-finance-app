@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Wallet, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { auth } from "../../lib/firebase";
 import { signInWithCredential, GoogleAuthProvider } from "firebase/auth";
 
@@ -9,13 +9,13 @@ const Login = () => {
     const { login, loginWithGoogle, loginAsDemoUser } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Expose function for Electron to call when deep link is received
         window.handleElectronDeepLink = async (url) => {
             try {
                 const urlObj = new URL(url);
@@ -36,22 +36,19 @@ const Login = () => {
 
     async function handleGoogleLogin() {
         if (window.isElectronApp) {
-            // Open system browser for OAuth
             window.open(window.location.origin + '/?electronAuthFlow=true#/login', '_blank');
             return;
         }
-
         try {
             setError("");
             setGoogleLoading(true);
             const res = await loginWithGoogle();
-
             const params = new URLSearchParams(window.location.search);
             if (params.get('electronAuthFlow') === 'true') {
                 const credential = GoogleAuthProvider.credentialFromResult(res);
-                if (credential && credential.idToken) {
+                if (credential?.idToken) {
                     window.location.href = `budget-tracker://auth?idToken=${credential.idToken}`;
-                    return; 
+                    return;
                 }
             }
             navigate("/dashboard");
@@ -77,74 +74,53 @@ const Login = () => {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
-            <div className="w-full max-w-md space-y-8 bg-card p-8 rounded-2xl border border-border shadow-lg">
-                <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-                    <p className="text-muted-foreground">Sign in to access your account</p>
-                </div>
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background p-4">
 
-                {error && (
-                    <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        {error}
-                    </div>
-                )}
+            {/* Animated background blobs */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/15 rounded-full blur-3xl animate-float" />
+                <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+                <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-indigo-500/8 rounded-full blur-3xl animate-float" style={{ animationDelay: '0.8s' }} />
+            </div>
 
-                <div className="space-y-4">
-                    <form onSubmit={handleEmailLogin} className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Email Address</label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
-                                className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label htmlFor="password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Password</label>
-                            <input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                required
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full inline-flex items-center justify-center rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-11 disabled:opacity-50"
-                        >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In with Email"}
-                        </button>
-                    </form>
+            {/* Card */}
+            <div className="relative w-full max-w-md animate-up">
+                <div className="glass-strong rounded-3xl p-7 sm:p-8 space-y-6">
 
-                    <div className="relative my-4">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-border" />
+                    {/* Header */}
+                    <div className="text-center space-y-3">
+                        <div className="flex justify-center mb-4">
+                            <div className="p-3 bg-gradient-to-br from-primary to-purple-600 rounded-2xl shadow-xl shadow-primary/30">
+                                <Wallet className="w-7 h-7 text-white" />
+                            </div>
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-card px-2 text-muted-foreground">Or</span>
-                        </div>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                            Welcome back
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Sign in to your <span className="text-gradient font-semibold">BudgetTracker</span> account
+                        </p>
                     </div>
 
+                    {/* Error */}
+                    {error && (
+                        <div className="bg-destructive/10 text-destructive text-sm p-3.5 rounded-xl flex items-center gap-2.5 border border-destructive/20 animate-enter">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    {/* Google Sign In */}
                     <button
                         type="button"
                         onClick={handleGoogleLogin}
                         disabled={googleLoading}
-                        className="w-full inline-flex items-center justify-center gap-3 rounded-xl text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-12 disabled:opacity-50 disabled:pointer-events-none"
+                        className="w-full flex items-center justify-center gap-3 h-12 rounded-xl border border-border bg-background/60 hover:bg-muted/60 hover:border-primary/30 font-medium text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-sm"
                     >
                         {googleLoading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
-                            <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -154,34 +130,91 @@ const Login = () => {
                         Continue with Google
                     </button>
 
+                    {/* Divider */}
+                    <div className="relative flex items-center gap-3">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium px-1">or</span>
+                        <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* Email Form */}
+                    <form onSubmit={handleEmailLogin} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                                Email Address
+                            </label>
+                            <input
+                                id="email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="you@example.com"
+                                className="input-field"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label htmlFor="password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                                Password
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="input-field pr-11"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="btn-primary w-full flex items-center justify-center gap-2 h-11"
+                        >
+                            {loading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <>Sign In <ArrowRight className="w-4 h-4" /></>
+                            )}
+                        </button>
+                    </form>
+
+                    {/* Demo Mode */}
                     <button
                         type="button"
                         onClick={() => { loginAsDemoUser(); navigate("/dashboard"); }}
-                        className="w-full inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11"
+                        className="w-full h-10 rounded-xl border border-dashed border-border/80 text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-muted/40 transition-all duration-200 font-medium"
                     >
-                        Try Demo Mode (No Setup)
+                        ✨ Try Demo Mode — No signup required
                     </button>
-                </div>
 
-                <div className="text-center text-sm">
-                    <p className="text-muted-foreground">
+                    {/* Sign up link */}
+                    <p className="text-center text-sm text-muted-foreground">
                         Don't have an account?{" "}
-                        <Link to="/signup" className="font-medium text-primary hover:underline">Sign up</Link>
+                        <Link to="/signup" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+                            Create account →
+                        </Link>
                     </p>
                 </div>
-            </div>
 
-            {/* Razorpay Verification Links */}
-            <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground max-w-sm mx-auto">
-                <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
-                <span>&bull;</span>
-                <Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
-                <span>&bull;</span>
-                <Link to="/refund" className="hover:text-primary transition-colors">Refund</Link>
-                <span>&bull;</span>
-                <Link to="/shipping" className="hover:text-primary transition-colors">Shipping</Link>
-                <span>&bull;</span>
-                <Link to="/contact" className="hover:text-primary transition-colors">Contact</Link>
+                {/* Footer links */}
+                <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground/70">
+                    <Link to="/terms"   className="hover:text-primary transition-colors">Terms</Link>
+                    <Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
+                    <Link to="/refund"  className="hover:text-primary transition-colors">Refund</Link>
+                    <Link to="/contact" className="hover:text-primary transition-colors">Contact</Link>
+                </div>
             </div>
         </div>
     );
