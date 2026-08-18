@@ -142,7 +142,7 @@ const Account = () => {
     const handleUpgrade = async (planType) => {
         setCheckoutLoading(true);
         const amount = planType === 'starter' ? 9900 : planType === 'monthly' ? 10000 : 90000; // ₹99=9900p, ₹100=10000p, ₹900=90000p
-        const planName = planType === 'starter' ? 'Starter Plan (6 months)' : planType === 'monthly' ? 'Pro Monthly Plan' : 'Pro Yearly Plan';
+        const planName = planType === 'starter' ? 'Starter Plan' : planType === 'monthly' ? 'Pro Monthly Plan' : 'Pro Yearly Plan';
 
         const options = {
             key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SqWOpMmySq1KXZ',
@@ -379,8 +379,7 @@ const Account = () => {
                                 <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-black text-foreground">₹99</span>
-                                        <span className="text-sm font-medium text-muted-foreground">/ 6 months</span>
-                                        <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full ml-1">~₹16.5/mo</span>
+                                        <span className="text-sm font-medium text-muted-foreground">/ month</span>
                                     </div>
                                     {subscription === 'trial' && trialEndDate && (
                                         <div className="text-xs text-amber-500 font-semibold mt-1">
@@ -431,7 +430,7 @@ const Account = () => {
                                         {checkoutLoading ? (
                                             <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
                                         ) : subscription === 'trial' ? (
-                                            "Subscribe Now — ₹99 / 6 months"
+                                            "Subscribe Now — ₹99 / month"
                                         ) : (
                                             "Start Free 6-Month Trial"
                                         )}
