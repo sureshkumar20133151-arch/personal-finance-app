@@ -80,10 +80,8 @@ export function FinanceProvider({ children }) {
     setState(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     
-    const sub = data.subscription;
-    const isProUser = sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || (sub === 'trial' && new Date(data.trialEndDate) > new Date());
-
-    if (currentUser && !currentUser.isAnonymous && isProUser) {
+    // All logged-in users get cloud sync (not just Pro)
+    if (currentUser && !currentUser.isAnonymous) {
       setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
         .catch(e => console.error("Firebase save failed", e));
     }
@@ -93,10 +91,8 @@ export function FinanceProvider({ children }) {
     setState(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     
-    const sub = data.subscription;
-    const isProUser = sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || (sub === 'trial' && new Date(data.trialEndDate) > new Date());
-
-    if (currentUser && !currentUser.isAnonymous && isProUser) {
+    // All logged-in users get cloud sync (not just Pro)
+    if (currentUser && !currentUser.isAnonymous) {
       if (persistDebounce.current) clearTimeout(persistDebounce.current);
       persistDebounce.current = setTimeout(() => {
         setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
@@ -113,9 +109,9 @@ export function FinanceProvider({ children }) {
       if (!cancelled) {
         // --- TRIAL CONFIGURATION & AUTO-DOWNGRADE ---
         let stateChanged = false;
-        if (loadedState.subscription === 'free' && !loadedState.trialEndDate) {
+        if ((loadedState.subscription === 'free' || loadedState.subscription === 'trial') && !loadedState.trialEndDate) {
           loadedState.subscription = 'trial';
-          loadedState.trialEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          loadedState.trialEndDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(); // 6-month trial
           stateChanged = true;
         } else if (loadedState.subscription === 'trial' && loadedState.trialEndDate) {
           const remainingMs = new Date(loadedState.trialEndDate) - new Date();
@@ -129,7 +125,8 @@ export function FinanceProvider({ children }) {
         }
 
         const sub = loadedState.subscription;
-        const isProUser = sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || (sub === 'trial' && new Date(loadedState.trialEndDate) > new Date());
+        // isProUser here only controls SMS scanner gating (the only locked Pro feature)
+        const isProUser = sub === 'sms_pro';
 
         // --- MIGRATION: Data Healing ---
         if (loadedState.transactions) {
@@ -350,10 +347,12 @@ export function FinanceProvider({ children }) {
     return () => { cancelled = true; unsub(); };
   }, [currentUser, saveImmediate]);
 
-  // ─── Subscription Pro Status ──────────────────────────────────────────────
+  // ─── Subscription Status ─────────────────────────────────────────────────
+  // isStarter = user has Starter plan (trial or paid) — unlocks everything except SMS
   const isPro = useMemo(() => {
     const sub = state.subscription;
-    if (sub === 'monthly' || sub === 'yearly' || sub === 'lifetime') {
+    // Starter plan (trial or paid) gives access to all features except SMS
+    if (sub === 'starter' || sub === 'monthly' || sub === 'yearly' || sub === 'lifetime') {
       return true;
     }
     if (sub === 'trial' && state.trialEndDate) {
@@ -362,6 +361,11 @@ export function FinanceProvider({ children }) {
     }
     return false;
   }, [state.subscription, state.trialEndDate]);
+
+  // isSmsUnlocked = ONLY for SMS auto-scan (separate Pro add-on, coming soon)
+  const isSmsUnlocked = useMemo(() => {
+    return state.subscription === 'sms_pro';
+  }, [state.subscription]);
 
   // ─── Foreground rescan ────────────────────────────────────────────────────
   const rescanLock = useRef(false);
@@ -372,7 +376,7 @@ export function FinanceProvider({ children }) {
   const rescanTransactions = useCallback(async () => {
     const RESCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
     const now = Date.now();
-    if (!isPro || !window.Capacitor?.isNativePlatform() || rescanLock.current || (now - lastScan.current < RESCAN_INTERVAL_MS)) return { count: 0, totalScanned: 0 };
+    if (!isSmsUnlocked || !window.Capacitor?.isNativePlatform() || rescanLock.current || (now - lastScan.current < RESCAN_INTERVAL_MS)) return { count: 0, totalScanned: 0 };
     
     rescanLock.current = true;
     lastScan.current = now;
@@ -898,6 +902,7 @@ export function FinanceProvider({ children }) {
     subscription:         state.subscription,
     trialEndDate:         state.trialEndDate || null,
     isPro,
+    isSmsUnlocked,
     recurring:            state.recurring     || [],
     loans:                state.loans         || [],
     monthlyBudget:        state.monthlyBudget || 50000,
