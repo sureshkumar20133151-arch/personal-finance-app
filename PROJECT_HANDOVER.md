@@ -68,6 +68,19 @@ This document serves as the single source of truth for the project setup, comple
 * **Problem:** Importing JSON data files from mobile/desktop overwrote user settings like themes, monthly budgets, and Pro subscription status.
 * **Fix:** Updated the `importData` method in `FinanceContext.jsx` to safely extract and merge settings variables alongside transaction lists.
 
+### 7. Unparsed Bank SMS Messages
+* **Problem:** Some specific bank SMS messages were failing to be recognized and parsed by the auto-scan system.
+* **Fix (Ongoing):** Located the parsing logic in `src/context/autoScanSms.js` and `src/context/smsParser.js`. Ready to analyze sample SMS messages to write precise regex rules to capture the missed transactions.
+
+### 8. Pro Account Data Loss on Firebase Auth (Data Location Anomaly)
+* **Problem:** Users who paid for the Pro account via Razorpay while in Demo Mode or while using the Email/Password authentication method found their accounts reverting to "Free" when logging in with "Continue with Google".
+* **Cause:**
+  1. Demo Mode saves data to `localStorage`. `FinanceContext.jsx`'s boot logic completely overwrote this data when authenticating with Firebase, deleting their recent purchase.
+  2. Firebase treats "Continue with Google" and "Email/Password" logins as entirely separate backend accounts, separating their subscription status even if they share an email address.
+* **Fixes:**
+  * **Local-to-Cloud Merge:** Updated `FinanceContext.jsx` to intercept the Firebase login process, detect `localStorage` data, and automatically merge Pro subscriptions (`localData.subscription !== 'free'`) and offline transactions into the Cloud Firestore account upon first login.
+  * **Manual Sync:** Added `adjustBankBalance` to `FinanceContext.jsx` to manually align offline and online ledgers via custom adjustment transactions.
+
 ---
 
 ## 🟢 Currently Implemented Features
@@ -92,6 +105,8 @@ This document serves as the single source of truth for the project setup, comple
 1. **Mobile APK Installation:** Ensure the rebuilt [app-debug.apk](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/app-debug.apk) is installed on the mobile device to activate the new scanning rules.
 2. **Razorpay Live Activation:** Once approved, update the `.env` file with `rzp_live_...` keys and rebuild the production bundles.
 3. **Monitor Vercel Builds:** Ensure auto-deployments build cleanly following commits on the `main` branch.
+4. **Fix SMS Parsing for Unrecognized Bank Formats:** Analyze user-provided bank SMS samples and update `src/context/autoScanSms.js` and `src/context/smsParser.js` to parse them accurately.
+4. **Firebase Account Linking:** Implement Firebase's `linkWithCredential` to seamlessly merge Google and Email/Password accounts to prevent the "dual-account" confusion for users.
 
 ---
 
