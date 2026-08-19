@@ -354,6 +354,43 @@ const Dashboard = () => {
       .slice(0, 4);
   }, [recurring]);
 
+  // Next single upcoming recurring payment across all frequencies
+  const nextRecurringPayment = useMemo(() => {
+    const today = new Date();
+    const list = (recurring || [])
+      .filter(r => r.active)
+      .map(r => {
+        const lastRun = r.lastProcessedDate ? new Date(r.lastProcessedDate) : new Date();
+        let nextDue = new Date(lastRun);
+        if (r.frequency === 'weekly') {
+          nextDue.setDate(lastRun.getDate() + 7);
+        } else if (r.frequency === 'monthly') {
+          nextDue.setMonth(lastRun.getMonth() + 1);
+        } else if (r.frequency === 'custom') {
+          nextDue.setDate(lastRun.getDate() + (r.interval || 30));
+        } else {
+          nextDue.setDate(lastRun.getDate() + 1);
+        }
+        
+        while (nextDue < today) {
+          if (r.frequency === 'weekly') {
+            nextDue.setDate(nextDue.getDate() + 7);
+          } else if (r.frequency === 'monthly') {
+            nextDue.setMonth(nextDue.getMonth() + 1);
+          } else if (r.frequency === 'custom') {
+            nextDue.setDate(nextDue.getDate() + (r.interval || 30));
+          } else {
+            nextDue.setDate(nextDue.getDate() + 1);
+          }
+        }
+        
+        return { ...r, nextDue };
+      })
+      .sort((a, b) => a.nextDue - b.nextDue);
+    return list[0] || null;
+  }, [recurring]);
+
+
   const totalEMI    = useMemo(() => loans.reduce((s, l) => s + (l.monthlyAmount || 0), 0), [loans]);
   const savingsRate = income > 0 ? Math.round((monthlyNet / income) * 100) : 0;
   const budgetUsed  = monthlyBudget > 0 ? Math.round((expense / monthlyBudget) * 100) : 0;
@@ -548,6 +585,59 @@ const Dashboard = () => {
               </p>
             </div>
           </div>
+
+          {/* Next Recurring Payment Banner */}
+          {nextRecurringPayment && (() => {
+            const daysUntil = Math.ceil((nextRecurringPayment.nextDue - new Date()) / (1000 * 60 * 60 * 24));
+            const urgent = daysUntil <= 7;
+            return (
+              <div className={cn(
+                "rounded-2xl border p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300 shadow-sm",
+                urgent 
+                  ? "bg-gradient-to-r from-red-500/10 to-amber-500/5 border-red-500/20" 
+                  : "bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20"
+              )}>
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-inner",
+                    urgent ? "bg-red-500/20 text-red-500" : "bg-primary/20 text-primary"
+                  )}>
+                    🔄
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-foreground">{nextRecurringPayment.description}</p>
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full capitalize",
+                        urgent ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse" : "bg-primary/20 text-primary"
+                      )}>
+                        {nextRecurringPayment.frequency}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Next billing date: <span className="font-semibold text-foreground">{format(nextRecurringPayment.nextDue, 'dd MMMM yyyy')}</span>
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="text-left sm:text-right">
+                    <p className="text-xs text-muted-foreground">Amount Due</p>
+                    <p className="text-lg font-extrabold text-foreground">{formatMoney(nextRecurringPayment.amount)}</p>
+                  </div>
+                  <span className={cn(
+                    "text-xs font-bold px-3 py-1.5 rounded-xl border shadow-sm",
+                    urgent 
+                      ? "bg-red-500 text-white border-transparent" 
+                      : "bg-card text-foreground border-border"
+                  )}>
+                    {daysUntil <= 0 ? "Due today!" : `In ${daysUntil} days`}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
 
           {/* KPI Cards */}
           <div id="tour-kpi-cards" className="grid gap-3 grid-cols-2 lg:grid-cols-4">

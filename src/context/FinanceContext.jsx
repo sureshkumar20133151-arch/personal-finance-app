@@ -118,6 +118,10 @@ export function FinanceProvider({ children }) {
           if (remainingMs <= 0) {
             loadedState.subscription = 'free';
             stateChanged = true;
+          } else if (remainingMs <= 30 * 24 * 60 * 60 * 1000) {
+            // Upgrade existing 30-day trial users to the new 6-month (180 days) trial length
+            loadedState.trialEndDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
+            stateChanged = true;
           }
         }
         if (stateChanged) {
