@@ -344,7 +344,7 @@ const Dashboard = () => {
     const today = new Date();
     today.setHours(0,0,0,0);
     return (recurring || [])
-      .filter(r => r.active && r.type === 'expense')
+      .filter(r => r.active)
       .map(r => {
         const lastRun = r.lastProcessedDate ? new Date(r.lastProcessedDate) : new Date();
         let nextDue = new Date(lastRun);
