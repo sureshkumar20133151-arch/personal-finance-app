@@ -903,18 +903,20 @@ const Dashboard = () => {
           </div>
 
           {/* Upcoming Expenses / Recurring Bills */}
-          {upcomingExpenses.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  Upcoming Recurring Payments
-                </h3>
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                Upcoming Recurring Payments
+              </h3>
+              {upcomingExpenses.length > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full font-medium">
                   Next {upcomingExpenses.length} bills
                 </span>
-              </div>
-              
+              )}
+            </div>
+            
+            {upcomingExpenses.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {upcomingExpenses.map(item => {
                   const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
@@ -968,8 +970,18 @@ const Dashboard = () => {
                   );
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-border rounded-xl bg-muted/5 p-4">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">No upcoming recurring bills</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                  Add your subscriptions (like Netflix, Rent, electricity) in the <strong>Transactions</strong> page and toggle the <strong>\"Recurring Expense\"</strong> checkbox.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
