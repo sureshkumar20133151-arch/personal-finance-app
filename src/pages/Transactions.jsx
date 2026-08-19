@@ -767,39 +767,27 @@ const Transactions = () => {
                                 <Download className="w-4 h-4 text-muted-foreground" />
                                 <span className="hidden md:inline">Export CSV</span>
                             </button>
-                            <button
-                                onClick={() => {
-                                    if (!isSmsUnlocked) {
-                                        if (confirm("Auto Syncing SMS receipts requires the SMS Pro Add-on. It's coming soon!")) {
-                                            navigate('/account');
-                                        }
-                                        return;
-                                    }
-                                    handleSyncSms();
-                                }}
-                                disabled={refreshing}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
-                                title="Auto-sync SMS receipts"
-                            >
-                                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-                                <span className="hidden md:inline">Auto Sync</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (!isSmsUnlocked) {
-                                        if (confirm("Manual SMS Inbox Scanning requires the SMS Pro Add-on. It's coming soon!")) {
-                                            navigate('/account');
-                                        }
-                                        return;
-                                    }
-                                    setShowSMSScan(true);
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
-                                title="Scan SMS Inbox for UPI/Bank alert receipts"
-                            >
-                                <MessageSquare className="w-4 h-4" />
-                                <span className="hidden md:inline">Scan SMS</span>
-                            </button>
+                            {isSmsUnlocked && (
+                                <button
+                                    onClick={handleSyncSms}
+                                    disabled={refreshing}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
+                                    title="Auto-sync SMS receipts"
+                                >
+                                    <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+                                    <span className="hidden md:inline">Auto Sync</span>
+                                </button>
+                            )}
+                            {isSmsUnlocked && (
+                                <button
+                                    onClick={() => setShowSMSScan(true)}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
+                                    title="Scan SMS Inbox for UPI/Bank alert receipts"
+                                >
+                                    <MessageSquare className="w-4 h-4" />
+                                    <span className="hidden md:inline">Scan SMS</span>
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
