@@ -126,7 +126,8 @@ const Dashboard = () => {
     transactions = [], formatMoney, categories = [],
     loans = [], recurring = [], salaryDate, monthlyBudget,
     rescanTransactions,
-    bankBalance, cashBalance, totalBalance, bankAccountBalances
+    bankBalance, cashBalance, totalBalance, bankAccountBalances,
+    isSmsUnlocked
   } = useFinanceData();
 
   const netBalance = totalBalance;
@@ -460,15 +461,17 @@ const Dashboard = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-            title="Refresh transactions"
-          >
-            <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
-            <span className="hidden sm:inline">Sync SMS</span>
-          </button>
+          {isSmsUnlocked && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+              title="Refresh transactions"
+            >
+              <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+              <span className="hidden sm:inline">Sync SMS</span>
+            </button>
+          )}
           <button
             onClick={handleShare}
             className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-green-500/25"

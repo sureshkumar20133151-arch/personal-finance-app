@@ -20,7 +20,8 @@ const Setup = () => {
         categories, addCategory, deleteCategory, updateCategory, 
         salaryDate, updateSalaryDate, initialBankBalances, bankAccountBalances, clearData,
         initialCashBalance, cashSeedDate, updateStartingBalances,
-        accountingStartDate, updateAccountingStartDate
+        accountingStartDate, updateAccountingStartDate,
+        isSmsUnlocked
     } = useFinanceData();
 
     // Form State
@@ -244,7 +245,9 @@ const Setup = () => {
 
                                 {bankAccountBalances.length === 0 && (
                                     <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-xl text-center border border-dashed border-border">
-                                        Scan SMS to automatically detect and add your bank accounts here.
+                                        {isSmsUnlocked
+                                            ? "Scan SMS to automatically detect and add your bank accounts here."
+                                            : "Your active bank accounts will be listed here."}
                                     </div>
                                 )}
 
@@ -280,11 +283,16 @@ const Setup = () => {
                             <span style={{ fontSize: '16px' }}>⚠️</span> Data Management
                         </h3>
                         <p className="text-xs text-muted-foreground mb-4">
-                            Clear all transaction data and settings. Use this to reset the app or to purge wrongly parsed duplicate SMS transactions before a fresh scan.
+                            {isSmsUnlocked
+                                ? "Clear all transaction data and settings. Use this to reset the app or to purge wrongly parsed duplicate SMS transactions before a fresh scan."
+                                : "Clear all transaction data and settings. Use this to reset the app to a clean state."}
                         </p>
                         <button
                             onClick={() => {
-                                if (window.confirm("Are you sure you want to permanently clear all app data? You will need to rescan your SMS.")) {
+                                const confirmMsg = isSmsUnlocked
+                                    ? "Are you sure you want to permanently clear all app data? You will need to rescan your SMS."
+                                    : "Are you sure you want to permanently clear all app data? This action cannot be undone.";
+                                if (window.confirm(confirmMsg)) {
                                     clearData();
                                 }
                             }}
