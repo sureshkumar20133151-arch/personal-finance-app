@@ -10,6 +10,8 @@ import {
 import AnalyticsWidget from '../components/AnalyticsWidget';
 import { cn } from '../lib/utils';
 import CircleProgress from '../components/CircleProgress';
+import CategoryIcon from '../components/CategoryIcon';
+
 
 // ── Mini sparkline bar chart ──────────────────────────────────────────────────
 const SparkBar = ({ data, color }) => {
@@ -337,23 +339,43 @@ const Dashboard = () => {
   const expenseData = useMemo(() => getCategoryData('expense'), [getCategoryData]);
   const incomeData  = useMemo(() => getCategoryData('income'),  [getCategoryData]);
 
-  // Upcoming recurring this month
+  // Upcoming recurring this month (detailed with categories and next due dates)
   const upcomingExpenses = useMemo(() => {
     const today = new Date();
+    today.setHours(0,0,0,0);
     return (recurring || [])
       .filter(r => r.active && r.type === 'expense')
       .map(r => {
         const lastRun = r.lastProcessedDate ? new Date(r.lastProcessedDate) : new Date();
-        const dueDay  = lastRun.getDate();
-        if (r.frequency === 'monthly' && dueDay >= today.getDate()) {
-          return { ...r, dueDate: new Date(today.getFullYear(), today.getMonth(), dueDay) };
+        let nextDue = new Date(lastRun);
+        if (r.frequency === 'weekly') {
+          nextDue.setDate(lastRun.getDate() + 7);
+        } else if (r.frequency === 'monthly') {
+          nextDue.setMonth(lastRun.getMonth() + 1);
+        } else if (r.frequency === 'custom') {
+          nextDue.setDate(lastRun.getDate() + (r.interval || 30));
+        } else {
+          nextDue.setDate(lastRun.getDate() + 1);
         }
-        return null;
+        
+        while (nextDue < today) {
+          if (r.frequency === 'weekly') {
+            nextDue.setDate(nextDue.getDate() + 7);
+          } else if (r.frequency === 'monthly') {
+            nextDue.setMonth(nextDue.getMonth() + 1);
+          } else if (r.frequency === 'custom') {
+            nextDue.setDate(nextDue.getDate() + (r.interval || 30));
+          } else {
+            nextDue.setDate(nextDue.getDate() + 1);
+          }
+        }
+        
+        const category = categories.find(c => c.id === r.categoryId);
+        return { ...r, nextDue, category };
       })
-      .filter(Boolean)
-      .sort((a, b) => a.dueDate - b.dueDate)
+      .sort((a, b) => a.nextDue - b.nextDue)
       .slice(0, 4);
-  }, [recurring]);
+  }, [recurring, categories]);
 
   // Next single upcoming recurring payment across all frequencies
   const nextRecurringPayment = useMemo(() => {
@@ -880,31 +902,68 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Upcoming Expenses */}
+          {/* Upcoming Expenses / Recurring Bills */}
           {upcomingExpenses.length > 0 && (
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="text-base font-semibold flex items-center gap-2 mb-4">
-                <Calendar className="w-4 h-4 text-primary" />
-                Upcoming This Month
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  Upcoming Recurring Payments
+                </h3>
+                <span className="text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full font-medium">
+                  Next {upcomingExpenses.length} bills
+                </span>
+              </div>
+              
+              <div className="grid gap-3 sm:grid-cols-2">
                 {upcomingExpenses.map(item => {
-                  const daysUntil = Math.ceil((item.dueDate - new Date()) / (1000 * 60 * 60 * 24));
+                  const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
                   const urgent = daysUntil <= 7;
+                  const cat = item.category || { name: 'Uncategorized', color: '#64748b', icon: 'HelpCircle' };
+                  
                   return (
-                    <div key={item.id} className={cn(
-                      'flex items-center justify-between p-3 rounded-xl border',
-                      urgent
-                        ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
-                        : 'bg-muted/40 border-transparent'
-                    )}>
-                      <div>
-                        <p className="text-sm font-medium truncate max-w-[110px]">{item.description}</p>
-                        <p className={cn('text-xs', urgent ? 'text-red-500 font-bold animate-pulse' : 'text-muted-foreground')}>
-                          {urgent ? `${daysUntil}d left!` : format(item.dueDate, 'dd MMM')}
-                        </p>
+                    <div 
+                      key={item.id} 
+                      className={cn(
+                        'flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200 hover:shadow-md bg-background/50',
+                        urgent
+                          ? 'bg-red-500/5 border-red-500/20'
+                          : 'bg-muted/10 border-border/80'
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div 
+                          className="w-9 h-9 rounded-xl flex items-center justify-center border shadow-inner shrink-0 bg-background"
+                          style={{ borderColor: `${cat.color}25` }}
+                        >
+                          <CategoryIcon iconName={cat.icon || cat.emoji} size={16} color={cat.color} />
+                        </div>
+                        
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold truncate text-foreground flex items-center gap-1.5">
+                            {item.description || cat.name}
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-muted border border-border/60 rounded text-muted-foreground capitalize shrink-0">
+                              {item.frequency}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                            <span className="flex items-center gap-0.5">📅 Date:</span>
+                            <span className="font-semibold text-foreground/80">{format(item.nextDue, 'dd MMM yyyy')}</span>
+                          </p>
+                        </div>
                       </div>
-                      <span className="font-bold text-sm">{formatMoney(item.amount)}</span>
+                      
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-black text-red-500">-{formatMoney(item.amount)}</p>
+                        <span className={cn(
+                          "inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full mt-1.5",
+                          urgent 
+                            ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 animate-pulse" 
+                            : "bg-muted text-muted-foreground"
+                        )}>
+                          {daysUntil <= 0 ? "Due today!" : `${daysUntil}d left`}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
