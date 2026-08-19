@@ -394,7 +394,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm p-4 flex justify-center items-start lg:items-center transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
@@ -406,7 +406,7 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-6 w-full max-w-md relative z-10 overflow-y-auto max-h-[90vh] transition-all",
+                        "rounded-2xl border bg-card shadow-2xl p-6 w-full max-w-md relative z-10 transition-all my-8 lg:my-0",
                         "lg:shadow-sm lg:sticky lg:top-8 lg:max-h-none lg:overflow-visible",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
@@ -812,10 +812,10 @@ const Transactions = () => {
                                 )}
                                 <button
                                     type="submit"
-                                    className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer"
+                                    className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer whitespace-nowrap"
                                 >
                                     {editingTx ? <Edit2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                    {editingTx ? 'Update' : 'Add Transaction'}
+                                    <span>{showAddForm ? (editingTx ? 'Update' : 'Add') : (editingTx ? 'Update' : 'Add Transaction')}</span>
                                 </button>
                             </div>
                         </form>
