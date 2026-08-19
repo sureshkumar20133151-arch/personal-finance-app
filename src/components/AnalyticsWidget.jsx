@@ -55,7 +55,7 @@ const AnalyticsWidget = ({ title, icon: Icon, data, totalValue, formatMoney, col
         switch (viewType) {
             case 'pie':
                 return (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                         <PieChart margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
                             <Pie
                                 data={data}
@@ -83,7 +83,7 @@ const AnalyticsWidget = ({ title, icon: Icon, data, totalValue, formatMoney, col
                 );
             case 'bar':
                 return (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                         <BarChart data={data} layout="vertical" margin={{ left: 20, right: 30 }}>
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
@@ -104,7 +104,7 @@ const AnalyticsWidget = ({ title, icon: Icon, data, totalValue, formatMoney, col
                 );
             case 'radar':
                 return (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                         <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
                             <PolarGrid />
                             <PolarAngleAxis dataKey="name" tick={{ fontSize: 10 }} />

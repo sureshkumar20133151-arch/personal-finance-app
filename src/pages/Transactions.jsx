@@ -393,7 +393,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm p-4 flex justify-center items-start lg:items-center transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-center transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
@@ -405,7 +405,7 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-4 lg:p-6 w-full max-w-md relative z-10 transition-all my-4 lg:my-0 max-h-[calc(100vh-2rem)] lg:max-h-none overflow-y-auto lg:overflow-visible",
+                        "rounded-2xl border bg-card shadow-2xl p-3.5 sm:p-5 lg:p-6 w-full max-w-md relative z-10 transition-all my-auto max-h-[95vh] lg:max-h-none overflow-y-auto lg:overflow-visible",
                         "lg:shadow-sm lg:sticky lg:top-8",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
@@ -415,13 +415,13 @@ const Transactions = () => {
                                 setShowAddForm(false);
                                 resetForm();
                             }}
-                            className="absolute right-4 top-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
+                            className="absolute right-3.5 top-3.5 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
                         >
                             <X className="w-4 h-4" />
                         </button>
-                        <div className="flex items-center justify-between mb-4 lg:mb-6">
-                            <h2 className="text-lg font-semibold flex items-center gap-2">
-                                {editingTx ? <Edit2 className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+                        <div className="flex items-center justify-between mb-2.5 sm:mb-4 lg:mb-6">
+                            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                                {editingTx ? <Edit2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> : <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
                                 {editingTx ? 'Edit Transaction' : 'Add Transaction'}
                             </h2>
                         </div>
@@ -430,7 +430,7 @@ const Transactions = () => {
                         {!editingTx && (
                             <div
                                 className={cn(
-                                    "mb-3 border border-dashed rounded-lg p-3 text-center transition-all cursor-pointer",
+                                    "mb-2 border border-dashed rounded-lg p-2 sm:p-2.5 text-center transition-all cursor-pointer",
                                     isDragging
                                         ? "border-primary bg-primary/5"
                                         : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
@@ -469,8 +469,8 @@ const Transactions = () => {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-3">
-                            <div className="space-y-1.5" role="radiogroup" aria-labelledby="type-label">
+                        <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-3">
+                            <div className="space-y-1 sm:space-y-1.5" role="radiogroup" aria-labelledby="type-label">
                                 <span id="type-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Type</span>
                                 <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
                                     {typeConfig.map(t => (
