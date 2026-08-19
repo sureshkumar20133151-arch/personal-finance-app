@@ -373,23 +373,41 @@ const Transactions = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
-            <header>
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Transactions</h1>
-                <p className="text-muted-foreground">Record and manage your financial activities.</p>
+            <header className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Transactions</h1>
+                    <p className="text-muted-foreground">Record and manage your financial activities.</p>
+                </div>
+                <button
+                    onClick={() => {
+                        resetForm();
+                        setShowAddForm(true);
+                    }}
+                    className="lg:hidden flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all cursor-pointer shadow-sm shadow-emerald-500/10 shrink-0"
+                    title="Add a transaction manually"
+                >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Transaction</span>
+                </button>
             </header>
 
-            {/* Form Section - Centered Pop-up Modal */}
-            {showAddForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="grid gap-8 lg:grid-cols-3">
+                {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
+                <div className={cn(
+                    "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm transition-all duration-200",
+                    "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
+                    showAddForm ? "block" : "hidden lg:block"
+                )}>
                     <div 
-                        className="absolute inset-0 cursor-default" 
+                        className="absolute inset-0 cursor-default lg:hidden" 
                         onClick={() => {
                             setShowAddForm(false);
                             resetForm();
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-6 w-full max-w-md relative z-10 animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]",
+                        "rounded-2xl border bg-card shadow-2xl p-6 w-full max-w-md relative z-10 overflow-y-auto max-h-[90vh] transition-all",
+                        "lg:shadow-sm lg:sticky lg:top-8 lg:max-h-none lg:overflow-visible",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
                         <button 
@@ -398,11 +416,11 @@ const Transactions = () => {
                                 setShowAddForm(false);
                                 resetForm();
                             }}
-                            className="absolute right-4 top-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                            className="absolute right-4 top-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
                         >
                             <X className="w-4 h-4" />
                         </button>
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-4 lg:mb-6">
                             <h2 className="text-lg font-semibold flex items-center gap-2">
                                 {editingTx ? <Edit2 className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
                                 {editingTx ? 'Edit Transaction' : 'Add Transaction'}
@@ -777,16 +795,21 @@ const Transactions = () => {
                             )}
 
                             <div className="flex gap-2 mt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        resetForm();
-                                        setShowAddForm(false);
-                                    }}
-                                    className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer text-foreground"
-                                >
-                                    Cancel
-                                </button>
+                                {(editingTx || showAddForm) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            resetForm();
+                                            setShowAddForm(false);
+                                        }}
+                                        className={cn(
+                                            "flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer text-foreground",
+                                            !editingTx && "lg:hidden"
+                                        )}
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
                                 <button
                                     type="submit"
                                     className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer"
@@ -798,10 +821,9 @@ const Transactions = () => {
                         </form>
                     </div>
                 </div>
-            )}
 
-            {/* List Section - Full Width */}
-            <div className="space-y-6">
+                {/* List Section */}
+                <div className="lg:col-span-2 space-y-6">
                     <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-2xl border shadow-sm">
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <div className="relative w-full sm:w-64">
@@ -823,17 +845,6 @@ const Transactions = () => {
                             >
                                 <Download className="w-4 h-4 text-muted-foreground" />
                                 <span className="hidden md:inline">Export CSV</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    resetForm();
-                                    setShowAddForm(true);
-                                }}
-                                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 shadow-sm"
-                                title="Add a transaction manually"
-                            >
-                                <Plus className="w-4 h-4" />
-                                <span>Add Transaction</span>
                             </button>
                             {isSmsUnlocked && (
                                 <button
@@ -1012,6 +1023,7 @@ const Transactions = () => {
                         </div>
                     </div>
                 </div>
+            </div>
 
             {/* Upload Preview Modal */}
             {
