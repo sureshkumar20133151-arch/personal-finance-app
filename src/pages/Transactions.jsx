@@ -406,8 +406,8 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-6 w-full max-w-md relative z-10 transition-all my-8 lg:my-0",
-                        "lg:shadow-sm lg:sticky lg:top-8 lg:max-h-none lg:overflow-visible",
+                        "rounded-2xl border bg-card shadow-2xl p-4 lg:p-6 w-full max-w-md relative z-10 transition-all my-4 lg:my-0 max-h-[calc(100vh-2rem)] lg:max-h-none overflow-y-auto lg:overflow-visible",
+                        "lg:shadow-sm lg:sticky lg:top-8",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
                         <button 

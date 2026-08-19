@@ -44,14 +44,10 @@ const AnalyticsWidget = ({ title, icon: Icon, data, totalValue, formatMoney, col
     };
 
     const renderContent = () => {
-        // DEBUGGING: Check data
-        console.log(`Widget ${title} Data:`, data);
-
         if (!data || data.length === 0) {
             return (
                 <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
                     <p>No data available for this period.</p>
-                    <p className="text-xs text-red-500 mt-2">Debug: Received 0 items</p>
                 </div>
             );
         }
