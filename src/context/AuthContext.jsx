@@ -11,6 +11,8 @@ import {
     signInWithCredential,
     GoogleAuthProvider
 } from 'firebase/auth';
+import { Wallet } from 'lucide-react';
+
 
 const AuthContext = createContext();
 
@@ -126,7 +128,7 @@ export function AuthProvider({ children }) {
                     }
                     return currentLoading;
                 });
-            }, 8000);
+            }, 1500);
 
             return unsubscribe;
         } catch (error) {
@@ -145,9 +147,33 @@ export function AuthProvider({ children }) {
         loginAsDemoUser // Exposed for the Login page
     };
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#090d16] flex flex-col items-center justify-center p-6 text-foreground font-sans">
+                <div className="flex flex-col items-center gap-5 max-w-sm text-center animate-in fade-in zoom-in-95 duration-500">
+                    {/* Pulsing Branded Wallet Icon */}
+                    <div className="p-4 bg-gradient-to-br from-[#10b981] via-purple-600 to-indigo-600 rounded-2xl shadow-xl shadow-[#10b981]/20 shrink-0 animate-pulse">
+                        <Wallet className="w-8 h-8 text-white" />
+                    </div>
+                    
+                    {/* App Title */}
+                    <div>
+                        <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-[#10b981] to-purple-400 bg-clip-text text-transparent">
+                            BudgetTracker
+                        </h1>
+                        <p className="text-xs text-gray-400 mt-1.5 font-medium tracking-wide">Initializing secure session...</p>
+                    </div>
+                    
+                    {/* Modern Spinner */}
+                    <div className="w-6 h-6 border-2 border-[#10b981] border-t-transparent rounded-full animate-spin mt-2" />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 }
