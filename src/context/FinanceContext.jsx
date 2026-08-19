@@ -76,13 +76,18 @@ export function FinanceProvider({ children }) {
   // ─── Persist ──────────────────────────────────────────────────────────────
   const persistDebounce = useRef(null);
 
+  const sanitizeForFirestore = (obj) => {
+    if (!obj) return obj;
+    return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? null : value)));
+  };
+
   const saveImmediate = useCallback((data) => {
     setState(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     
     // All logged-in users get cloud sync (not just Pro)
     if (currentUser && !currentUser.isAnonymous) {
-      setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
+      setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true })
         .catch(e => console.error("Firebase save failed", e));
     }
   }, [currentUser]);
@@ -95,7 +100,7 @@ export function FinanceProvider({ children }) {
     if (currentUser && !currentUser.isAnonymous) {
       if (persistDebounce.current) clearTimeout(persistDebounce.current);
       persistDebounce.current = setTimeout(() => {
-        setDoc(doc(db, "users", currentUser.uid), data, { merge: true })
+        setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true })
           .catch(e => console.error("Firebase save failed", e));
       }, 800);
     }
@@ -330,7 +335,7 @@ export function FinanceProvider({ children }) {
              }
              
              // Write back the merged data to cloud (this will trigger onSnapshot again, but hasMigrated is true now)
-             setDoc(doc(db, "users", currentUser.uid), data, { merge: true });
+             setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true });
           }
           
           boot(data);
@@ -794,7 +799,7 @@ export function FinanceProvider({ children }) {
     if (currentUser && !currentUser.isAnonymous) {
       try {
         // Atomic single write: overwrites the entire document, effectively deleting unwanted arrays like transactions
-        await setDoc(doc(db, "users", currentUser.uid), fresh);
+        await setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(fresh));
         // Wait to allow Firebase to process before reloading
         await new Promise(r => setTimeout(r, 500));
       } catch(e) {

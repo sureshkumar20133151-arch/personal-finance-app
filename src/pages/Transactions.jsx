@@ -149,8 +149,7 @@ const Transactions = () => {
             date,
             type,
             categoryId,
-            loanId: type === 'debt' ? loanId : undefined,
-            repaymentType: type === 'debt' ? repaymentType : undefined,
+            ...(type === 'debt' && loanId ? { loanId, repaymentType } : {}),
             paymentMode: paymentMode,
         };
 
@@ -163,15 +162,15 @@ const Transactions = () => {
                 if (addRecurringTransaction) {
                     addRecurringTransaction({
                         amount: parseFloat(amount),
-                        description,
+                        description: description || '',
                         type,
                         categoryId,
                         frequency: recurringFreq,
-                        interval: recurringFreq === 'custom' ? parseInt(recurringInterval) : 1,
-                        weeklyDay: recurringFreq === 'weekly' ? recurringDay : undefined,
-                        tenure: recurringTenure ? parseInt(recurringTenure) : null, // New Field
+                        interval: recurringFreq === 'custom' ? (parseInt(recurringInterval) || 1) : 1,
+                        ...(recurringFreq === 'weekly' && recurringDay ? { weeklyDay: recurringDay } : {}),
+                        tenure: recurringTenure ? parseInt(recurringTenure) : null,
                         processedCount: 0,
-                        lastProcessedDate: new Date().toISOString() // Mark as processed today so it doesn't dupe immediately
+                        lastProcessedDate: new Date().toISOString()
                     });
                 }
             }
