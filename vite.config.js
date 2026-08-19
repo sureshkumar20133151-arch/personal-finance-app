@@ -18,7 +18,6 @@ export default defineConfig({
           "vendor-charts": ["recharts"],
           "vendor-ui": ["lucide-react", "clsx", "tailwind-merge"],
           "vendor-date": ["date-fns"],
-          "vendor-parse": ["papaparse", "xlsx"],
         },
       },
     },

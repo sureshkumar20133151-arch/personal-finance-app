@@ -1,23 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Transactions from './pages/Transactions';
-import Setup from './pages/Setup';
-import Login from './pages/auth/Login';
-import Signup from './pages/auth/Signup';
-import Landing from './pages/Landing';
-import Account from './pages/Account';
-import Loans from './pages/Loans';
-import Legal from './pages/Legal';
 
+// Lazy-loaded pages — only downloaded when navigated to
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Transactions = lazy(() => import('./pages/Transactions'));
+const Budget = lazy(() => import('./pages/Budget'));
+const Loans = lazy(() => import('./pages/Loans'));
+const Setup = lazy(() => import('./pages/Setup'));
+const Account = lazy(() => import('./pages/Account'));
+const Login = lazy(() => import('./pages/auth/Login'));
+const Signup = lazy(() => import('./pages/auth/Signup'));
+const Landing = lazy(() => import('./pages/Landing'));
+const Legal = lazy(() => import('./pages/Legal'));
 
 import { FinanceProvider } from './context/FinanceContext';
-import SmsSetupGuide from './context/SmsSetupGuide';
+const SmsSetupGuide = lazy(() => import('./context/SmsSetupGuide'));
 
-import Budget from './pages/Budget';
+// Branded loading spinner shown while lazy chunks are downloading
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-xs text-muted-foreground font-medium">Loading...</p>
+    </div>
+  </div>
+);
 
 const App = () => {
   const [showSmsSetup, setShowSmsSetup] = useState(false);
@@ -35,38 +45,40 @@ const App = () => {
     <Router>
       <AuthProvider>
         <FinanceProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/welcome" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            
-            {/* Legal Pages for Razorpay Verification */}
-            <Route path="/privacy" element={<Legal />} />
-            <Route path="/terms" element={<Legal />} />
-            <Route path="/refund" element={<Legal />} />
-            <Route path="/contact" element={<Legal />} />
-            <Route path="/shipping" element={<Legal />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/welcome" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              
+              {/* Legal Pages for Razorpay Verification */}
+              <Route path="/privacy" element={<Legal />} />
+              <Route path="/terms" element={<Legal />} />
+              <Route path="/refund" element={<Legal />} />
+              <Route path="/contact" element={<Legal />} />
+              <Route path="/shipping" element={<Legal />} />
 
-            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/budget" element={<Budget />} />
-
-              <Route path="/loans" element={<Loans />} />
-              <Route path="/setup" element={<Setup />} />
-              <Route path="/account" element={<Account />} />
-            </Route>
-          </Routes>
-          <SmsSetupGuide
-            isOpen={showSmsSetup}
-            onClose={() => setShowSmsSetup(false)}
-            onDone={() => {
-              setShowSmsSetup(false);
-              // Trigger a rescan after setup
-              window.dispatchEvent(new CustomEvent("sms_rescan"));
-            }}
-          />
+              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/budget" element={<Budget />} />
+                <Route path="/loans" element={<Loans />} />
+                <Route path="/setup" element={<Setup />} />
+                <Route path="/account" element={<Account />} />
+              </Route>
+            </Routes>
+            {showSmsSetup && (
+              <SmsSetupGuide
+                isOpen={showSmsSetup}
+                onClose={() => setShowSmsSetup(false)}
+                onDone={() => {
+                  setShowSmsSetup(false);
+                  window.dispatchEvent(new CustomEvent("sms_rescan"));
+                }}
+              />
+            )}
+          </Suspense>
         </FinanceProvider>
       </AuthProvider>
     </Router>
