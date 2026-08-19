@@ -1,10 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BudgetTracker</title>
+    <script>
+      // Apply saved theme immediately to prevent white flash (FOUC)
+      (function() {
+        try {
+          var saved = localStorage.getItem('fintrack_data');
+          if (saved) {
+            var data = JSON.parse(saved);
+            if (data.theme && data.theme.mode === 'light') {
+              document.documentElement.classList.remove('dark');
+              document.documentElement.classList.add('light');
+            }
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <style>html.dark{background:#090d16;color-scheme:dark}html.light{background:#fff;color-scheme:light}</style>
   </head>
   <body>
     <div id="root"></div>

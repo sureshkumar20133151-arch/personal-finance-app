@@ -43,7 +43,7 @@ const DEFAULT_STATE = {
   categories:         DEFAULT_CATEGORIES,
   transactions:       [],
   currency:           { code: "INR", symbol: "₹", locale: "en-IN", name: "Indian Rupee" },
-  theme:              { mode: "light", accent: "blue" },
+  theme:              { mode: "dark", accent: "blue" },
   subscription:       "free",
   trialEndDate:       null,
   recurring:          [],
