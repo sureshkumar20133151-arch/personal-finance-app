@@ -129,7 +129,8 @@ const Transactions = () => {
     const filteredTransactions = useMemo(() => {
         return transactions.filter(t => {
             const matchesType = filterType === 'all' || t.type === filterType;
-            const matchesSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            const desc = t.description || '';
+            const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
             return matchesType && matchesSearch;
         }).sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -182,10 +183,40 @@ const Transactions = () => {
     const handleEditClick = (tx) => {
         setEditingTx(tx);
         setAmount(tx.amount.toString());
-        setDescription(tx.description);
-        setDate(tx.date.split('T')[0]);
-        setType(tx.type);
-        setCategoryId(tx.categoryId);
+        setDescription(tx.description || '');
+        
+        let parsedDate = '';
+        try {
+            if (tx.date) {
+                const dateObj = new Date(tx.date);
+                if (!isNaN(dateObj.getTime())) {
+                    parsedDate = dateObj.toISOString().split('T')[0];
+                } else if (typeof tx.date === 'string') {
+                    const parts = tx.date.split('-');
+                    if (parts.length === 3 && parts[2].length === 4) {
+                        parsedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    } else {
+                        parsedDate = new Date().toISOString().split('T')[0];
+                    }
+                } else {
+                    parsedDate = new Date().toISOString().split('T')[0];
+                }
+            } else {
+                parsedDate = new Date().toISOString().split('T')[0];
+            }
+        } catch (e) {
+            parsedDate = new Date().toISOString().split('T')[0];
+        }
+        setDate(parsedDate);
+        
+        setType(tx.type || 'expense');
+        setCategoryId(tx.categoryId || '');
+        setPaymentMode(tx.paymentMode || 'upi');
+        if (tx.loanId) setLoanId(tx.loanId);
+        if (tx.repaymentType) setRepaymentType(tx.repaymentType);
+        
+        // Scroll to the top of the viewport on mobile so the edit form is visible!
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
 
@@ -732,13 +763,24 @@ const Transactions = () => {
                                 </div>
                             )}
 
-                            <button
-                                type="submit"
-                                className="w-full inline-flex items-center justify-center rounded-xl text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 mt-4 gap-2 shadow-sm"
-                            >
-                                {editingTx ? <Edit2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                {editingTx ? 'Update' : 'Add Transaction'}
-                            </button>
+                            <div className="flex gap-2 mt-4">
+                                {editingTx && (
+                                    <button
+                                        type="button"
+                                        onClick={resetForm}
+                                        className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    type="submit"
+                                    className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer"
+                                >
+                                    {editingTx ? <Edit2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                    {editingTx ? 'Update' : 'Add Transaction'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
