@@ -815,7 +815,10 @@ const Transactions = () => {
                                     className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer whitespace-nowrap"
                                 >
                                     {editingTx ? <Edit2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                    <span>{showAddForm ? (editingTx ? 'Update' : 'Add') : (editingTx ? 'Update' : 'Add Transaction')}</span>
+                                    <span>
+                                        {editingTx ? 'Update' : 'Add'}
+                                        <span className="hidden lg:inline"> Transaction</span>
+                                    </span>
                                 </button>
                             </div>
                         </form>
