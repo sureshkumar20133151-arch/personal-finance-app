@@ -10,6 +10,7 @@ import { cn } from '../lib/utils';
 import ClockWidget from './ClockWidget';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
+import { triggerHapticSelection } from '../lib/haptics';
 
 const desktopNavItems = [
   { name: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard, color: 'text-violet-400' },
@@ -186,6 +187,7 @@ const Layout = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
+                onClick={triggerHapticSelection}
                 className={({ isActive }) => cn(
                   "flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-200 min-w-[52px] relative",
                   isActive

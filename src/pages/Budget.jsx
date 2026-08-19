@@ -7,6 +7,7 @@ import BudgetTargetModal from '../components/BudgetTargetModal';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import CircleProgress from '../components/CircleProgress';
 import { useNavigate } from 'react-router-dom';
+import { triggerHapticSelection } from '../lib/haptics';
 
 const Budget = () => {
     const { categories, transactions, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
@@ -119,7 +120,7 @@ const Budget = () => {
                         return (
                             <button
                                 key={cat.id}
-                                onClick={() => setSelectedCategoryId(cat.id)}
+                                onClick={() => { triggerHapticSelection(); setSelectedCategoryId(cat.id); }}
                                 className={cn(
                                     "w-full text-left p-3 rounded-xl transition-all duration-200 group",
                                     isSelected

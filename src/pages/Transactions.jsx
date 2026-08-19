@@ -10,6 +10,7 @@ import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
 import { useNavigate } from 'react-router-dom';
+import { triggerHapticNotification } from '../lib/haptics';
 
 const Transactions = () => {
     const navigate = useNavigate();
@@ -174,6 +175,7 @@ const Transactions = () => {
             }
         }
 
+        triggerHapticNotification('SUCCESS');
         resetForm();
     };
 
@@ -936,7 +938,7 @@ const Transactions = () => {
                                                     <button onClick={() => handleEditClick(tx)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => deleteTransaction(tx.id)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete">
+                                                    <button onClick={() => { triggerHapticNotification('WARNING'); deleteTransaction(tx.id); }} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
