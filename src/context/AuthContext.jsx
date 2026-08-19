@@ -119,18 +119,15 @@ export function AuthProvider({ children }) {
                 setLoading(false);
             });
 
-            // Fallback: If Firebase doesn't respond within 8 seconds (e.g. invalid config), force load.
-            setTimeout(() => {
-                setLoading((currentLoading) => {
-                    if (currentLoading) {
-                        console.warn("Firebase auth timed out. Forcing app load.");
-                        return false;
-                    }
-                    return currentLoading;
-                });
+            // Fallback: Ensure app loads cleanly if network or IndexedDB initialization is slow
+            const timer = setTimeout(() => {
+                setLoading((currentLoading) => currentLoading ? false : currentLoading);
             }, 1500);
 
-            return unsubscribe;
+            return () => {
+                unsubscribe();
+                clearTimeout(timer);
+            };
         } catch (error) {
             console.warn("Firebase Auth not configured or failed to initialize. Using Demo mode only.", error);
             setLoading(false);
