@@ -46,6 +46,7 @@ const Transactions = () => {
 
     // Editing State
     const [editingTx, setEditingTx] = useState(null);
+    const [showAddForm, setShowAddForm] = useState(false);
     const [showSMSScan, setShowSMSScan] = useState(false);
 
     // List View State
@@ -215,8 +216,7 @@ const Transactions = () => {
         if (tx.loanId) setLoanId(tx.loanId);
         if (tx.repaymentType) setRepaymentType(tx.repaymentType);
         
-        // Scroll to the top of the viewport on mobile so the edit form is visible!
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setShowAddForm(true);
     };
 
 
@@ -378,22 +378,35 @@ const Transactions = () => {
                 <p className="text-muted-foreground">Record and manage your financial activities.</p>
             </header>
 
-            <div className="grid gap-8 lg:grid-cols-3">
-                {/* Form Section */}
-                <div className="lg:col-span-1">
-                    <div className={cn("rounded-2xl border bg-card shadow-sm p-6 sticky top-8 transition-all", editingTx ? "border-primary ring-1 ring-primary" : "border-border")}>
-                        <div className="flex items-center justify-between mb-6">
+            {/* Form Section - Centered Pop-up Modal */}
+            {showAddForm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div 
+                        className="absolute inset-0 cursor-default" 
+                        onClick={() => {
+                            setShowAddForm(false);
+                            resetForm();
+                        }}
+                    />
+                    <div className={cn(
+                        "rounded-2xl border bg-card shadow-2xl p-6 w-full max-w-md relative z-10 animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]",
+                        editingTx ? "border-primary ring-1 ring-primary" : "border-border"
+                    )}>
+                        <button 
+                            type="button"
+                            onClick={() => {
+                                setShowAddForm(false);
+                                resetForm();
+                            }}
+                            className="absolute right-4 top-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                        <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold flex items-center gap-2">
                                 {editingTx ? <Edit2 className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
                                 {editingTx ? 'Edit Transaction' : 'Add Transaction'}
                             </h2>
-                            <div className="flex gap-2">
-                                {editingTx && (
-                                    <button onClick={resetForm} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 px-2 py-1 rounded-md transition-colors">
-                                        <X className="w-3 h-3" /> Cancel
-                                    </button>
-                                )}
-                            </div>
                         </div>
 
                         {/* Drag & Drop Zone - Compact Version */}
@@ -764,15 +777,16 @@ const Transactions = () => {
                             )}
 
                             <div className="flex gap-2 mt-4">
-                                {editingTx && (
-                                    <button
-                                        type="button"
-                                        onClick={resetForm}
-                                        className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer"
-                                    >
-                                        Cancel
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        resetForm();
+                                        setShowAddForm(false);
+                                    }}
+                                    className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer text-foreground"
+                                >
+                                    Cancel
+                                </button>
                                 <button
                                     type="submit"
                                     className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer"
@@ -784,9 +798,10 @@ const Transactions = () => {
                         </form>
                     </div>
                 </div>
+            )}
 
-                {/* List Section */}
-                <div className="lg:col-span-2 space-y-6">
+            {/* List Section - Full Width */}
+            <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-2xl border shadow-sm">
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <div className="relative w-full sm:w-64">
@@ -808,6 +823,17 @@ const Transactions = () => {
                             >
                                 <Download className="w-4 h-4 text-muted-foreground" />
                                 <span className="hidden md:inline">Export CSV</span>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    resetForm();
+                                    setShowAddForm(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 shadow-sm"
+                                title="Add a transaction manually"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span>Add Transaction</span>
                             </button>
                             {isSmsUnlocked && (
                                 <button
@@ -986,7 +1012,6 @@ const Transactions = () => {
                         </div>
                     </div>
                 </div>
-            </div>
 
             {/* Upload Preview Modal */}
             {
