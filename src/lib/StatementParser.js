@@ -1,23 +1,6 @@
-import Papa from 'papaparse';
-import * as pdfjsLib from 'pdfjs-dist';
-import * as XLSX from 'xlsx';
-import mammoth from 'mammoth/mammoth.browser';
+// Heavy libraries are dynamically imported inside each parse function
+// to avoid loading them on app startup (saves ~1MB+ from initial bundle)
 
-// Configure PDF worker
-// Use Vite's ?url import to get the path to the worker in node_modules
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-try {
-    const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
-    if (isCapacitor) {
-        const version = pdfjsLib.version || '5.6.205';
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
-    } else {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-    }
-} catch (e) {
-    console.warn("Could not set PDF worker source", e);
-}
 
 export const parseStatement = async (file, password = null) => {
     const fileName = file.name.toLowerCase();
@@ -38,7 +21,8 @@ export const parseStatement = async (file, password = null) => {
     }
 };
 
-const parseCSV = (file) => {
+const parseCSV = async (file) => {
+    const { default: Papa } = await import('papaparse');
     return new Promise((resolve, reject) => {
         Papa.parse(file, {
             header: false, // We'll parse as array of arrays first to find the header row
@@ -55,8 +39,6 @@ const parseCSV = (file) => {
                     const headerRowIndex = findHeaderRowIndex(rows);
 
                     if (headerRowIndex === -1) {
-                        // Fallback: Try to parse without headers if it looks like data?
-                        // For now, if we can't find clear headers, we might fail or try column heuristics
                         resolve([]);
                         return;
                     }
@@ -88,6 +70,20 @@ const parseCSV = (file) => {
 };
 
 const parsePDF = async (file, password = null) => {
+    const pdfjsLib = await import('pdfjs-dist');
+    try {
+        const pdfWorker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+        if (isCapacitor) {
+            const version = pdfjsLib.version || '5.6.205';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+        } else {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+        }
+    } catch (e) {
+        console.warn("Could not set PDF worker source", e);
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const fullText = [];
     
@@ -415,6 +411,7 @@ const normalizePDFRows = (rows, bankName = 'Bank Account', accountEnding = null,
 
 // Parse XLSX/XLS files using SheetJS
 const parseXLSX = async (file) => {
+    const XLSX = await import('xlsx');
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
@@ -453,6 +450,8 @@ const parseXLSX = async (file) => {
 
 // Parse DOCX files using Mammoth
 const parseDOCX = async (file) => {
+    const mammothMod = await import('mammoth/mammoth.browser');
+    const mammoth = mammothMod.default || mammothMod;
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     const text = result.value;
