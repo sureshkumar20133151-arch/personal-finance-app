@@ -47,6 +47,16 @@ const Transactions = () => {
     // Editing State
     const [editingTx, setEditingTx] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
+
+    // Lock body scroll when Add Transaction modal is open on mobile
+    React.useEffect(() => {
+        if (showAddForm && window.innerWidth < 1024) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [showAddForm]);
     const [showSMSScan, setShowSMSScan] = useState(false);
 
     // List View State
