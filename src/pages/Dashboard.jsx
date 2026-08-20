@@ -453,15 +453,41 @@ const Dashboard = () => {
     <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto">
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {format(monthStart, 'dd MMM')} – {format(monthEnd, 'dd MMM yyyy')}
-          </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Dashboard
+            </h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {format(monthStart, 'dd MMM')} – {format(monthEnd, 'dd MMM yyyy')}
+            </p>
+          </div>
+
+          {/* ── Tab Nav ── */}
+          <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
+            {[
+              { id: 'overview', label: 'Overview', icon: Activity },
+              { id: 'spending', label: 'Spending', icon: TrendingDown },
+              { id: 'goals',    label: 'Goals',    icon: Target },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all',
+                  activeTab === tab.id
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1 shadow-sm">
             <button
@@ -556,29 +582,6 @@ const Dashboard = () => {
           ))}
         </div>
       )}
-
-      {/* ── Tab Nav ── */}
-      <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
-        {[
-          { id: 'overview', label: 'Overview', icon: Activity },
-          { id: 'spending', label: 'Spending', icon: TrendingDown },
-          { id: 'goals',    label: 'Goals',    icon: Target },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              activeTab === tab.id
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
 
       {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && (
