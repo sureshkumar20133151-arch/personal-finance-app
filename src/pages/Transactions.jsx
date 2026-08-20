@@ -900,8 +900,8 @@ const Transactions = () => {
                         </div>
 
                         {/* View Mode & Category Filter Pills */}
-                        <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none pt-2 border-t border-border/40 w-full">
-                            <div className="flex bg-muted/70 p-1 rounded-xl shrink-0">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-border/40 w-full min-w-0">
+                            <div className="flex bg-muted/70 p-1 rounded-xl shrink-0 self-start sm:self-auto">
                                 <button
                                     onClick={() => setViewMode('transactions')}
                                     className={cn("px-3 py-1 rounded-lg text-xs font-semibold transition-all", viewMode === 'transactions' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
@@ -917,10 +917,10 @@ const Transactions = () => {
                             </div>
 
                             {viewMode === 'transactions' && (
-                                <div className="flex bg-muted/70 p-1 rounded-xl shrink-0">
-                                    <button onClick={() => setFilterType('all')} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All</button>
+                                <div className="flex bg-muted/70 p-1 rounded-xl overflow-x-auto scrollbar-none w-full sm:w-auto">
+                                    <button onClick={() => setFilterType('all')} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All</button>
                                     {typeConfig.map(t => (
-                                        <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                                        <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
                                             <span>{t.label}</span>
                                         </button>
                                     ))}
