@@ -417,7 +417,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-center transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-hidden lg:overflow-visible bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-center transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
