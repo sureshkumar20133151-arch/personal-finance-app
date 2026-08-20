@@ -12,6 +12,22 @@ class ErrorBoundary extends React.Component {
     }
 
     componentDidCatch(error, errorInfo) {
+        // Auto-reload on stale chunk errors (happens after new deployments)
+        if (
+            error?.message?.includes('Failed to fetch dynamically imported module') ||
+            error?.message?.includes('Loading chunk') ||
+            error?.message?.includes('Loading CSS chunk')
+        ) {
+            // Only auto-reload once to prevent infinite loop
+            const lastReload = sessionStorage.getItem('chunk-reload');
+            const now = Date.now();
+            if (!lastReload || now - Number(lastReload) > 10000) {
+                sessionStorage.setItem('chunk-reload', String(now));
+                window.location.reload();
+                return;
+            }
+        }
+
         this.setState({
             error: error,
             errorInfo: errorInfo
