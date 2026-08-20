@@ -46,11 +46,11 @@ const Layout = () => {
   const userInitial = (currentUser?.displayName || currentUser?.email || 'U')[0].toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/8 via-background to-background">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/8 via-background to-background w-full max-w-full overflow-x-hidden relative">
 
       {/* ── Mobile Header ─────────────────────────────────────── */}
       <header className={cn(
-        "md:hidden flex items-center justify-between px-4 py-3 sticky top-0 z-50 transition-all duration-300",
+        "md:hidden flex items-center justify-between px-4 py-3 sticky top-0 z-40 transition-all duration-300",
         scrolled
           ? "bg-card/90 backdrop-blur-xl border-b border-border shadow-sm"
           : "bg-transparent"
@@ -179,7 +179,7 @@ const Layout = () => {
       </aside>
 
       {/* ── Mobile Bottom Navigation ───────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] w-full max-w-full">
         {/* Blur + border */}
         <div className="bg-card/95 backdrop-blur-2xl border-t border-border/80 shadow-2xl">
           <div className="flex justify-around items-center px-2 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
@@ -226,10 +226,9 @@ const Layout = () => {
       {/* ── Main Content ───────────────────────────────────────── */}
       <main
         id="main-content"
-        className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8 w-full"
-        style={{ maxWidth: 'calc(100vw)' }}
+        className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-28 md:pb-8 w-full max-w-full overflow-x-hidden"
       >
-        <div className="max-w-7xl mx-auto animate-up">
+        <div className="max-w-7xl mx-auto animate-up w-full max-w-full">
           <Outlet />
         </div>
       </main>
