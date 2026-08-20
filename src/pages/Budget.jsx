@@ -81,7 +81,7 @@ const Budget = () => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 animate-in fade-in pb-4" style={{ minHeight: 'calc(100dvh - 120px)' }}>
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 animate-in fade-in pb-4 w-full max-w-full overflow-x-hidden" style={{ minHeight: 'calc(100dvh - 120px)' }}>
             {/* Left Sidebar: Category List */}
             <div className="md:w-72 lg:w-80 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden md:max-h-[calc(100dvh-120px)] md:sticky md:top-0">
                 <div className="p-4 border-b border-border flex flex-col gap-3">
@@ -164,9 +164,9 @@ const Budget = () => {
             </div>
 
             {/* Right Panel: Detailed Tracker */}
-            <div className="flex-1 bg-card border border-border rounded-2xl shadow-sm overflow-y-auto">
+            <div className="flex-1 bg-card border border-border rounded-2xl shadow-sm overflow-hidden min-w-0">
                 {selectedCategory && stats ? (
-                    <div className="p-6 md:p-8 space-y-8">
+                    <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
