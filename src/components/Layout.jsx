@@ -226,7 +226,7 @@ const Layout = () => {
       {/* ── Main Content ───────────────────────────────────────── */}
       <main
         id="main-content"
-        className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8 overflow-y-auto w-full"
+        className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8 w-full"
         style={{ maxWidth: 'calc(100vw)' }}
       >
         <div className="max-w-7xl mx-auto animate-up">
