@@ -850,9 +850,10 @@ const Transactions = () => {
 
                 {/* List Section */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-2xl border shadow-sm">
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <div className="relative w-full sm:w-64">
+                    <div className="flex flex-col gap-3 bg-card p-3 sm:p-4 rounded-2xl border shadow-sm">
+                        {/* Search & Actions Row */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+                            <div className="relative flex-1 min-w-0">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <input
                                     id="search-transactions"
@@ -864,60 +865,63 @@ const Transactions = () => {
                                     className="w-full pl-9 pr-4 py-2 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                                 />
                             </div>
-                            <button
-                                onClick={handleExportData}
-                                className="flex items-center gap-1.5 px-3 py-2 border rounded-xl hover:bg-muted text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
-                                title="Export all transactions to CSV"
-                            >
-                                <Download className="w-4 h-4 text-muted-foreground" />
-                                <span className="hidden md:inline">Export CSV</span>
-                            </button>
-                            {isSmsUnlocked && (
+
+                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5 shrink-0">
                                 <button
-                                    onClick={handleSyncSms}
-                                    disabled={refreshing}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
-                                    title="Auto-sync SMS receipts"
+                                    onClick={handleExportData}
+                                    className="flex items-center gap-1.5 px-3 py-2 border rounded-xl hover:bg-muted text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
+                                    title="Export all transactions to CSV"
                                 >
-                                    <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-                                    <span className="hidden md:inline">Auto Sync</span>
+                                    <Download className="w-3.5 h-3.5 text-muted-foreground" />
+                                    <span>Export CSV</span>
                                 </button>
-                            )}
-                            {isSmsUnlocked && (
-                                <button
-                                    onClick={() => setShowSMSScan(true)}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
-                                    title="Scan SMS Inbox for UPI/Bank alert receipts"
-                                >
-                                    <MessageSquare className="w-4 h-4" />
-                                    <span className="hidden md:inline">Scan SMS</span>
-                                </button>
-                            )}
+                                {isSmsUnlocked && (
+                                    <button
+                                        onClick={handleSyncSms}
+                                        disabled={refreshing}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
+                                        title="Auto-sync SMS receipts"
+                                    >
+                                        <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+                                        <span>Auto Sync</span>
+                                    </button>
+                                )}
+                                {isSmsUnlocked && (
+                                    <button
+                                        onClick={() => setShowSMSScan(true)}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
+                                        title="Scan SMS Inbox for receipts"
+                                    >
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        <span>Scan SMS</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-                            <div className="flex bg-muted p-1 rounded-lg shrink-0">
+                        {/* View Mode & Category Filter Pills */}
+                        <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none pt-2 border-t border-border/40 w-full">
+                            <div className="flex bg-muted/70 p-1 rounded-xl shrink-0">
                                 <button
                                     onClick={() => setViewMode('transactions')}
-                                    className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", viewMode === 'transactions' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                    className={cn("px-3 py-1 rounded-lg text-xs font-semibold transition-all", viewMode === 'transactions' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                                 >
                                     History
                                 </button>
                                 <button
                                     onClick={() => setViewMode('recurring')}
-                                    className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1", viewMode === 'recurring' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                    className={cn("px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1", viewMode === 'recurring' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                                 >
                                     Fixed / Recurring
                                 </button>
                             </div>
 
                             {viewMode === 'transactions' && (
-                                <div className="flex bg-muted p-1 rounded-lg shrink-0">
-                                    <button onClick={() => setFilterType('all')} className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All</button>
+                                <div className="flex bg-muted/70 p-1 rounded-xl shrink-0">
+                                    <button onClick={() => setFilterType('all')} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All</button>
                                     {typeConfig.map(t => (
-                                        <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                                            <span className="hidden sm:inline">{t.label}</span>
-                                            <span className="sm:hidden">{t.label[0]}</span>
+                                        <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                                            <span>{t.label}</span>
                                         </button>
                                     ))}
                                 </div>
