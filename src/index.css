@@ -293,3 +293,11 @@
   background-size: 200% 200%;
   animation: gradient-shift 4s ease infinite;
 }
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

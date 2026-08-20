@@ -417,7 +417,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 overflow-hidden lg:overflow-visible bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-center transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-sm p-2 sm:p-4 flex justify-center items-center transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
@@ -429,7 +429,7 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-3.5 sm:p-5 lg:p-6 w-full max-w-md relative z-10 transition-all my-auto lg:max-h-none lg:overflow-visible",
+                        "rounded-2xl border bg-card shadow-2xl p-3 sm:p-5 lg:p-6 w-full max-w-md relative z-10 transition-all my-auto max-h-[90vh] overflow-y-auto scrollbar-none lg:max-h-none lg:overflow-visible",
                         "lg:shadow-sm lg:sticky lg:top-8",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
