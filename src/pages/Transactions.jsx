@@ -155,6 +155,20 @@ const Transactions = () => {
 
         if (editingTx) {
             updateTransaction(editingTx.id, txData);
+            if (isRecurring && addRecurringTransaction) {
+                addRecurringTransaction({
+                    amount: parseFloat(amount),
+                    description: description || '',
+                    type,
+                    categoryId,
+                    frequency: recurringFreq,
+                    interval: recurringFreq === 'custom' ? (parseInt(recurringInterval) || 1) : 1,
+                    ...(recurringFreq === 'weekly' && recurringDay ? { weeklyDay: recurringDay } : {}),
+                    tenure: recurringTenure ? parseInt(recurringTenure) : null,
+                    processedCount: 0,
+                    lastProcessedDate: new Date().toISOString()
+                });
+            }
         } else {
             addTransaction(txData);
             if (isRecurring) {
@@ -699,7 +713,7 @@ const Transactions = () => {
                                 </div>
                             </div>
 
-                            {!editingTx && (type === 'expense' || type === 'savings') && (
+                            {(type === 'expense' || type === 'savings') && (
                                 <div className="flex items-center gap-2 pt-1">
                                     <input
                                         type="checkbox"
@@ -714,7 +728,7 @@ const Transactions = () => {
                                 </div>
                             )}
 
-                            {isRecurring && !editingTx && (
+                            {isRecurring && (
                                 <div className="p-3 bg-muted/50 rounded-lg space-y-3 border border-border animate-in slide-in-from-top-2">
                                     <div className="space-y-1.5">
                                         <label htmlFor="frequency" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Frequency</label>
