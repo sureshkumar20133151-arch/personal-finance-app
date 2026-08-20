@@ -429,6 +429,119 @@ const Dashboard = () => {
   const dailyBurnRate    = totalOutflow / daysPassed;
   const projectedMonthly = dailyBurnRate * 30;
 
+  // ── Smart AI Insights & Health Score Computation ──────────────────────────
+  const healthScore = useMemo(() => {
+    let score = 75;
+    if (savingsRate >= 20) score += 15;
+    else if (savingsRate >= 10) score += 8;
+    else if (savingsRate < 0) score -= 15;
+
+    if (monthlyBudget > 0) {
+      if (budgetUsed <= 80) score += 10;
+      else if (budgetUsed > 100) score -= 25;
+      else score -= 10;
+
+      if (projectedMonthly <= monthlyBudget) score += 10;
+      else score -= 15;
+    }
+
+    return Math.max(15, Math.min(100, Math.round(score)));
+  }, [savingsRate, monthlyBudget, budgetUsed, projectedMonthly]);
+
+  const smartInsights = useMemo(() => {
+    const list = [];
+    const topExp = expenseData[0];
+
+    // 1. Pacing & Budget Trajectory
+    if (monthlyBudget > 0) {
+      if (isOverBudget) {
+        list.push({
+          icon: '🚨',
+          title: 'Over Budget Deficit',
+          text: `Exceeded budget by ${formatMoney(Math.abs(remaining))}. Pause discretionary spending!`,
+          color: 'text-red-500 dark:text-red-400',
+          bg: 'bg-red-500/10 border-red-500/20'
+        });
+      } else if (projectedMonthly > monthlyBudget) {
+        const diff = projectedMonthly - monthlyBudget;
+        list.push({
+          icon: '⚠️',
+          title: 'High Burn Rate Warning',
+          text: `At ₹${Math.round(dailyBurnRate)}/day, you're projected to end ₹${formatMoney(Math.round(diff))} over budget.`,
+          color: 'text-amber-500 dark:text-amber-400',
+          bg: 'bg-amber-500/10 border-amber-500/20'
+        });
+      } else {
+        list.push({
+          icon: '💡',
+          title: 'Safe Daily Spending Pace',
+          text: `Safe to spend ${formatMoney(Math.round(remaining / Math.max(daysLeft, 1)))} per day for the next ${daysLeft} days.`,
+          color: 'text-green-500 dark:text-green-400',
+          bg: 'bg-green-500/10 border-green-500/20'
+        });
+      }
+    } else {
+      list.push({
+        icon: '🎯',
+        title: 'Monthly Budget Tip',
+        text: 'Set a monthly budget in Setup to get real-time spend pacing alerts and daily limits!',
+        color: 'text-primary',
+        bg: 'bg-primary/10 border-primary/20'
+      });
+    }
+
+    // 2. Top Expense Category
+    if (topExp && topExp.value > 0) {
+      const pct = expense > 0 ? Math.round((topExp.value / expense) * 100) : 0;
+      list.push({
+        icon: '🏷️',
+        title: `Top Spend: ${topExp.name}`,
+        text: `${topExp.name} accounts for ${pct}% of your total expenses (${formatMoney(topExp.value)}).`,
+        color: 'text-blue-500 dark:text-blue-400',
+        bg: 'bg-blue-500/10 border-blue-500/20'
+      });
+    }
+
+    // 3. Savings & Wealth Rate
+    if (income > 0) {
+      if (savingsRate >= 20) {
+        list.push({
+          icon: '🌟',
+          title: 'Strong Savings Velocity',
+          text: `Saving ${savingsRate}% of income! Excellent progress towards financial independence.`,
+          color: 'text-emerald-500 dark:text-emerald-400',
+          bg: 'bg-emerald-500/10 border-emerald-500/20'
+        });
+      } else if (savingsRate > 0) {
+        list.push({
+          icon: '🏦',
+          title: 'Positive Net Savings',
+          text: `Currently saving ${savingsRate}% of income (${formatMoney(monthlyNet)}). Target 20%+ to boost wealth.`,
+          color: 'text-indigo-500 dark:text-indigo-400',
+          bg: 'bg-indigo-500/10 border-indigo-500/20'
+        });
+      } else {
+        list.push({
+          icon: '📉',
+          title: 'Negative Cash Flow Alert',
+          text: `Outflow exceeds income by ${formatMoney(Math.abs(monthlyNet))}. Review optional expenses.`,
+          color: 'text-red-500 dark:text-red-400',
+          bg: 'bg-red-500/10 border-red-500/20'
+        });
+      }
+    } else {
+      list.push({
+        icon: '📊',
+        title: 'Monthly Income Tracking',
+        text: 'Add your salary or income entries to calculate your net savings rate.',
+        color: 'text-purple-500 dark:text-purple-400',
+        bg: 'bg-purple-500/10 border-purple-500/20'
+      });
+    }
+
+    return list;
+  }, [monthlyBudget, isOverBudget, remaining, projectedMonthly, dailyBurnRate, daysLeft, formatMoney, expenseData, expense, income, savingsRate, monthlyNet]);
+
   const previousMonth = () => setCurrentDate(d => subMonths(d, 1));
   const nextMonth     = () => setCurrentDate(d => addMonths(d, 1));
 
@@ -586,6 +699,56 @@ const Dashboard = () => {
       {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* ── SMART AI FINANCIAL DIGEST BANNER ── */}
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-background p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold shadow-inner">
+                  ✨
+                </div>
+                <div>
+                  <h2 className="font-bold text-base text-foreground flex items-center gap-2">
+                    Smart Financial Pulse
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
+                      Auto Digest
+                    </span>
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Automated real-time insights based on your monthly spending pacing & income</p>
+                </div>
+              </div>
+
+              {/* Health Score Badge */}
+              <div className="flex items-center gap-3 bg-background/80 px-3.5 py-1.5 rounded-xl border border-border shrink-0 self-start sm:self-auto">
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground">Financial Health Index</p>
+                  <p className={cn(
+                    "text-base font-black",
+                    healthScore >= 80 ? "text-green-500" : healthScore >= 60 ? "text-amber-500" : "text-red-500"
+                  )}>
+                    {healthScore}/100 • {healthScore >= 80 ? "Excellent 🟢" : healthScore >= 60 ? "Solid 🟡" : "Needs Care 🔴"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 3 Smart Insight Cards */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {smartInsights.map((insight, idx) => (
+                <div key={idx} className={cn("p-3.5 rounded-xl border flex items-start gap-3 transition-all hover:scale-[1.01]", insight.bg)}>
+                  <span className="text-xl shrink-0 mt-0.5">{insight.icon}</span>
+                  <div className="min-w-0">
+                    <p className={cn("text-xs font-bold truncate", insight.color)}>
+                      {insight.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                      {insight.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Summary Row */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl border bg-card p-4 shadow-sm text-center">
