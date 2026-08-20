@@ -18,7 +18,7 @@ const SparkBar = ({ data, color }) => {
   if (!data || data.length === 0) return null;
   const max = Math.max(...data, 1);
   return (
-    <div className="flex items-end gap-0.5 h-8">
+    <div className="flex items-end gap-0.5 h-6">
       {data.map((v, i) => (
         <div
           key={i}
@@ -40,7 +40,7 @@ const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor,
   <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-sm transition-all duration-250 hover:shadow-lg hover:-translate-y-1 group overflow-hidden relative">
     {/* Subtle gradient overlay on hover */}
     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-br from-primary/3 to-transparent rounded-2xl" />
-    <div className="flex items-start justify-between mb-3">
+    <div className="flex items-start justify-between mb-2">
       <div className={cn('p-2.5 rounded-xl transition-all duration-200 group-hover:scale-110 group-hover:shadow-md', bgColor)}>
         <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', color)} />
       </div>
@@ -56,9 +56,9 @@ const KPICard = ({ title, value, subValue, subLabel, icon: Icon, color, bgColor,
       )}
     </div>
     <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">{title}</p>
-    <p className={cn('text-xl sm:text-2xl font-extrabold tracking-tight', color)}>{value}</p>
+    <p className={cn('text-lg sm:text-xl font-extrabold tracking-tight', color)}>{value}</p>
     {sparkData && (
-      <div className="mt-3">
+      <div className="mt-2">
         <SparkBar data={sparkData} color={sparkColor} />
       </div>
     )}
@@ -700,7 +700,7 @@ const Dashboard = () => {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* ── SMART AI FINANCIAL DIGEST BANNER ── */}
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-background p-5 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-background p-4 shadow-sm space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold shadow-inner">
@@ -734,46 +734,18 @@ const Dashboard = () => {
             {/* 3 Smart Insight Cards */}
             <div className="grid gap-3 sm:grid-cols-3">
               {smartInsights.map((insight, idx) => (
-                <div key={idx} className={cn("p-3.5 rounded-xl border flex items-start gap-3 transition-all hover:scale-[1.01]", insight.bg)}>
-                  <span className="text-xl shrink-0 mt-0.5">{insight.icon}</span>
+                <div key={idx} className={cn("p-3 rounded-xl border flex items-start gap-2.5 transition-all hover:scale-[1.01]", insight.bg)}>
+                  <span className="text-lg shrink-0 mt-0.5">{insight.icon}</span>
                   <div className="min-w-0">
                     <p className={cn("text-xs font-bold truncate", insight.color)}>
                       {insight.title}
                     </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
                       {insight.text}
                     </p>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Summary Row */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border bg-card p-4 shadow-sm text-center">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                Bank Balance
-              </p>
-              <p className={`text-lg font-bold ${bankBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-500"}`}>
-                {formatMoney(bankBalance)}
-              </p>
-            </div>
-            <div className="rounded-2xl border bg-card p-4 shadow-sm text-center">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                Cash in Hand
-              </p>
-              <p className={`text-lg font-bold ${cashBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
-                {formatMoney(cashBalance)}
-              </p>
-            </div>
-            <div className="rounded-2xl border bg-primary/10 border-primary/20 p-4 shadow-sm text-center">
-              <p className="text-[10px] uppercase font-bold text-primary/70 tracking-wider mb-1">
-                Total Balance
-              </p>
-              <p className={`text-lg font-bold ${netBalance >= 0 ? "text-primary" : "text-red-500"}`}>
-                {formatMoney(netBalance)}
-              </p>
             </div>
           </div>
 
@@ -1014,7 +986,7 @@ const Dashboard = () => {
                           <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
                           <span className="text-base">{stat.icon}</span>
                         </div>
-                        <p className={cn('text-base sm:text-xl font-bold tracking-tight', stat.color)}>{stat.value}</p>
+                        <p className={cn('text-sm sm:text-lg font-bold tracking-tight', stat.color)}>{stat.value}</p>
                         <p className="text-[10px] text-muted-foreground">{stat.sub}</p>
                       </div>
                     ))}
