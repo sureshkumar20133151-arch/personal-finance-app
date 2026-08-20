@@ -942,21 +942,21 @@ const Transactions = () => {
                                     recurring.map(rule => {
                                         const typeInfo = typeConfig.find(t => t.id === rule.type) || typeConfig[1];
                                         return (
-                                            <div key={rule.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-all group">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl border-2 shadow-sm", typeInfo.bg, "border-primary/20")}>
+                                            <div key={rule.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-muted/50 transition-all group">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 text-lg sm:text-xl border-2 shadow-sm", typeInfo.bg, "border-primary/20")}>
                                                         {(() => {
                                                             const cat = categories.find(c => c.id === rule.categoryId);
-                                                            if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={20} color={cat.color} />;
-                                                            return <typeInfo.icon className={cn("w-5 h-5", typeInfo.color)} />;
+                                                            if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
+                                                            return <typeInfo.icon className={cn("w-4 h-4 sm:w-5 sm:h-5", typeInfo.color)} />;
                                                         })()}
                                                     </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="font-medium text-sm">{rule.description || getCategoryName(rule.categoryId)}</p>
-                                                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Fixed</span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <p className="font-semibold text-xs sm:text-sm truncate">{rule.description || getCategoryName(rule.categoryId)}</p>
+                                                            <span className="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-wider">Fixed</span>
                                                         </div>
-                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground flex-wrap mt-0.5">
                                                             <span>
                                                                 {rule.frequency === 'weekly'
                                                                     ? `Weekly (${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][rule.weeklyDay ?? 1]})`
@@ -968,20 +968,14 @@ const Transactions = () => {
                                                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(rule.categoryId) }} />
                                                                 {getCategoryName(rule.categoryId)}
                                                             </span>
-                                                            {rule.tenure && (
-                                                                <>
-                                                                    <span>•</span>
-                                                                    <span>Duration: {rule.tenure} {rule.frequency === 'weekly' ? 'Weeks' : 'Months'}</span>
-                                                                </>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center justify-between sm:justify-end gap-6">
-                                                    <span className={cn("font-bold", typeInfo.color)}>
+                                                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                                                    <span className={cn("font-bold text-xs sm:text-sm", typeInfo.color)}>
                                                         {formatMoney(rule.amount)} / mo
                                                     </span>
-                                                    <button onClick={() => deleteRecurringTransaction(rule.id)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Remove Fixed Rule">
+                                                    <button onClick={() => deleteRecurringTransaction(rule.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Remove Fixed Rule">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
@@ -994,18 +988,18 @@ const Transactions = () => {
                                     const typeInfo = typeConfig.find(t => t.id === tx.type) || typeConfig[1];
                                     return (
 
-                                        <div key={tx.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/50 transition-all group">
-                                            <div className="flex items-center gap-4">
-                                                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl shadow-sm", typeInfo.bg)}>
-                                                        {(() => {
-                                                            const cat = categories.find(c => c.id === tx.categoryId);
-                                                            if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={20} color={cat.color} />;
-                                                            return <typeInfo.icon className={cn("w-5 h-5", typeInfo.color)} />;
-                                                        })()}
-                                                    </div>
-                                                <div>
-                                                    <p className="font-medium text-sm">{tx.description || getCategoryName(tx.categoryId)}</p>
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                        <div key={tx.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-muted/50 transition-all group">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 text-lg sm:text-xl shadow-sm", typeInfo.bg)}>
+                                                    {(() => {
+                                                        const cat = categories.find(c => c.id === tx.categoryId);
+                                                        if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
+                                                        return <typeInfo.icon className={cn("w-4 h-4 sm:w-5 sm:h-5", typeInfo.color)} />;
+                                                    })()}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-xs sm:text-sm truncate">{tx.description || getCategoryName(tx.categoryId)}</p>
+                                                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground flex-wrap mt-0.5">
                                                         <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
                                                         <span>•</span>
                                                         <span className="flex items-center gap-1">
@@ -1014,7 +1008,7 @@ const Transactions = () => {
                                                         </span>
                                                         {tx.paymentMode && (
                                                             <span className={cn(
-                                                                "px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                                                                "px-1.5 py-0.2 rounded-full text-[8.5px] font-bold uppercase tracking-wider",
                                                                 tx.paymentMode === 'upi'        && "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
                                                                 tx.paymentMode === 'cash'       && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
                                                                 tx.paymentMode === 'card'       && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -1027,16 +1021,16 @@ const Transactions = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between sm:justify-end gap-6">
-                                                <span className={cn("font-bold", typeInfo.color)}>
-                                                    {tx.type === 'income' || tx.type === 'debt' ? '+' : '-'}{formatMoney(tx.amount)}
+                                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                                                <span className={cn("font-bold text-xs sm:text-sm", typeInfo.color)}>
+                                                    {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
                                                 </span>
-                                                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleEditClick(tx)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
-                                                        <Edit2 className="w-4 h-4" />
+                                                <div className="flex items-center gap-1">
+                                                    <button onClick={() => editTransaction(tx)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit Transaction">
+                                                        <Edit2 className="w-3.5 h-3.5" />
                                                     </button>
-                                                    <button onClick={() => { triggerHapticNotification('WARNING'); deleteTransaction(tx.id); }} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete">
-                                                        <Trash2 className="w-4 h-4" />
+                                                    <button onClick={() => deleteTransaction(tx.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete Transaction">
+                                                        <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
                                             </div>
