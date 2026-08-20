@@ -699,55 +699,6 @@ const Dashboard = () => {
       {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* ── SMART AI FINANCIAL DIGEST BANNER ── */}
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-background p-4 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold shadow-inner">
-                  ✨
-                </div>
-                <div>
-                  <h2 className="font-bold text-base text-foreground flex items-center gap-2">
-                    Smart Financial Pulse
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
-                      Auto Digest
-                    </span>
-                  </h2>
-                  <p className="text-xs text-muted-foreground">Automated real-time insights based on your monthly spending pacing & income</p>
-                </div>
-              </div>
-
-              {/* Health Score Badge */}
-              <div className="flex items-center gap-3 bg-background/80 px-3.5 py-1.5 rounded-xl border border-border shrink-0 self-start sm:self-auto">
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase text-muted-foreground">Financial Health Index</p>
-                  <p className={cn(
-                    "text-base font-black",
-                    healthScore >= 80 ? "text-green-500" : healthScore >= 60 ? "text-amber-500" : "text-red-500"
-                  )}>
-                    {healthScore}/100 • {healthScore >= 80 ? "Excellent 🟢" : healthScore >= 60 ? "Solid 🟡" : "Needs Care 🔴"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* 3 Smart Insight Cards */}
-            <div className="grid gap-3 sm:grid-cols-3">
-              {smartInsights.map((insight, idx) => (
-                <div key={idx} className={cn("p-3 rounded-xl border flex items-start gap-2.5 transition-all hover:scale-[1.01]", insight.bg)}>
-                  <span className="text-lg shrink-0 mt-0.5">{insight.icon}</span>
-                  <div className="min-w-0">
-                    <p className={cn("text-xs font-bold truncate", insight.color)}>
-                      {insight.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                      {insight.text}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Next Recurring Payment Banner */}
           {nextRecurringPayment && (() => {
