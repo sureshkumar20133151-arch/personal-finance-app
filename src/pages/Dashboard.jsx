@@ -722,246 +722,249 @@ const Dashboard = () => {
             </KPICard>
           </div>
 
-          {/* Upcoming Expenses / Recurring Bills */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                Upcoming Recurring Payments
-              </h3>
-              {upcomingExpenses.length > 0 && (
-                <span className="text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full font-medium">
-                  Next {upcomingExpenses.length} bills
-                </span>
-              )}
-            </div>
-            
-            {upcomingExpenses.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {upcomingExpenses.map(item => {
-                  const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
-                  const urgent = daysUntil <= 7;
-                  const cat = item.category || { name: 'Uncategorized', color: '#64748b', icon: 'HelpCircle' };
-                  
-                  return (
-                    <div 
-                      key={item.id} 
-                      className={cn(
-                        'flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200 hover:shadow-md bg-background/50',
-                        urgent
-                          ? 'bg-red-500/5 border-red-500/20'
-                          : 'bg-muted/10 border-border/80'
-                      )}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div 
-                          className="w-9 h-9 rounded-xl flex items-center justify-center border shadow-inner shrink-0 bg-background"
-                          style={{ borderColor: `${cat.color}25` }}
-                        >
-                          <CategoryIcon iconName={cat.icon || cat.emoji} size={16} color={cat.color} />
-                        </div>
-                        
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold truncate text-foreground flex items-center gap-1.5">
-                            {item.description || cat.name}
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-muted border border-border/60 rounded text-muted-foreground capitalize shrink-0">
-                              {item.frequency}
-                            </span>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                            <span className="flex items-center gap-0.5">📅 Date:</span>
-                            <span className="font-semibold text-foreground/80">{format(item.nextDue, 'dd MMM yyyy')}</span>
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-black text-red-500">-{formatMoney(item.amount)}</p>
-                        <span className={cn(
-                          "inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full mt-1.5",
-                          urgent 
-                            ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 animate-pulse" 
-                            : "bg-muted text-muted-foreground"
-                        )}>
-                          {daysUntil <= 0 ? "Due today!" : `${daysUntil}d left`}
-                        </span>
-                      </div>
+          {/* ── BUDGET HEALTH & UPCOMING BILLS ROW (SIDE-BY-SIDE) ── */}
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
+
+            {/* ── BUDGET HEALTH PANEL (2 Cols) ── */}
+            {monthlyBudget > 0 && (
+              <div id="tour-budget-health" className="lg:col-span-2 rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col justify-between">
+
+                {/* Header strip */}
+                <div className={cn(
+                  'px-6 py-4 flex items-center justify-between border-b',
+                  isOverBudget
+                    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
+                    : budgetHealth > 80
+                      ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
+                      : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
+                )}>
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center text-xl',
+                      isOverBudget ? 'bg-red-100 dark:bg-red-900/30' : 'bg-green-100 dark:bg-green-900/30'
+                    )}>
+                      {isOverBudget ? '⚠️' : budgetHealth > 80 ? '⚡' : '✅'}
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-border rounded-xl bg-muted/5 p-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
-                  <Calendar className="w-5 h-5" />
+                    <div>
+                      <p className="font-bold text-foreground">
+                        {isOverBudget
+                          ? `Over Budget by ${formatMoney(Math.abs(remaining))}`
+                          : budgetHealth > 80
+                            ? 'Almost at Budget Limit'
+                            : 'Budget On Track'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {daysLeft} days left in this cycle • Daily burn: {formatMoney(Math.round(dailyBurnRate))}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">{Math.round(budgetHealth)}%</p>
+                    <p className="text-xs text-muted-foreground">of budget used</p>
+                  </div>
                 </div>
-                <p className="text-sm font-semibold text-foreground">No upcoming recurring bills</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                  Add your subscriptions (like Netflix, Rent, electricity) in the <strong>Transactions</strong> page and toggle the <strong>"Recurring Expense"</strong> checkbox.
-                </p>
-              </div>
-            )}
-          </div>
 
-          {/* ── BUDGET HEALTH PANEL ── */}
-          {monthlyBudget > 0 && (
-            <div id="tour-budget-health" className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                <div className="p-6 space-y-6 flex-1 flex flex-col justify-between">
 
-              {/* Header strip */}
-              <div className={cn(
-                'px-6 py-4 flex items-center justify-between border-b',
-                isOverBudget
-                  ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
-                  : budgetHealth > 80
-                    ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
-                    : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
-              )}>
-                <div className="flex items-center gap-3">
+                  {/* Stacked progress bar */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Budget Usage</span>
+                      <span className="font-bold">
+                        {formatMoney(totalOutflow)}
+                        <span className="text-muted-foreground font-normal"> / {formatMoney(monthlyBudget)}</span>
+                      </span>
+                    </div>
+                    <div className="relative h-4 bg-muted rounded-full overflow-hidden">
+                      {/* Expenses */}
+                      <div
+                        className="absolute left-0 top-0 h-full transition-all duration-700 rounded-l-full"
+                        style={{ width: `${Math.min((expense / monthlyBudget) * 100, 100)}%`, backgroundColor: '#ef4444' }}
+                      />
+                      {/* Debt */}
+                      <div
+                        className="absolute top-0 h-full transition-all duration-700"
+                        style={{
+                          left: `${Math.min((expense / monthlyBudget) * 100, 100)}%`,
+                          width: `${Math.min((debt / monthlyBudget) * 100, 100 - Math.min((expense / monthlyBudget) * 100, 100))}%`,
+                          backgroundColor: '#f97316'
+                        }}
+                      />
+                      {/* Savings */}
+                      <div
+                        className="absolute top-0 h-full transition-all duration-700"
+                        style={{
+                          left: `${Math.min(((expense + debt) / monthlyBudget) * 100, 100)}%`,
+                          width: `${Math.min((savings / monthlyBudget) * 100, 100 - Math.min(((expense + debt) / monthlyBudget) * 100, 100))}%`,
+                          backgroundColor: '#3b82f6'
+                        }}
+                      />
+                      {isOverBudget && (
+                        <div className="absolute right-0 top-0 h-full w-2 bg-red-500 animate-pulse" />
+                      )}
+                    </div>
+                    {/* Legend */}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500" />Expenses {formatMoney(expense)}</span>
+                      <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-orange-500" />Debt {formatMoney(debt)}</span>
+                      <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500" />Savings {formatMoney(savings)}</span>
+                      <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30" />Remaining {formatMoney(Math.max(remaining, 0))}</span>
+                    </div>
+                  </div>
+
+                  {/* 4 stat boxes */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      {
+                        label: 'Spent', value: formatMoney(expense), icon: '🛍️',
+                        sub: `${monthlyBudget > 0 ? Math.round((expense / monthlyBudget) * 100) : 0}% of budget`,
+                        color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-200 dark:border-red-900/30',
+                      },
+                      {
+                        label: 'Saved', value: formatMoney(savings), icon: '🏦',
+                        sub: income > 0 ? `${Math.round((savings / income) * 100)}% of income` : '0% of income',
+                        color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/10', border: 'border-blue-200 dark:border-blue-900/30',
+                      },
+                      {
+                        label: 'Remaining', value: formatMoney(Math.max(remaining, 0)),
+                        icon: isOverBudget ? '🚨' : '💰',
+                        sub: isOverBudget ? '⚠️ Over budget!' : `${daysLeft} days to go`,
+                        color: isOverBudget ? 'text-destructive' : 'text-green-500',
+                        bg: isOverBudget ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10',
+                        border: isOverBudget ? 'border-red-200 dark:border-red-900/30' : 'border-green-200 dark:border-green-900/30',
+                      },
+                      {
+                        label: 'Projected', value: formatMoney(Math.round(projectedMonthly)), icon: '📊',
+                        sub: projectedMonthly > monthlyBudget
+                          ? `⚠️ ${formatMoney(Math.round(projectedMonthly - monthlyBudget))} over`
+                          : 'On track',
+                        color: projectedMonthly > monthlyBudget ? 'text-destructive' : 'text-green-500',
+                        bg: projectedMonthly > monthlyBudget ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10',
+                        border: projectedMonthly > monthlyBudget ? 'border-red-200 dark:border-red-900/30' : 'border-green-200 dark:border-green-900/30',
+                      },
+                    ].map(stat => (
+                      <div key={stat.label} className={cn('rounded-xl border p-3 sm:p-4 space-y-1', stat.bg, stat.border)}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+                          <span className="text-base">{stat.icon}</span>
+                        </div>
+                        <p className={cn('text-base sm:text-xl font-bold tracking-tight', stat.color)}>{stat.value}</p>
+                        <p className="text-[10px] text-muted-foreground">{stat.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Safe-to-spend per day */}
                   <div className={cn(
-                    'w-10 h-10 rounded-xl flex items-center justify-center text-xl',
-                    isOverBudget ? 'bg-red-100 dark:bg-red-900/30' : 'bg-green-100 dark:bg-green-900/30'
+                    'rounded-xl p-3 sm:p-4 flex items-center justify-between border',
+                    remaining <= 0
+                      ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
+                      : 'bg-primary/5 border-primary/20'
                   )}>
-                    {isOverBudget ? '⚠️' : budgetHealth > 80 ? '⚡' : '✅'}
-                  </div>
-                  <div>
-                    <p className="font-bold text-foreground">
-                      {isOverBudget
-                        ? `Over Budget by ${formatMoney(Math.abs(remaining))}`
-                        : budgetHealth > 80
-                          ? 'Almost at Budget Limit'
-                          : 'Budget On Track'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {daysLeft} days left in this cycle • Daily burn: {formatMoney(Math.round(dailyBurnRate))}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold">{Math.round(budgetHealth)}%</p>
-                  <p className="text-xs text-muted-foreground">of budget used</p>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-6">
-
-                {/* Stacked progress bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">Budget Usage</span>
-                    <span className="font-bold">
-                      {formatMoney(totalOutflow)}
-                      <span className="text-muted-foreground font-normal"> / {formatMoney(monthlyBudget)}</span>
-                    </span>
-                  </div>
-                  <div className="relative h-4 bg-muted rounded-full overflow-hidden">
-                    {/* Expenses */}
-                    <div
-                      className="absolute left-0 top-0 h-full transition-all duration-700 rounded-l-full"
-                      style={{ width: `${Math.min((expense / monthlyBudget) * 100, 100)}%`, backgroundColor: '#ef4444' }}
-                    />
-                    {/* Debt */}
-                    <div
-                      className="absolute top-0 h-full transition-all duration-700"
-                      style={{
-                        left: `${Math.min((expense / monthlyBudget) * 100, 100)}%`,
-                        width: `${Math.min((debt / monthlyBudget) * 100, 100 - Math.min((expense / monthlyBudget) * 100, 100))}%`,
-                        backgroundColor: '#f97316'
-                      }}
-                    />
-                    {/* Savings */}
-                    <div
-                      className="absolute top-0 h-full transition-all duration-700"
-                      style={{
-                        left: `${Math.min(((expense + debt) / monthlyBudget) * 100, 100)}%`,
-                        width: `${Math.min((savings / monthlyBudget) * 100, 100 - Math.min(((expense + debt) / monthlyBudget) * 100, 100))}%`,
-                        backgroundColor: '#3b82f6'
-                      }}
-                    />
-                    {isOverBudget && (
-                      <div className="absolute right-0 top-0 h-full w-2 bg-red-500 animate-pulse" />
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {remaining <= 0 ? '🚨 You\'ve exceeded your budget' : '💡 Safe to spend per day'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {remaining <= 0
+                          ? 'Stop spending — over budget this month'
+                          : `Based on ${daysLeft} days remaining in this cycle`}
+                      </p>
+                    </div>
+                    {remaining > 0 && (
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-primary">
+                          {formatMoney(Math.round(remaining / Math.max(daysLeft, 1)))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">per day</p>
+                      </div>
                     )}
                   </div>
-                  {/* Legend */}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                    <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500" />Expenses {formatMoney(expense)}</span>
-                    <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-orange-500" />Debt {formatMoney(debt)}</span>
-                    <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500" />Savings {formatMoney(savings)}</span>
-                    <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30" />Remaining {formatMoney(Math.max(remaining, 0))}</span>
-                  </div>
-                </div>
 
-                {/* 4 stat boxes */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    {
-                      label: 'Spent', value: formatMoney(expense), icon: '🛍️',
-                      sub: `${monthlyBudget > 0 ? Math.round((expense / monthlyBudget) * 100) : 0}% of budget`,
-                      color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-200 dark:border-red-900/30',
-                    },
-                    {
-                      label: 'Saved', value: formatMoney(savings), icon: '🏦',
-                      sub: income > 0 ? `${Math.round((savings / income) * 100)}% of income` : '0% of income',
-                      color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/10', border: 'border-blue-200 dark:border-blue-900/30',
-                    },
-                    {
-                      label: 'Remaining', value: formatMoney(Math.max(remaining, 0)),
-                      icon: isOverBudget ? '🚨' : '💰',
-                      sub: isOverBudget ? '⚠️ Over budget!' : `${daysLeft} days to go`,
-                      color: isOverBudget ? 'text-destructive' : 'text-green-500',
-                      bg: isOverBudget ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10',
-                      border: isOverBudget ? 'border-red-200 dark:border-red-900/30' : 'border-green-200 dark:border-green-900/30',
-                    },
-                    {
-                      label: 'Projected', value: formatMoney(Math.round(projectedMonthly)), icon: '📊',
-                      sub: projectedMonthly > monthlyBudget
-                        ? `⚠️ ${formatMoney(Math.round(projectedMonthly - monthlyBudget))} over`
-                        : 'On track',
-                      color: projectedMonthly > monthlyBudget ? 'text-destructive' : 'text-green-500',
-                      bg: projectedMonthly > monthlyBudget ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10',
-                      border: projectedMonthly > monthlyBudget ? 'border-red-200 dark:border-red-900/30' : 'border-green-200 dark:border-green-900/30',
-                    },
-                  ].map(stat => (
-                    <div key={stat.label} className={cn('rounded-xl border p-3 sm:p-4 space-y-1', stat.bg, stat.border)}>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-                        <span className="text-base">{stat.icon}</span>
-                      </div>
-                      <p className={cn('text-base sm:text-xl font-bold tracking-tight', stat.color)}>{stat.value}</p>
-                      <p className="text-[10px] text-muted-foreground">{stat.sub}</p>
-                    </div>
-                  ))}
                 </div>
+              </div>
+            )}
 
-                {/* Safe-to-spend per day */}
-                <div className={cn(
-                  'rounded-xl p-3 sm:p-4 flex items-center justify-between border',
-                  remaining <= 0
-                    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
-                    : 'bg-primary/5 border-primary/20'
-                )}>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {remaining <= 0 ? '🚨 You\'ve exceeded your budget' : '💡 Safe to spend per day'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {remaining <= 0
-                        ? 'Stop spending — over budget this month'
-                        : `Based on ${daysLeft} days remaining in this cycle`}
-                    </p>
-                  </div>
-                  {remaining > 0 && (
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">
-                        {formatMoney(Math.round(remaining / Math.max(daysLeft, 1)))}
-                      </p>
-                      <p className="text-xs text-muted-foreground">per day</p>
-                    </div>
+            {/* ── UPCOMING RECURRING PAYMENTS (1 Col on Right) ── */}
+            <div className={cn("rounded-2xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between", monthlyBudget > 0 ? "lg:col-span-1" : "lg:col-span-3")}>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    Upcoming Bills
+                  </h3>
+                  {upcomingExpenses.length > 0 && (
+                    <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
+                      {upcomingExpenses.length} due
+                    </span>
                   )}
                 </div>
-
+                
+                {upcomingExpenses.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {upcomingExpenses.map(item => {
+                      const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
+                      const urgent = daysUntil <= 7;
+                      const cat = item.category || { name: 'Uncategorized', color: '#64748b', icon: 'HelpCircle' };
+                      
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={cn(
+                            'flex items-center justify-between p-2.5 rounded-xl border transition-all duration-200 hover:shadow-md bg-background/50',
+                            urgent
+                              ? 'bg-red-500/5 border-red-500/20'
+                              : 'bg-muted/10 border-border/80'
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center border shadow-inner shrink-0 bg-background"
+                              style={{ borderColor: `${cat.color}25` }}
+                            >
+                              <CategoryIcon iconName={cat.icon || cat.emoji} size={14} color={cat.color} />
+                            </div>
+                            
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold truncate text-foreground flex items-center gap-1">
+                                {item.description || cat.name}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                <span>📅 {format(item.nextDue, 'dd MMM')}</span>
+                                <span className="capitalize text-[9px] text-muted-foreground/80">({item.frequency})</span>
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-extrabold text-red-500">-{formatMoney(item.amount)}</p>
+                            <span className={cn(
+                              "inline-block text-[9px] font-bold px-1.5 py-0.2 rounded mt-0.5",
+                              urgent 
+                                ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 animate-pulse" 
+                                : "bg-muted text-muted-foreground"
+                            )}>
+                              {daysUntil <= 0 ? "Due today!" : `${daysUntil}d left`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-border rounded-xl bg-muted/5 p-4 my-auto">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <p className="text-xs font-semibold text-foreground">No upcoming bills</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-normal max-w-xs">
+                      Add subscriptions in <strong>Transactions</strong> & check <strong>"Recurring Expense"</strong>.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Charts Row */}
           <div className="grid gap-6 md:grid-cols-2">
