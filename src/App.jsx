@@ -29,7 +29,7 @@ const PageLoader = () => (
   </div>
 );
 
-const APP_BUILD_ID = '1.0.5';
+const APP_BUILD_ID = '1.0.6';
 
 const App = () => {
   const [showSmsSetup, setShowSmsSetup] = useState(false);
