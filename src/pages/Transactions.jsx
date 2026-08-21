@@ -417,7 +417,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-start py-6 sm:py-8 pb-28 transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-sm p-2 sm:p-4 flex justify-center items-start py-2 sm:py-6 pb-28 transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
@@ -429,7 +429,7 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-4 sm:p-5 lg:p-6 w-full max-w-md relative z-10 transition-all my-0 sm:my-auto",
+                        "rounded-2xl sm:rounded-3xl border bg-card shadow-2xl p-4 sm:p-5 lg:p-6 w-full max-w-full sm:max-w-xl lg:max-w-md relative z-10 transition-all my-0 sm:my-auto",
                         "lg:shadow-sm lg:sticky lg:top-8",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
@@ -439,7 +439,7 @@ const Transactions = () => {
                                 setShowAddForm(false);
                                 resetForm();
                             }}
-                            className="absolute right-3.5 top-3.5 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
+                            className="absolute right-3.5 top-3.5 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
                         >
                             <X className="w-4 h-4" />
                         </button>
