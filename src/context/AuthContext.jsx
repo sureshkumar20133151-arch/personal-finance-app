@@ -50,10 +50,7 @@ export function AuthProvider({ children }) {
 
     async function loginWithGoogle() {
         if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-            const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-            if (!clientId || clientId.includes("placeholder")) {
-                throw new Error("Google Sign-In is not configured. Please add your actual VITE_GOOGLE_CLIENT_ID to the .env file.");
-            }
+            const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "457615196609-7obkashutlfi5qcu75oo9u23khm4l8o9.apps.googleusercontent.com";
 
             const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
             GoogleAuth.initialize({
