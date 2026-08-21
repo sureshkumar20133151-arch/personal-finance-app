@@ -417,7 +417,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-start sm:items-center py-4 sm:py-6 pb-24 sm:pb-6 transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-sm p-3 sm:p-4 flex justify-center items-start py-6 sm:py-8 pb-28 transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
@@ -429,7 +429,7 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-2xl border bg-card shadow-2xl p-4 sm:p-5 lg:p-6 w-full max-w-md relative z-10 transition-all my-auto max-h-[82vh] sm:max-h-[88vh] flex flex-col lg:max-h-none lg:overflow-visible",
+                        "rounded-2xl border bg-card shadow-2xl p-4 sm:p-5 lg:p-6 w-full max-w-md relative z-10 transition-all my-0 sm:my-auto",
                         "lg:shadow-sm lg:sticky lg:top-8",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
@@ -439,382 +439,380 @@ const Transactions = () => {
                                 setShowAddForm(false);
                                 resetForm();
                             }}
-                            className="absolute right-3.5 top-3.5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden z-20"
+                            className="absolute right-3.5 top-3.5 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
                         >
                             <X className="w-4 h-4" />
                         </button>
-                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/40 lg:border-none shrink-0">
+                        <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
                             <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                                 {editingTx ? <Edit2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> : <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
                                 {editingTx ? 'Edit Transaction' : 'Add Transaction'}
                             </h2>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-                            <div className="flex-1 overflow-y-auto scrollbar-none space-y-2.5 sm:space-y-3 pr-0.5 pb-2">
-                                {/* Drag & Drop Zone - Compact Version */}
-                                {!editingTx && (
-                                    <div
-                                        className={cn(
-                                            "border border-dashed rounded-lg p-2 sm:p-2.5 text-center transition-all cursor-pointer",
-                                            isDragging
-                                                ? "border-primary bg-primary/5"
-                                                : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
-                                        )}
-                                        onDragEnter={handleDragEnter}
-                                        onDragLeave={handleDragLeave}
-                                        onDragOver={handleDragOver}
-                                        onDrop={handleDrop}
-                                        onClick={() => document.getElementById('file-upload-input').click()}
-                                    >
-                                        <input
-                                            id="file-upload-input"
-                                            type="file"
-                                            accept=".csv,.pdf,.xlsx,.xls,.docx,.doc,.txt"
-                                            onChange={(e) => { processFile(e.target.files[0]); e.target.value = null; }}
-                                            className="hidden"
-                                            disabled={isParsing}
-                                        />
-                                        <div className="flex items-center justify-center gap-2">
-                                            {isParsing ? (
-                                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                            ) : (
-                                                <Upload className={cn("w-4 h-4", isDragging ? "text-primary" : "text-muted-foreground")} />
-                                            )}
-                                            <span className={cn("text-xs font-medium", isDragging ? "text-primary" : "text-muted-foreground")}>
-                                                {isParsing ? 'Parsing...' : 'Upload Statement (Drag or Click)'}
-                                            </span>
-                                        </div>
-                                    </div>
+                        {/* Drag & Drop Zone - Compact Version */}
+                        {!editingTx && (
+                            <div
+                                className={cn(
+                                    "mb-2 border border-dashed rounded-lg p-2 sm:p-2.5 text-center transition-all cursor-pointer",
+                                    isDragging
+                                        ? "border-primary bg-primary/5"
+                                        : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
                                 )}
-
-                                {uploadError && (
-                                    <div className="p-2 bg-destructive/10 text-destructive text-xs rounded-md flex items-start gap-2">
-                                        <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                        <p>{uploadError}</p>
-                                    </div>
-                                )}
-
-                                <div className="space-y-1 sm:space-y-1.5" role="radiogroup" aria-labelledby="type-label">
-                                    <span id="type-label" className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Type</span>
-                                    <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
-                                        {typeConfig.map(t => (
-                                            <button
-                                                key={t.id}
-                                                type="button"
-                                                onClick={() => { setType(t.id); setCategoryId(''); setIsRecurring(false); }}
-                                                className={cn(
-                                                    "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-semibold transition-all",
-                                                    type === t.id
-                                                        ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
-                                                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                                                )}
-                                                title={t.label}
-                                            >
-                                                <t.icon className={cn("w-3.5 h-3.5", type === t.id ? t.color : "")} />
-                                                <span className="leading-none text-center">{t.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
+                                onDragEnter={handleDragEnter}
+                                onDragLeave={handleDragLeave}
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                                onClick={() => document.getElementById('file-upload-input').click()}
+                            >
+                                <input
+                                    id="file-upload-input"
+                                    type="file"
+                                    accept=".csv,.pdf,.xlsx,.xls,.docx,.doc,.txt"
+                                    onChange={(e) => { processFile(e.target.files[0]); e.target.value = null; }}
+                                    className="hidden"
+                                    disabled={isParsing}
+                                />
+                                <div className="flex items-center justify-center gap-2">
+                                    {isParsing ? (
+                                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        <Upload className={cn("w-4 h-4", isDragging ? "text-primary" : "text-muted-foreground")} />
+                                    )}
+                                    <span className={cn("text-xs font-medium", isDragging ? "text-primary" : "text-muted-foreground")}>
+                                        {isParsing ? 'Parsing...' : 'Upload Statement (Drag or Click)'}
+                                    </span>
                                 </div>
+                            </div>
+                        )}
 
-                                <div className="space-y-1.5">
-                                    <label htmlFor="category" className="text-xs font-medium">Category</label>
-                                    {/* Special case for Debt Repayment: Show Linked Loan Selector if type is debt */}
-                                    {type === 'debt' ? (
-                                        <div className="space-y-2">
-                                            {/* 1. Sub-Type Selector */}
-                                            <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setDebtType('immediate'); setLoanId(''); setAmount(''); }}
-                                                    className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight", debtType === 'immediate' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                        {uploadError && (
+                            <div className="mb-3 p-2 bg-destructive/10 text-destructive text-xs rounded-md flex items-start gap-2">
+                                <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                                <p>{uploadError}</p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-3">
+                            <div className="space-y-1 sm:space-y-1.5" role="radiogroup" aria-labelledby="type-label">
+                                <span id="type-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Type</span>
+                                <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
+                                    {typeConfig.map(t => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => { setType(t.id); setCategoryId(''); setIsRecurring(false); }}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-semibold transition-all",
+                                                type === t.id
+                                                    ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                                            )}
+                                            title={t.label}
+                                        >
+                                            <t.icon className={cn("w-3.5 h-3.5", type === t.id ? t.color : "")} />
+                                            <span className="leading-none text-center">{t.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label htmlFor="category" className="text-xs font-medium">Category</label>
+                                {/* Special case for Debt Repayment: Show Linked Loan Selector if type is debt */}
+                                {type === 'debt' ? (
+                                    <div className="space-y-2">
+                                        {/* 1. Sub-Type Selector */}
+                                        <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setDebtType('immediate'); setLoanId(''); setAmount(''); }}
+                                                className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight", debtType === 'immediate' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                            >
+                                                Immediate
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setDebtType('personal'); setLoanId(''); setAmount(''); }}
+                                                className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight", debtType === 'personal' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                            >
+                                                Debt
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDebtType('emi');
+                                                    const emiLoans = loans.filter(l => l.type === 'emi');
+                                                    if (emiLoans.length === 1) {
+                                                        const loan = emiLoans[0];
+                                                        setLoanId(loan.id);
+                                                        setAmount(loan.monthlyAmount.toString());
+                                                        setDescription(`EMI for ${loan.name}`);
+                                                    } else {
+                                                        setLoanId('');
+                                                        setAmount('');
+                                                    }
+                                                }}
+                                                className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight", debtType === 'emi' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                            >
+                                                EMI
+                                            </button>
+                                        </div>
+
+                                        {/* 2. Logic based on Sub-Type */}
+                                        {debtType === 'immediate' && (
+                                            <div className="p-2 bg-muted/30 rounded-md border border-dashed border-border text-[10px] text-muted-foreground">
+                                                One-off repayments not tracked in Loans.
+                                            </div>
+                                        )}
+
+                                        {debtType === 'personal' && (
+                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                                <select
+                                                    id="loan-account"
+                                                    name="loanAccount"
+                                                    value={loanId}
+                                                    onChange={(e) => {
+                                                        const selectedId = e.target.value;
+                                                        setLoanId(selectedId);
+                                                        setAmount(''); // Reset amount for manual entry
+                                                    }}
+                                                    className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
                                                 >
-                                                    Immediate
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setDebtType('personal'); setLoanId(''); setAmount(''); }}
-                                                    className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight", debtType === 'personal' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
-                                                >
-                                                    Debt
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setDebtType('emi');
-                                                        const emiLoans = loans.filter(l => l.type === 'emi');
-                                                        if (emiLoans.length === 1) {
-                                                            const loan = emiLoans[0];
-                                                            setLoanId(loan.id);
+                                                    <option value="">Select Account</option>
+                                                    {loans.filter(l => l.type === 'debt').map(l => (
+                                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                                    ))}
+                                                </select>
+
+                                                {loanId && (
+                                                    <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRepaymentType('principal')}
+                                                            className={cn("flex-1 text-[10px] font-medium py-1 rounded-md transition-all", repaymentType === 'principal' ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+                                                        >
+                                                            Principal
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRepaymentType('interest')}
+                                                            className={cn("flex-1 text-[10px] font-medium py-1 rounded-md transition-all", repaymentType === 'interest' ? "bg-background shadow text-orange-600" : "text-muted-foreground hover:text-foreground")}
+                                                        >
+                                                            Interest
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {debtType === 'emi' && (
+                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                                <select
+                                                    id="emi-loan"
+                                                    name="emiLoan"
+                                                    value={loanId}
+                                                    onChange={(e) => {
+                                                        const selectedId = e.target.value;
+                                                        setLoanId(selectedId);
+                                                        const loan = loans.find(l => l.id === selectedId);
+                                                        if (loan) {
                                                             setAmount(loan.monthlyAmount.toString());
                                                             setDescription(`EMI for ${loan.name}`);
-                                                        } else {
-                                                            setLoanId('');
-                                                            setAmount('');
                                                         }
                                                     }}
-                                                    className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight", debtType === 'emi' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                                    className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
                                                 >
-                                                    EMI
-                                                </button>
+                                                    <option value="">Select EMI Loan</option>
+                                                    {loans.filter(l => l.type === 'emi').map(l => (
+                                                        <option key={l.id} value={l.id}>{l.name} ({formatMoney(l.monthlyAmount)}/mo)</option>
+                                                    ))}
+                                                </select>
                                             </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <select
+                                            id="category"
+                                            name="category"
+                                            value={categoryId}
+                                            onChange={(e) => setCategoryId(e.target.value)}
+                                            className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                                            required={type !== 'debt'}
+                                        >
+                                            <option value="" disabled>Select Category</option>
+                                            {availableCategories.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
-                                            {/* 2. Logic based on Sub-Type */}
-                                            {debtType === 'immediate' && (
-                                                <div className="p-2 bg-muted/30 rounded-md border border-dashed border-border text-[10px] text-muted-foreground">
-                                                    One-off repayments not tracked in Loans.
-                                                </div>
+                                {type !== 'debt' && availableCategories.length === 0 && (
+                                    <p className="text-[10px] text-destructive">No categories found for {type}.</p>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label htmlFor="amount" className="text-xs font-medium">Amount</label>
+                                    <input
+                                        id="amount"
+                                        name="amount"
+                                        type="number"
+                                        step="0.01"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm font-bold"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label htmlFor="date" className="text-xs font-medium">Date</label>
+                                    <input
+                                        id="date"
+                                        name="date"
+                                        type="date"
+                                        value={date}
+                                        onChange={(e) => setDate(e.target.value)}
+                                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label htmlFor="description" className="text-xs font-medium">Description</label>
+                                <input
+                                    id="description"
+                                    name="description"
+                                    type="text"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="e.g. Monthly Rent"
+                                    className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium">Payment Mode</label>
+                                <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
+                                    {[
+                                        { id: 'upi',        label: 'UPI',         emoji: '📱' },
+                                        { id: 'cash',       label: 'Cash',        emoji: '💵' },
+                                        { id: 'card',       label: 'Card',        emoji: '💳' },
+                                        { id: 'netbanking', label: 'Net Banking', emoji: '🏦' },
+                                    ].map(mode => (
+                                        <button
+                                            key={mode.id}
+                                            type="button"
+                                            onClick={() => setPaymentMode(mode.id)}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-medium transition-all",
+                                                paymentMode === mode.id
+                                                    ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                                             )}
+                                        >
+                                            <span style={{ fontSize: '14px' }}>{mode.emoji}</span>
+                                            <span className="text-[8.5px] sm:text-xs leading-tight text-center font-medium mt-0.5">{mode.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                                            {debtType === 'personal' && (
-                                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                                                    <select
-                                                        id="loan-account"
-                                                        name="loanAccount"
-                                                        value={loanId}
-                                                        onChange={(e) => {
-                                                            const selectedId = e.target.value;
-                                                            setLoanId(selectedId);
-                                                            setAmount(''); // Reset amount for manual entry
-                                                        }}
-                                                        className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
-                                                    >
-                                                        <option value="">Select Account</option>
-                                                        {loans.filter(l => l.type === 'debt').map(l => (
-                                                            <option key={l.id} value={l.id}>{l.name}</option>
-                                                        ))}
-                                                    </select>
+                            {(type === 'expense' || type === 'savings') && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <input
+                                        type="checkbox"
+                                        id="recurring"
+                                        checked={isRecurring}
+                                        onChange={(e) => setIsRecurring(e.target.checked)}
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                                    />
+                                    <label htmlFor="recurring" className="text-xs font-semibold leading-none cursor-pointer text-foreground">
+                                        Recurring {type === 'savings' ? 'Saving' : 'Expense'}
+                                    </label>
+                                </div>
+                            )}
 
-                                                    {loanId && (
-                                                        <div className="flex gap-2 p-1 bg-muted rounded-lg">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setRepaymentType('principal')}
-                                                                className={cn("flex-1 text-[10px] font-medium py-1 rounded-md transition-all", repaymentType === 'principal' ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
-                                                            >
-                                                                Principal
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setRepaymentType('interest')}
-                                                                className={cn("flex-1 text-[10px] font-medium py-1 rounded-md transition-all", repaymentType === 'interest' ? "bg-background shadow text-orange-600" : "text-muted-foreground hover:text-foreground")}
-                                                            >
-                                                                Interest
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
+                            {isRecurring && (
+                                <div className="p-3 bg-muted/50 rounded-lg space-y-3 border border-border animate-in slide-in-from-top-2">
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="frequency" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Frequency</label>
+                                        <select
+                                            id="frequency"
+                                            name="frequency"
+                                            className="w-full text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
+                                            value={recurringFreq}
+                                            onChange={(e) => setRecurringFreq(e.target.value)}
+                                        >
+                                            <option value="monthly">Monthly</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="custom">Custom (Every X Days)</option>
+                                        </select>
+                                    </div>
 
-                                            {debtType === 'emi' && (
-                                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                                                    <select
-                                                        id="emi-loan"
-                                                        name="emiLoan"
-                                                        value={loanId}
-                                                        onChange={(e) => {
-                                                            const selectedId = e.target.value;
-                                                            setLoanId(selectedId);
-                                                            const loan = loans.find(l => l.id === selectedId);
-                                                            if (loan) {
-                                                                setAmount(loan.monthlyAmount.toString());
-                                                                setDescription(`EMI for ${loan.name}`);
-                                                            }
-                                                        }}
-                                                        className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
-                                                    >
-                                                        <option value="">Select EMI Loan</option>
-                                                        {loans.filter(l => l.type === 'emi').map(l => (
-                                                            <option key={l.id} value={l.id}>{l.name} ({formatMoney(l.monthlyAmount)}/mo)</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
+                                    {recurringFreq === 'weekly' && (
+                                        <div className="space-y-1.5 animate-in fade-in leading-none">
+                                            <label htmlFor="weeklyDay" className="text-[10px] font-medium text-muted-foreground">Day of Week</label>
                                             <select
-                                                id="category"
-                                                name="category"
-                                                value={categoryId}
-                                                onChange={(e) => setCategoryId(e.target.value)}
-                                                className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
-                                                required={type !== 'debt'}
+                                                id="weeklyDay"
+                                                name="weeklyDay"
+                                                className="w-full text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
+                                                value={recurringWeeklyDay}
+                                                onChange={(e) => setRecurringWeeklyDay(Number(e.target.value))}
                                             >
-                                                <option value="" disabled>Select Category</option>
-                                                {availableCategories.map(c => (
-                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
+                                                    <option key={day} value={idx}>{day}</option>
                                                 ))}
                                             </select>
                                         </div>
                                     )}
 
-                                    {type !== 'debt' && availableCategories.length === 0 && (
-                                        <p className="text-[10px] text-destructive">No categories found for {type}.</p>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
-                                        <label htmlFor="amount" className="text-xs font-medium">Amount</label>
-                                        <input
-                                            id="amount"
-                                            name="amount"
-                                            type="number"
-                                            step="0.01"
-                                            value={amount}
-                                            onChange={(e) => setAmount(e.target.value)}
-                                            placeholder="0.00"
-                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm font-bold"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label htmlFor="date" className="text-xs font-medium">Date</label>
-                                        <input
-                                            id="date"
-                                            name="date"
-                                            type="date"
-                                            value={date}
-                                            onChange={(e) => setDate(e.target.value)}
-                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label htmlFor="description" className="text-xs font-medium">Description</label>
-                                    <input
-                                        id="description"
-                                        name="description"
-                                        type="text"
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="e.g. Monthly Rent"
-                                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium">Payment Mode</label>
-                                    <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
-                                        {[
-                                            { id: 'upi',        label: 'UPI',         emoji: '📱' },
-                                            { id: 'cash',       label: 'Cash',        emoji: '💵' },
-                                            { id: 'card',       label: 'Card',        emoji: '💳' },
-                                            { id: 'netbanking', label: 'Net Banking', emoji: '🏦' },
-                                        ].map(mode => (
-                                            <button
-                                                key={mode.id}
-                                                type="button"
-                                                onClick={() => setPaymentMode(mode.id)}
-                                                className={cn(
-                                                    "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-medium transition-all",
-                                                    paymentMode === mode.id
-                                                        ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
-                                                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                                                )}
-                                            >
-                                                <span style={{ fontSize: '14px' }}>{mode.emoji}</span>
-                                                <span className="text-[8.5px] sm:text-xs leading-tight text-center font-medium mt-0.5">{mode.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {(type === 'expense' || type === 'savings') && (
-                                    <div className="flex items-center gap-2 pt-1">
-                                        <input
-                                            type="checkbox"
-                                            id="recurring"
-                                            checked={isRecurring}
-                                            onChange={(e) => setIsRecurring(e.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                                        />
-                                        <label htmlFor="recurring" className="text-xs font-semibold leading-none cursor-pointer text-foreground">
-                                            Recurring {type === 'savings' ? 'Saving' : 'Expense'}
-                                        </label>
-                                    </div>
-                                )}
-
-                                {isRecurring && (
-                                    <div className="p-3 bg-muted/50 rounded-lg space-y-3 border border-border animate-in slide-in-from-top-2">
-                                        <div className="space-y-1.5">
-                                            <label htmlFor="frequency" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Frequency</label>
-                                            <select
-                                                id="frequency"
-                                                name="frequency"
+                                    {recurringFreq === 'custom' && (
+                                        <div className="space-y-1.5 animate-in fade-in leading-none">
+                                            <label htmlFor="interval" className="text-[10px] font-medium text-muted-foreground">Interval (days)</label>
+                                            <input
+                                                id="interval"
+                                                name="interval"
+                                                type="number"
+                                                min="1"
+                                                value={recurringInterval}
+                                                onChange={(e) => setRecurringInterval(e.target.value)}
                                                 className="w-full text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
-                                                value={recurringFreq}
-                                                onChange={(e) => setRecurringFreq(e.target.value)}
-                                            >
-                                                <option value="monthly">Monthly</option>
-                                                <option value="weekly">Weekly</option>
-                                                <option value="custom">Custom (Every X Days)</option>
-                                            </select>
+                                            />
                                         </div>
+                                    )}
 
-                                        {recurringFreq === 'weekly' && (
-                                            <div className="space-y-1.5 animate-in fade-in leading-none">
-                                                <label htmlFor="weeklyDay" className="text-[10px] font-medium text-muted-foreground">Day of Week</label>
-                                                <select
-                                                    id="weeklyDay"
-                                                    name="weeklyDay"
-                                                    className="w-full text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
-                                                    value={recurringWeeklyDay}
-                                                    onChange={(e) => setRecurringWeeklyDay(Number(e.target.value))}
-                                                >
-                                                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
-                                                        <option key={day} value={idx}>{day}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        {recurringFreq === 'custom' && (
-                                            <div className="space-y-1.5 animate-in fade-in leading-none">
-                                                <label htmlFor="interval" className="text-[10px] font-medium text-muted-foreground">Interval (days)</label>
-                                                <input
-                                                    id="interval"
-                                                    name="interval"
-                                                    type="number"
-                                                    min="1"
-                                                    value={recurringInterval}
-                                                    onChange={(e) => setRecurringInterval(e.target.value)}
-                                                    className="w-full text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-1.5 animate-in fade-in leading-none pt-2 border-t border-border/50">
-                                            <label className="text-[10px] font-medium text-muted-foreground">
-                                                Duration (Optional)
-                                            </label>
-                                            <div className="flex gap-2 items-center">
-                                                <input
-                                                    id="duration"
-                                                    name="duration"
-                                                    type="number"
-                                                    min="1"
-                                                    placeholder="Forever"
-                                                    value={recurringTenure}
-                                                    onChange={(e) => setRecurringTenure(e.target.value)}
-                                                    className="w-16 text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
-                                                />
-                                                <span className="text-[10px] text-muted-foreground">
-                                                    {recurringFreq === 'weekly' ? 'Wks' :
-                                                        recurringFreq === 'custom' ? 'Times' : 'Mos'}
-                                                </span>
-                                            </div>
+                                    <div className="space-y-1.5 animate-in fade-in leading-none pt-2 border-t border-border/50">
+                                        <label className="text-[10px] font-medium text-muted-foreground">
+                                            Duration (Optional)
+                                        </label>
+                                        <div className="flex gap-2 items-center">
+                                            <input
+                                                id="duration"
+                                                name="duration"
+                                                type="number"
+                                                min="1"
+                                                placeholder="Forever"
+                                                value={recurringTenure}
+                                                onChange={(e) => setRecurringTenure(e.target.value)}
+                                                className="w-16 text-xs bg-background border border-input rounded-md px-2 py-1 focus:ring-1 focus:ring-primary h-8"
+                                            />
+                                            <span className="text-[10px] text-muted-foreground">
+                                                {recurringFreq === 'weekly' ? 'Wks' :
+                                                    recurringFreq === 'custom' ? 'Times' : 'Mos'}
+                                            </span>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
 
-                            {/* Sticky Action Footer */}
-                            <div className="flex gap-2 pt-3 border-t border-border/50 shrink-0 sticky bottom-0 bg-card z-10">
+                            {/* Standard Form Actions - Placed at the very end of the form */}
+                            <div className="flex gap-2 pt-3 mt-4 border-t border-border/40">
                                 {(editingTx || showAddForm) && (
                                     <button
                                         type="button"
@@ -823,7 +821,8 @@ const Transactions = () => {
                                             setShowAddForm(false);
                                         }}
                                         className={cn(
-                                            "flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer text-foreground"
+                                            "flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer text-foreground",
+                                            !editingTx && "lg:hidden"
                                         )}
                                     >
                                         Cancel
