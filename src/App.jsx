@@ -29,8 +29,23 @@ const PageLoader = () => (
   </div>
 );
 
+const APP_BUILD_ID = '1.0.5';
+
 const App = () => {
   const [showSmsSetup, setShowSmsSetup] = useState(false);
+
+  useEffect(() => {
+    try {
+      const currentBuild = localStorage.getItem('app_build_id');
+      if (currentBuild && currentBuild !== APP_BUILD_ID) {
+        console.log(`[App] Build mismatch detected (${currentBuild} -> ${APP_BUILD_ID}). Reloading...`);
+        localStorage.setItem('app_build_id', APP_BUILD_ID);
+        window.location.reload(true);
+      } else {
+        localStorage.setItem('app_build_id', APP_BUILD_ID);
+      }
+    } catch(e) {}
+  }, []);
 
   useEffect(() => {
     const handler = () => {
