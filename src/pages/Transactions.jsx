@@ -417,7 +417,7 @@ const Transactions = () => {
             <div className="grid gap-8 lg:grid-cols-3">
                 {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
                 <div className={cn(
-                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-md p-0 sm:p-4 flex justify-center items-end sm:items-center transition-all duration-200",
+                    "fixed inset-0 z-50 overflow-y-auto scrollbar-none bg-background/80 backdrop-blur-md p-2 sm:p-4 flex justify-center items-start sm:items-center py-3 sm:py-6 pb-24 sm:pb-6 transition-all duration-200",
                     "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
                     showAddForm ? "block" : "hidden lg:block"
                 )}>
@@ -429,31 +429,26 @@ const Transactions = () => {
                         }}
                     />
                     <div className={cn(
-                        "rounded-t-3xl sm:rounded-3xl border-t sm:border border-border bg-card shadow-2xl p-5 sm:p-6 w-full max-w-full sm:max-w-xl lg:max-w-md relative z-10 transition-all my-0 sm:my-auto max-h-[90vh] lg:max-h-none flex flex-col",
+                        "rounded-2xl sm:rounded-3xl border border-border bg-card shadow-2xl p-3.5 sm:p-5 lg:p-6 w-full max-w-full sm:max-w-xl lg:max-w-md relative z-10 transition-all my-auto",
                         "lg:shadow-sm lg:sticky lg:top-8",
                         editingTx ? "border-primary ring-1 ring-primary" : "border-border"
                     )}>
-                        {/* Mobile Sheet Handle Bar */}
-                        <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full mx-auto mb-3 shrink-0 lg:hidden" />
-
                         <button 
                             type="button"
                             onClick={() => {
                                 setShowAddForm(false);
                                 resetForm();
                             }}
-                            className="absolute right-4 top-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
+                            className="absolute right-3.5 top-3.5 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
-                        <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6 shrink-0">
+                        <div className="flex items-center justify-between mb-2 sm:mb-4 lg:mb-6 shrink-0">
                             <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                                 {editingTx ? <Edit2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> : <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
                                 {editingTx ? 'Edit Transaction' : 'Add Transaction'}
                             </h2>
                         </div>
-
-                        <div className="flex-1 overflow-y-auto scrollbar-none pr-0.5">
 
                         {/* Drag & Drop Zone - Compact Version */}
                         {!editingTx && (
@@ -847,7 +842,6 @@ const Transactions = () => {
                         </form>
                     </div>
                 </div>
-            </div>
 
                 {/* List Section */}
                 <div className="lg:col-span-2 space-y-6">
