@@ -1,7 +1,7 @@
 {
   "name": "personal-finance-app",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A smart personal finance and budget tracking application.",
   "author": "Budget Tracker Team",
   "type": "module",
