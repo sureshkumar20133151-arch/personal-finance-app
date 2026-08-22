@@ -184,7 +184,7 @@ const AnalyticsWidget = ({ title, icon: Icon, data, totalValue, formatMoney, col
                 </div>
             </div>
 
-            <div className="flex-1 w-full min-h-[250px] relative">
+            <div className="flex-1 w-full h-[250px] min-h-[250px] relative">
                 {renderContent()}
             </div>
 
