@@ -9,11 +9,9 @@ import { parseStatement } from '../lib/StatementParser';
 import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
-import { useNavigate } from 'react-router-dom';
 import { triggerHapticNotification } from '../lib/haptics';
 
 const Transactions = () => {
-    const navigate = useNavigate();
     const {
         transactions,
         categories,
@@ -24,8 +22,6 @@ const Transactions = () => {
         updateTransaction,
         addRecurringTransaction,
         deleteRecurringTransaction,
-        subscription,
-        isPro,
         isSmsUnlocked,
 
         recurring,
@@ -228,7 +224,7 @@ const Transactions = () => {
             } else {
                 parsedDate = new Date().toISOString().split('T')[0];
             }
-        } catch (e) {
+        } catch {
             parsedDate = new Date().toISOString().split('T')[0];
         }
         setDate(parsedDate);
