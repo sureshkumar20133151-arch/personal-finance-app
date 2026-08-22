@@ -129,7 +129,7 @@ const Dashboard = () => {
     loans = [], recurring = [], salaryDate, monthlyBudget,
     rescanTransactions,
     bankBalance, cashBalance, totalBalance, bankAccountBalances,
-    isSmsUnlocked
+    isSmsUnlocked, isPro
   } = useFinanceData();
 
   const netBalance = totalBalance;
@@ -815,7 +815,7 @@ const Dashboard = () => {
           <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
 
             {/* ── BUDGET HEALTH PANEL (2 Cols) ── */}
-            {monthlyBudget > 0 && (
+            {monthlyBudget > 0 && isPro && (
               <div id="tour-budget-health" className="lg:col-span-2 rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col justify-between">
 
                 {/* Header strip */}
