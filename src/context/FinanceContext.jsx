@@ -16,7 +16,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { registerPlugin }    from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
 import { db }                from "../lib/firebase";          // ← your firebase.js path
 import { useAuth }           from "./AuthContext";       // ← your auth context path
 import { autoScanTransactions, autoCategory, getAvailableBalance, parseSms } from "./autoScanSms";
@@ -46,6 +46,16 @@ const DEFAULT_STATE = {
   theme:              { mode: "dark", accent: "blue" },
   subscription:       "free",
   trialEndDate:       null,
+  couponsRedeemed:    [],
+  profile: {
+    firstName: "",
+    lastName: "",
+    age: null,
+    place: "",
+    mobile: "",
+    profession: "",
+    profileComplete: false,
+  },
   recurring:          [],
   loans:              [],
   monthlyBudget:      50000,
@@ -58,6 +68,7 @@ const DEFAULT_STATE = {
 };
 
 const STORAGE_KEY = "fintrack_data";
+const FREE_PLAN_MONTHLY_TX_LIMIT = 50;
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 const FinanceContext = createContext(undefined);
@@ -116,16 +127,12 @@ export function FinanceProvider({ children }) {
         let stateChanged = false;
         if ((loadedState.subscription === 'free' || loadedState.subscription === 'trial') && !loadedState.trialEndDate) {
           loadedState.subscription = 'trial';
-          loadedState.trialEndDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(); // 6-month trial
+          loadedState.trialEndDate = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString(); // 100-day trial
           stateChanged = true;
         } else if (loadedState.subscription === 'trial' && loadedState.trialEndDate) {
           const remainingMs = new Date(loadedState.trialEndDate) - new Date();
           if (remainingMs <= 0) {
             loadedState.subscription = 'free';
-            stateChanged = true;
-          } else if (remainingMs <= 30 * 24 * 60 * 60 * 1000) {
-            // Upgrade existing 30-day trial users to the new 6-month (180 days) trial length
-            loadedState.trialEndDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
             stateChanged = true;
           }
         }
@@ -710,16 +717,36 @@ export function FinanceProvider({ children }) {
       maximumFractionDigits: 0, minimumFractionDigits: 0,
     }).format(amount), [state.currency]);
 
+  // ─── Free Plan Transaction Limit ────────────────────────────────────────
+  // Counts ALL transactions (income + expense + savings + debt) logged this calendar month.
+  const monthlyTransactionCount = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    return (state.transactions || []).filter(t => {
+      const d = new Date(t.date);
+      return d.getFullYear() === y && d.getMonth() === m;
+    }).length;
+  }, [state.transactions]);
+
+  const transactionLimitReached = !isPro && monthlyTransactionCount >= FREE_PLAN_MONTHLY_TX_LIMIT;
+
   // ─── CRUD ────────────────────────────────────────────────────────────────
   const addTransaction = useCallback((tx) => {
+    if (transactionLimitReached) {
+      return { success: false, reason: "limit_reached", limit: FREE_PLAN_MONTHLY_TX_LIMIT };
+    }
     const next = {
       ...state,
       transactions: [...state.transactions, { ...tx, id: uuidv4(), date: tx.date || new Date().toISOString() }],
     };
     saveDebounced(next);
-  }, [state, saveDebounced]);
+    return { success: true };
+  }, [state, saveDebounced, transactionLimitReached]);
 
   const addTransactions = useCallback((txList) => {
+    if (transactionLimitReached) {
+      return { success: false, reason: "limit_reached", limit: FREE_PLAN_MONTHLY_TX_LIMIT };
+    }
     const next = {
       ...state,
       transactions: [
@@ -767,6 +794,57 @@ export function FinanceProvider({ children }) {
   const updateCurrency    = (c)    => saveImmediate({ ...state, currency: c });
   const updateTheme       = (t)    => saveImmediate({ ...state, theme: { ...state.theme, ...t } });
   const updateSubscription= (s)    => saveImmediate({ ...state, subscription: s });
+
+  // ─── Profile (collected at signup / profile-completion step) ──────────────
+  const saveProfile = (profileData) => {
+    saveImmediate({
+      ...state,
+      profile: { ...state.profile, ...profileData, profileComplete: true }
+    });
+  };
+
+  // ─── Coupon Redemption ──────────────────────────────────────────────────
+  // Coupons live in Firestore at coupons/{CODE} with fields: { bonusDays: number, active: boolean }
+  // Each user can redeem a given code only once (tracked in their own couponsRedeemed array).
+  // Note: this check runs client-side against Firestore rules, not a Cloud Function —
+  // sufficient for casual promo codes, not for high-value abuse-resistant coupons.
+  const redeemCoupon = async (rawCode) => {
+    const code = (rawCode || "").trim().toUpperCase();
+    if (!code) return { success: false, message: "Enter a coupon code." };
+
+    const alreadyUsed = (state.couponsRedeemed || []).includes(code);
+    if (alreadyUsed) {
+      return { success: false, message: "You've already redeemed this coupon." };
+    }
+
+    try {
+      const couponSnap = await getDoc(doc(db, "coupons", code));
+      if (!couponSnap.exists() || couponSnap.data()?.active === false) {
+        return { success: false, message: "Invalid or expired coupon code." };
+      }
+      const bonusDays = Number(couponSnap.data()?.bonusDays) || 0;
+      if (bonusDays <= 0) {
+        return { success: false, message: "This coupon has no remaining value." };
+      }
+
+      const currentEnd = state.trialEndDate ? new Date(state.trialEndDate) : null;
+      const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
+      const newTrialEndDate = new Date(base.getTime() + bonusDays * 24 * 60 * 60 * 1000).toISOString();
+
+      saveImmediate({
+        ...state,
+        subscription: "trial",
+        trialEndDate: newTrialEndDate,
+        couponsRedeemed: [...(state.couponsRedeemed || []), code],
+      });
+
+      return { success: true, bonusDays, newTrialEndDate };
+    } catch (e) {
+      console.error("Coupon redemption failed", e);
+      return { success: false, message: "Something went wrong. Please try again." };
+    }
+  };
+
   const updateBudget      = (b)    => saveImmediate({ ...state, monthlyBudget: parseFloat(b) });
   const updateSalaryDate  = (d)    => saveImmediate({ ...state, salaryDate: parseInt(d) });
   const updateAccountingStartDate = (date) => saveImmediate({ ...state, accountingStartDate: date || null });
@@ -912,6 +990,13 @@ export function FinanceProvider({ children }) {
     trialEndDate:         state.trialEndDate || null,
     isPro,
     isSmsUnlocked,
+    profile:              state.profile || DEFAULT_STATE.profile,
+    saveProfile,
+    couponsRedeemed:      state.couponsRedeemed || [],
+    redeemCoupon,
+    monthlyTransactionCount,
+    transactionLimitReached,
+    FREE_PLAN_MONTHLY_TX_LIMIT,
     recurring:            state.recurring     || [],
     loans:                state.loans         || [],
     monthlyBudget:        state.monthlyBudget || 50000,

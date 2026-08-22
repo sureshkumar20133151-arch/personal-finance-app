@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { triggerHapticSelection } from '../lib/haptics';
 
 const Budget = () => {
-    const { categories, transactions, updateCategory, formatMoney, monthlyBudget } = useFinanceData();
+    const { categories, transactions, updateCategory, formatMoney, monthlyBudget, isPro } = useFinanceData();
     const navigate = useNavigate();
 
     // Selection State
@@ -176,12 +176,14 @@ const Budget = () => {
                                 <div>
                                     <h1 className="text-2xl md:text-3xl font-bold">{selectedCategory.name}</h1>
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className={cn(
-                                            "text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                                            stats.isOver ? "bg-destructive/10 text-destructive" : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                                        )}>
-                                            {stats.isOver ? 'Needs Attention' : 'On Track'}
-                                        </span>
+                                        {isPro && (
+                                            <span className={cn(
+                                                "text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                                                stats.isOver ? "bg-destructive/10 text-destructive" : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                            )}>
+                                                {stats.isOver ? 'Needs Attention' : 'On Track'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
