@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider } from '../lib/firebase';
+import { auth, googleProvider, db } from '../lib/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
@@ -9,7 +10,8 @@ import {
     signInWithPopup,
     updateProfile,
     signInWithCredential,
-    GoogleAuthProvider
+    GoogleAuthProvider,
+    getAdditionalUserInfo
 } from 'firebase/auth';
 import { Wallet } from 'lucide-react';
 
@@ -36,16 +38,36 @@ export function AuthProvider({ children }) {
         localStorage.setItem('fintrack_demo_user', 'true');
     };
 
-    async function signup(email, password, name) {
+    async function signup(email, password, name, profileData = null) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (name) {
             await updateProfile(userCredential.user, { displayName: name });
         }
+        // Bootstrap Firestore doc directly via uid — avoids relying on React state
+        // (currentUser) which may not have updated yet in this same tick.
+        const trialEndDate = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+            subscription: "trial",
+            trialEndDate,
+            ...(profileData ? { profile: { ...profileData, profileComplete: true } } : {}),
+        }, { merge: true });
         return userCredential;
     }
 
     function login(email, password) {
         return signInWithEmailAndPassword(auth, email, password);
+    }
+
+    async function bootstrapNewGoogleUser(result) {
+        const isNewUser = getAdditionalUserInfo(result)?.isNewUser;
+        if (isNewUser) {
+            const trialEndDate = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
+            await setDoc(doc(db, "users", result.user.uid), {
+                subscription: "trial",
+                trialEndDate,
+            }, { merge: true });
+        }
+        return result;
     }
 
     async function loginWithGoogle() {
@@ -61,9 +83,11 @@ export function AuthProvider({ children }) {
 
             const googleUser = await GoogleAuth.signIn();
             const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
-            return signInWithCredential(auth, credential);
+            const result = await signInWithCredential(auth, credential);
+            return bootstrapNewGoogleUser(result);
         } else {
-            return signInWithPopup(auth, googleProvider);
+            const result = await signInWithPopup(auth, googleProvider);
+            return bootstrapNewGoogleUser(result);
         }
     }
 

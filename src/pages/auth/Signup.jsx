@@ -10,9 +10,16 @@ const perks = [
   "100% private & secure data",
 ];
 
+const professionOptions = ["Business", "Working Professional", "Freelancer", "Student"];
+
 const Signup = () => {
     const { signup, loginWithGoogle, loginAsDemoUser } = useAuth();
-    const [name, setName] = useState("");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [age, setAge] = useState("");
+    const [place, setPlace] = useState("");
+    const [mobile, setMobile] = useState("");
+    const [profession, setProfession] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -36,10 +43,22 @@ const Signup = () => {
 
     async function handleEmailSignup(e) {
         e.preventDefault();
+        if (!profession) {
+            setError("Please select your profession.");
+            return;
+        }
         try {
             setError("");
             setLoading(true);
-            await signup(email, password, name);
+            const fullName = `${firstName} ${lastName}`.trim();
+            await signup(email, password, fullName, {
+                firstName,
+                lastName,
+                age: age ? Number(age) : null,
+                place,
+                mobile,
+                profession,
+            });
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
@@ -125,10 +144,54 @@ const Signup = () => {
 
                     {/* Email Form */}
                     <form onSubmit={handleEmailSignup} className="space-y-3.5">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label htmlFor="firstName" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">First Name</label>
+                                <input id="firstName" type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
+                                    placeholder="Suresh" className="input-field" required />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label htmlFor="lastName" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Last Name</label>
+                                <input id="lastName" type="text" value={lastName} onChange={e => setLastName(e.target.value)}
+                                    placeholder="Kumar" className="input-field" required />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label htmlFor="age" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Age</label>
+                                <input id="age" type="number" min="13" max="120" value={age} onChange={e => setAge(e.target.value)}
+                                    placeholder="28" className="input-field" required />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label htmlFor="place" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Place</label>
+                                <input id="place" type="text" value={place} onChange={e => setPlace(e.target.value)}
+                                    placeholder="Madurai" className="input-field" required />
+                            </div>
+                        </div>
                         <div className="space-y-1.5">
-                            <label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Full Name</label>
-                            <input id="name" type="text" value={name} onChange={e => setName(e.target.value)}
-                                placeholder="Suresh Kumar" className="input-field" required />
+                            <label htmlFor="mobile" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Mobile Number</label>
+                            <input id="mobile" type="tel" value={mobile} onChange={e => setMobile(e.target.value)}
+                                placeholder="9876543210" className="input-field" required />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Profession</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {professionOptions.map((p) => (
+                                    <button
+                                        key={p}
+                                        type="button"
+                                        onClick={() => setProfession(p)}
+                                        className={
+                                            "h-10 rounded-xl text-xs font-semibold border transition-colors " +
+                                            (profession === p
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-border text-muted-foreground hover:bg-muted/60")
+                                        }
+                                    >
+                                        {p}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="space-y-1.5">
                             <label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Email Address</label>

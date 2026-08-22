@@ -23,6 +23,9 @@ const Transactions = () => {
         addRecurringTransaction,
         deleteRecurringTransaction,
         isSmsUnlocked,
+        transactionLimitReached,
+        monthlyTransactionCount,
+        FREE_PLAN_MONTHLY_TX_LIMIT,
 
         recurring,
         loans,
@@ -176,7 +179,11 @@ const Transactions = () => {
                 });
             }
         } else {
-            addTransaction(txData);
+            const result = addTransaction(txData);
+            if (result && result.success === false) {
+                setUploadError(`Free plan limit reached — ${result.limit} transactions/month used. Upgrade to Starter for unlimited entries.`);
+                return;
+            }
             if (isRecurring) {
                 // Ensure the function exists before calling
                 if (addRecurringTransaction) {
@@ -484,6 +491,13 @@ const Transactions = () => {
                                         {isParsing ? 'Parsing...' : 'Upload Statement (Drag or Click)'}
                                     </span>
                                 </div>
+                            </div>
+                        )}
+
+                        {!editingTx && transactionLimitReached && (
+                            <div className="mb-3 p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs rounded-md flex items-start gap-2 border border-amber-500/20">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <p>Free plan limit reached — {monthlyTransactionCount}/{FREE_PLAN_MONTHLY_TX_LIMIT} transactions used this month. Upgrade to Starter for unlimited entries.</p>
                             </div>
                         )}
 

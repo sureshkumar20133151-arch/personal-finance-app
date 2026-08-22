@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown } from 'lucide-react';
+import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Capacitor } from '@capacitor/core';
@@ -383,12 +383,12 @@ const Account = () => {
                                     </div>
                                     {subscription === 'trial' && trialEndDate && (
                                         <div className="text-xs text-amber-500 font-semibold mt-1">
-                                            🎉 6-month Free Trial active — {remainingTrialDays} days remaining. Subscribe to continue after trial.
+                                            🎉 Free Trial active — {remainingTrialDays} days remaining. Subscribe to continue after trial.
                                         </div>
                                     )}
                                     {subscription !== 'trial' && !isPro && (
                                         <div className="text-xs text-primary font-semibold mt-1">
-                                            Start with a free 6-month trial — no credit card required!
+                                            Start with a free 100-day trial — no credit card required!
                                         </div>
                                     )}
                                 </div>
@@ -432,12 +432,15 @@ const Account = () => {
                                         ) : subscription === 'trial' ? (
                                             "Subscribe Now — ₹99 / month"
                                         ) : (
-                                            "Start Free 6-Month Trial"
+                                            "Start Free 100-Day Trial"
                                         )}
                                     </button>
                                 )}
                             </div>
                         </div>
+
+                        {/* Coupon Code Redemption */}
+                        <CouponCard />
 
                         {/* SMS Pro Add-on — Coming Soon */}
                         <div className="relative p-6 rounded-2xl border border-dashed border-border bg-muted/30 flex flex-col justify-between opacity-75">
@@ -505,6 +508,75 @@ const Account = () => {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// ─── Coupon Code Redemption ────────────────────────────────────────────────
+const CouponCard = () => {
+    const { redeemCoupon, couponsRedeemed = [] } = useFinanceData();
+    const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message }
+
+    async function handleRedeem(e) {
+        e.preventDefault();
+        if (!code.trim()) return;
+        setLoading(true);
+        setFeedback(null);
+        const result = await redeemCoupon(code);
+        if (result.success) {
+            setFeedback({ type: 'success', message: `🎉 Coupon applied! +${result.bonusDays} days added to your trial.` });
+            setCode('');
+        } else {
+            setFeedback({ type: 'error', message: result.message || 'Invalid coupon code.' });
+        }
+        setLoading(false);
+    }
+
+    return (
+        <div className="p-6 rounded-2xl border border-border bg-card shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+                <Tag className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-bold text-foreground">Have a Coupon Code?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">Redeem a promo code to extend your trial.</p>
+
+            <form onSubmit={handleRedeem} className="flex gap-2">
+                <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. SOLODEVLOPER100"
+                    className="input-field flex-1 uppercase"
+                    disabled={loading}
+                />
+                <button
+                    type="submit"
+                    disabled={loading || !code.trim()}
+                    className="px-5 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shadow-sm text-sm shrink-0"
+                >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Apply'}
+                </button>
+            </form>
+
+            {feedback && (
+                <div className={cn(
+                    "mt-3 text-sm flex items-center gap-2 p-2.5 rounded-xl border",
+                    feedback.type === 'success'
+                        ? "text-green-600 dark:text-green-400 bg-green-500/10 border-green-500/20"
+                        : "text-destructive bg-destructive/10 border-destructive/20"
+                )}>
+                    {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{feedback.message}</span>
+                </div>
+            )}
+
+            {couponsRedeemed.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                    Redeemed: {couponsRedeemed.join(', ')}
+                </p>
+            )}
         </div>
     );
 };

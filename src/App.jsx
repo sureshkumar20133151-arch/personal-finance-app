@@ -13,6 +13,7 @@ const Setup = lazy(() => import('./pages/Setup'));
 const Account = lazy(() => import('./pages/Account'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Signup = lazy(() => import('./pages/auth/Signup'));
+const CompleteProfile = lazy(() => import('./pages/auth/CompleteProfile'));
 const Landing = lazy(() => import('./pages/Landing'));
 const Legal = lazy(() => import('./pages/Legal'));
 
@@ -66,6 +67,9 @@ const App = () => {
               <Route path="/welcome" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/complete-profile" element={
+                <ProtectedRoute requireProfile={false}><CompleteProfile /></ProtectedRoute>
+              } />
               
               {/* Legal Pages for Razorpay Verification */}
               <Route path="/privacy" element={<Legal />} />
