@@ -127,7 +127,7 @@ export function FinanceProvider({ children }) {
         let stateChanged = false;
         if ((loadedState.subscription === 'free' || loadedState.subscription === 'trial') && !loadedState.trialEndDate) {
           loadedState.subscription = 'trial';
-          loadedState.trialEndDate = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString(); // 100-day trial
+          loadedState.trialEndDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(); // 90-day trial
           stateChanged = true;
         } else if (loadedState.subscription === 'trial' && loadedState.trialEndDate) {
           const remainingMs = new Date(loadedState.trialEndDate) - new Date();
@@ -136,6 +136,17 @@ export function FinanceProvider({ children }) {
             stateChanged = true;
           }
         }
+
+        // --- MIGRATION: Grandfather old accounts that predate the profile-completion
+        // feature. If `profile` was never saved to Firestore at all (not just empty),
+        // this is a pre-existing real user — mark them complete so they're never asked.
+        // Genuinely new signups always get a `profile` object written at signup time,
+        // so this only ever fires once, for old accounts, the first time they load.
+        if (loadedState.profile === undefined) {
+          loadedState.profile = { ...DEFAULT_STATE.profile, profileComplete: true };
+          stateChanged = true;
+        }
+
         if (stateChanged) {
           saveImmediate(loadedState);
         }

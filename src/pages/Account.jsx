@@ -388,7 +388,7 @@ const Account = () => {
                                     )}
                                     {subscription !== 'trial' && !isPro && (
                                         <div className="text-xs text-primary font-semibold mt-1">
-                                            Start with a free 100-day trial — no credit card required!
+                                            Start with a free 90-day trial — no credit card required!
                                         </div>
                                     )}
                                 </div>
@@ -432,7 +432,7 @@ const Account = () => {
                                         ) : subscription === 'trial' ? (
                                             "Subscribe Now — ₹99 / month"
                                         ) : (
-                                            "Start Free 100-Day Trial"
+                                            "Start Free 90-Day Trial"
                                         )}
                                     </button>
                                 )}

@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
         }
         // Bootstrap Firestore doc directly via uid — avoids relying on React state
         // (currentUser) which may not have updated yet in this same tick.
-        const trialEndDate = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
+        const trialEndDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
         await setDoc(doc(db, "users", userCredential.user.uid), {
             subscription: "trial",
             trialEndDate,
@@ -61,7 +61,7 @@ export function AuthProvider({ children }) {
     async function bootstrapNewGoogleUser(result) {
         const isNewUser = getAdditionalUserInfo(result)?.isNewUser;
         if (isNewUser) {
-            const trialEndDate = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
+            const trialEndDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
             await setDoc(doc(db, "users", result.user.uid), {
                 subscription: "trial",
                 trialEndDate,
