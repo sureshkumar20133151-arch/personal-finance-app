@@ -34,4 +34,17 @@ export default defineConfig([
       'react-hooks/preserve-manual-memoization': 'off',
     },
   },
+  {
+    // Vercel serverless functions - these run in Node, not the browser.
+    files: ['api/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
 ])
