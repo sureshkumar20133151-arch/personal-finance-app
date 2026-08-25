@@ -438,7 +438,7 @@ const Account = () => {
                                 <h3 className="text-2xl font-bold text-foreground mb-2">Starter Plan</h3>
                                 <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-black text-foreground">₹99</span>
+                                        <span className="text-3xl font-black text-foreground">₹9</span>
                                         <span className="text-sm font-medium text-muted-foreground">/ month</span>
                                     </div>
                                     {subscription === 'trial' && trialEndDate && (
@@ -490,7 +490,7 @@ const Account = () => {
                                         {checkoutLoading ? (
                                             <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
                                         ) : subscription === 'trial' ? (
-                                            "Subscribe Now — ₹99 / month"
+                                            "Subscribe Now — ₹9 / month"
                                         ) : (
                                             "Start Free 90-Day Trial"
                                         )}
