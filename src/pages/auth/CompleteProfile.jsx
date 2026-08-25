@@ -34,7 +34,7 @@ const CompleteProfile = () => {
         setError("");
         setLoading(true);
         try {
-            saveProfile({
+            await saveProfile({
                 firstName,
                 lastName,
                 age: Number(age),
@@ -45,7 +45,10 @@ const CompleteProfile = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError("Something went wrong. Please try again.");
+            setError(
+                "Could not save your profile (" + (err?.code || err?.message || "unknown error") +
+                "). Please check your connection and try again."
+            );
         }
         setLoading(false);
     }
