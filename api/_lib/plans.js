@@ -7,7 +7,7 @@
 // top for the multi-user feature, not a change to existing plan behavior.)
 
 export const PLAN_AMOUNTS_PAISE = {
-  starter: 9900,   // ₹99
+  starter: 900,    // ₹9 (temporarily lowered for live-payment testing)
   monthly: 10000,  // ₹100
   yearly: 90000,   // ₹900
 };
