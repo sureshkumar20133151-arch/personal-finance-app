@@ -139,17 +139,60 @@ const Account = () => {
         });
     };
 
+    // Calls our backend (api/payment/create-order.js) which creates the Razorpay
+    // order server-side. Requires the caller's Firebase ID token so the backend
+    // knows which uid this order belongs to.
+    const createOrderOnServer = async (planType) => {
+        const idToken = await currentUser.getIdToken();
+        const res = await fetch('/api/payment/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ planType }),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.error || 'Could not create order');
+        }
+        return res.json();
+    };
+
+    // Calls our backend (api/payment/verify.js) which checks the Razorpay
+    // signature and, only if valid, writes the subscription to Firestore.
+    // The client never sets its own subscription field for paid plans anymore.
+    const verifyPaymentOnServer = async (payload) => {
+        const idToken = await currentUser.getIdToken();
+        const res = await fetch('/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.error || 'Payment verification failed');
+        }
+        return res.json();
+    };
+
     const handleUpgrade = async (planType) => {
         setCheckoutLoading(true);
-        const amount = planType === 'starter' ? 9900 : planType === 'monthly' ? 10000 : 90000; // ₹99=9900p, ₹100=10000p, ₹900=90000p
-        const planName = planType === 'starter' ? 'Starter Plan' : planType === 'monthly' ? 'Pro Monthly Plan' : 'Pro Yearly Plan';
+
+        let order;
+        try {
+            order = await createOrderOnServer(planType);
+        } catch (err) {
+            console.error('create-order failed:', err);
+            alert('Could not start checkout. Please try again.');
+            setCheckoutLoading(false);
+            return;
+        }
 
         const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SqWOpMmySq1KXZ',
-            amount: amount, 
-            currency: 'INR',
+            key: order.keyId,
+            amount: order.amount,
+            currency: order.currency,
+            order_id: order.orderId,
             name: 'BudgetTracker Pro',
-            description: `Upgrade to ${planName}`,
+            description: `Upgrade to ${order.planName}`,
             image: 'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_1280.png',
             prefill: {
                 email: currentUser?.email || '',
@@ -164,12 +207,30 @@ const Account = () => {
             }
         };
 
+        const finishVerification = async (response) => {
+            try {
+                await verifyPaymentOnServer({
+                    razorpay_order_id: response.razorpay_order_id || order.orderId,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    planType,
+                });
+                // No client-side write here on purpose: the backend already wrote
+                // `subscription` via the Admin SDK, and the app has a live
+                // onSnapshot listener on this user's doc, so the UI updates
+                // automatically once Firestore reflects the server's write.
+                alert('Payment successful! Your plan has been upgraded.');
+            } catch (err) {
+                console.error('Payment verification failed:', err);
+                alert('Payment received but verification failed. Please contact support with your payment ID: ' + (response.razorpay_payment_id || 'unknown'));
+            }
+        };
+
         if (Capacitor.isNativePlatform()) {
             try {
                 const data = await Checkout.open(options);
-                const paymentId = data.response?.razorpay_payment_id || data.razorpay_payment_id || "native_success";
-                alert(`Payment Successful!\nPayment ID: ${paymentId}`);
-                updateSubscription(planType);
+                const response = data.response || data;
+                await finishVerification(response);
             } catch (error) {
                 console.error('Razorpay native failed:', error);
                 alert(`Payment was cancelled or failed.`);
@@ -186,15 +247,14 @@ const Account = () => {
             return;
         }
 
-        options.handler = function (response) {
+        options.handler = async function (response) {
             if (razorpayOpenRef.current) {
                 razorpayOpenRef.current = false;
                 if (window.history.state?.razorpayOpen) {
                     window.history.back();
                 }
             }
-            alert(`Payment Successful!\nPayment ID: ${response.razorpay_payment_id}`);
-            updateSubscription(planType);
+            await finishVerification(response);
         };
 
         options.modal = {
