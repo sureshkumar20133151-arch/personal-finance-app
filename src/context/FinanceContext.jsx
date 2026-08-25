@@ -95,12 +95,16 @@ export function FinanceProvider({ children }) {
   const saveImmediate = useCallback((data) => {
     setState(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    
+
     // All logged-in users get cloud sync (not just Pro)
     if (currentUser && !currentUser.isAnonymous) {
-      setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true })
-        .catch(e => console.error("Firebase save failed", e));
+      // Return the write promise so callers that care about success/failure
+      // (e.g. saveProfile) can await it instead of this being silently
+      // fire-and-forget. Existing callers that don't await it are unaffected.
+      return setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true })
+        .catch(e => { console.error("Firebase save failed", e); throw e; });
     }
+    return Promise.resolve();
   }, [currentUser]);
 
   const saveDebounced = useCallback((data) => {
@@ -807,8 +811,13 @@ export function FinanceProvider({ children }) {
   const updateSubscription= (s)    => saveImmediate({ ...state, subscription: s });
 
   // ─── Profile (collected at signup / profile-completion step) ──────────────
+  // Returns the Firestore write promise so CompleteProfile.jsx can await it
+  // and only navigate away (or show an error) once the save actually succeeds
+  // or fails - previously this was fire-and-forget, so a failed write was
+  // silently swallowed and the profile-completion prompt would reappear on
+  // the next visit with no indication why.
   const saveProfile = (profileData) => {
-    saveImmediate({
+    return saveImmediate({
       ...state,
       profile: { ...state.profile, ...profileData, profileComplete: true }
     });
