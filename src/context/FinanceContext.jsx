@@ -80,6 +80,139 @@ const HOUSEHOLD_SHARED_FIELDS = [
 ];
 
 // ─── Context ──────────────────────────────────────────────────────────────────
+// ─── Pure balance-calculation helpers (module scope) ───────────────────────
+// Extracted so the exact same precise, SMS-anchored algorithm can run once
+// for "my" transactions (as before) and again per OTHER household member -
+// each member's own bank SMS balance data travels with their transactions
+// (which are shared once in a household), so there's no need to fall back
+// to an approximation for anyone.
+function computeBankAccountBalancesFor(allTx, initialBankBalances, accountingStartDate) {
+  const map = {};
+
+  if (initialBankBalances) {
+    Object.entries(initialBankBalances).forEach(([key, data]) => {
+      const [bankName, accountEnding] = key.split('_');
+      map[key] = { bankName, accountEnding, balance: parseFloat(data.amount) || 0, transactionCount: 0 };
+    });
+  }
+
+  allTx.forEach(t => {
+    const isUPI = t.bankName === 'GPay/UPI' || t.bankName === 'PhonePe';
+    if (isUPI) return;
+    if (t.bankName && t.accountEnding) {
+      const key = `${t.bankName}_${t.accountEnding}`;
+      if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
+      const isVisible = !accountingStartDate || new Date(t.date) >= new Date(accountingStartDate);
+      if (isVisible) map[key].transactionCount++;
+    }
+  });
+
+  Object.keys(map).forEach(key => {
+    const accountTxs = allTx.filter(t => `${t.bankName}_${t.accountEnding}` === key);
+    const txsWithIndex = accountTxs.map((t, i) => ({ ...t, _originalIdx: i }));
+
+    const withBalance = txsWithIndex
+      .filter(t => t.availableBalance != null)
+      .sort((a, b) => {
+        const dateDiff = new Date(b.date) - new Date(a.date);
+        if (dateDiff !== 0) return dateDiff;
+        return b._originalIdx - a._originalIdx;
+      });
+
+    const seedData = initialBankBalances?.[key];
+    let seedDate = seedData?.date ? new Date(seedData.date) : null;
+
+    const hasManualAmount = seedData && seedData.amount !== undefined && seedData.amount !== '';
+    if (accountingStartDate && hasManualAmount) {
+      const startD = new Date(accountingStartDate);
+      if (!seedDate || seedDate < startD) seedDate = startD;
+    }
+
+    if (withBalance.length > 0) {
+      const smsAnchor = withBalance[0];
+      let computedBalance;
+      let anchorDate;
+      let anchorIdx = -1;
+
+      if (seedDate && seedDate > new Date(smsAnchor.date)) {
+        computedBalance = parseFloat(seedData.amount) || 0;
+        anchorDate = seedDate;
+      } else {
+        computedBalance = smsAnchor.availableBalance;
+        anchorDate = new Date(smsAnchor.date);
+        anchorIdx = smsAnchor._originalIdx;
+      }
+
+      txsWithIndex.forEach(t => {
+        const tDate = new Date(t.date);
+        const isStrictlyNewer = tDate > anchorDate;
+        const isSameTimeButNewer = (tDate.getTime() === anchorDate.getTime()) && (t._originalIdx > anchorIdx);
+
+        if (isStrictlyNewer || isSameTimeButNewer) {
+          if (t.availableBalance != null) {
+            computedBalance = t.availableBalance;
+          } else {
+            if (t.type === "income") computedBalance += t.amount;
+            else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+          }
+        }
+      });
+      map[key].balance = computedBalance;
+    } else {
+      let computedBalance = seedData ? (parseFloat(seedData.amount) || 0) : 0;
+      const effectiveLimitDate = accountingStartDate ? new Date(accountingStartDate) : null;
+
+      accountTxs.forEach(t => {
+        if (seedDate && new Date(t.date) < seedDate) return;
+        if (effectiveLimitDate && new Date(t.date) < effectiveLimitDate) return;
+        if (t.type === "income") computedBalance += t.amount;
+        else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+      });
+      map[key].balance = computedBalance;
+    }
+  });
+  return Object.values(map);
+}
+
+function computeCashBalanceFor(allTx, initialCashBalance, cashSeedDate, accountingStartDate) {
+  const startLimit = accountingStartDate ? new Date(accountingStartDate) : null;
+  const seedLimit = cashSeedDate ? new Date(cashSeedDate) : null;
+
+  let finalSeedDate = seedLimit;
+  if (startLimit) {
+    if (!finalSeedDate || finalSeedDate < startLimit) finalSeedDate = startLimit;
+  }
+
+  const validTx = finalSeedDate ? allTx.filter(t => new Date(t.date) >= finalSeedDate) : allTx;
+
+  const isAtmWithdrawal = (t) => {
+    if (t.type !== "expense") return false;
+    const desc = (t.description || "").toLowerCase();
+    if (desc.includes("atm service") || desc.includes("amc") || desc.includes("charges") || desc.includes("fee")) {
+      return false;
+    }
+    return (
+      desc.includes("atm wdl") ||
+      desc.includes("cash withdrawal") ||
+      desc.includes("atm cash") ||
+      desc.includes("cash wdl") ||
+      desc.includes("atm withdrawal") ||
+      /self-\d+/i.test(desc)
+    );
+  };
+
+  const cashIn  = validTx.filter(t => t.type === "income" && t.paymentMode === "cash");
+  const atmOut  = validTx.filter(isAtmWithdrawal);
+  const cashOut = validTx.filter(t =>
+    (t.type === "expense" || t.type === "debt") &&
+    t.paymentMode === "cash" &&
+    !isAtmWithdrawal(t)
+  );
+  const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
+  const outflow = cashOut.reduce((s, t) => s + t.amount, 0);
+  return (initialCashBalance || 0) + inflow - outflow;
+}
+
 const FinanceContext = createContext(undefined);
 
 export function FinanceProvider({ children }) {
@@ -372,6 +505,18 @@ export function FinanceProvider({ children }) {
             theme:    cloudData.theme    || DEFAULT_STATE.theme,
             currency: cloudData.currency || DEFAULT_STATE.currency,
           };
+
+          // Household fix: HOUSEHOLD_SHARED_FIELDS on this personal doc are
+          // leftover/stale once a user is in a household (writes stopped
+          // going here, but Firestore merge:true never deletes the old
+          // values, it just stops touching them - see splitForHousehold).
+          // Force these back to defaults so stale personal data can't leak
+          // into `state` (and get duplicated into the household doc on the
+          // next save) before the separate household onSnapshot listener
+          // supplies the real shared values a moment later.
+          if (data.householdId) {
+            HOUSEHOLD_SHARED_FIELDS.forEach((f) => { data[f] = DEFAULT_STATE[f]; });
+          }
           
           if (localData && !hasMigrated) {
              hasMigrated = true;
@@ -494,7 +639,29 @@ export function FinanceProvider({ children }) {
     return json;
   };
 
-  const createHousehold = (name) => callHouseholdApi("create", { name });
+  const createHousehold = async (name) => {
+    const res = await callHouseholdApi("create", { name });
+    // Seed the new household doc's shared fields immediately (rather than
+    // leaving them undefined until someone happens to save something) - the
+    // owner's own current categories/budget make a sensible starting point.
+    // Uses the householdId returned directly rather than waiting for local
+    // state to catch up (avoids a race where state.householdId is still null).
+    try {
+      await setDoc(doc(db, "households", res.householdId), sanitizeForFirestore({
+        transactions: [],
+        categories: state.categories && state.categories.length > 0 ? state.categories : DEFAULT_CATEGORIES,
+        recurring: [],
+        loans: [],
+        monthlyBudget: state.monthlyBudget || 50000,
+        salaryDate: state.salaryDate || 1,
+        accountingStartDate: null,
+        lastProcessedMonth: "",
+      }), { merge: true });
+    } catch (e) {
+      console.error("Household seed failed", e);
+    }
+    return res;
+  };
   const joinHousehold = (code) => callHouseholdApi("accept", { code });
   const leaveHousehold = () => callHouseholdApi("remove", {});
   const removeHouseholdMember = (memberUid) => callHouseholdApi("remove", { memberUid });
@@ -704,169 +871,28 @@ export function FinanceProvider({ children }) {
 
 
   const cashBalance = React.useMemo(() => {
-    const allTx   = myTransactions;
-    const startLimit = state.accountingStartDate ? new Date(state.accountingStartDate) : null;
-    const seedLimit = state.cashSeedDate ? new Date(state.cashSeedDate) : null;
-    
-    let finalSeedDate = seedLimit;
-    if (startLimit) {
-      if (!finalSeedDate || finalSeedDate < startLimit) {
-        finalSeedDate = startLimit;
-      }
-    }
-    
-    const validTx = finalSeedDate ? allTx.filter(t => new Date(t.date) >= finalSeedDate) : allTx;
-    
-    const isAtmWithdrawal = (t) => {
-      if (t.type !== "expense") return false;
-      const desc = (t.description || "").toLowerCase();
-      // Exclude false positives like "ATM SERVICE BRANCH", "ATM AMC CHARGES", "ATM CARD CHARGES"
-      if (desc.includes("atm service") || desc.includes("amc") || desc.includes("charges") || desc.includes("fee")) {
-        return false;
-      }
-      return (
-        desc.includes("atm wdl") ||
-        desc.includes("cash withdrawal") ||
-        desc.includes("atm cash") ||
-        desc.includes("cash wdl") ||
-        desc.includes("atm withdrawal") ||
-        /self-\d+/i.test(desc)
-      );
-    };
-
-    const cashIn  = validTx.filter(t => t.type === "income" && t.paymentMode === "cash");
-    const atmOut  = validTx.filter(isAtmWithdrawal);
-    const cashOut = validTx.filter(t =>
-      (t.type === "expense" || t.type === "debt") &&
-      t.paymentMode === "cash" &&
-      !isAtmWithdrawal(t)
-    );
-    const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
-    const outflow = cashOut.reduce((s, t) => s + t.amount, 0);
-    return (state.initialCashBalance || 0) + inflow - outflow;
+    return computeCashBalanceFor(myTransactions, state.initialCashBalance, state.cashSeedDate, state.accountingStartDate);
   }, [myTransactions, state.initialCashBalance, state.cashSeedDate, state.accountingStartDate]);
 
   // ─── Per-bank balances (for dashboard cards) ──────────────────────────────
   const bankAccountBalances = React.useMemo(() => {
-    const map = {};
-    const allTx = myTransactions;
-
-    if (state.initialBankBalances) {
-      Object.entries(state.initialBankBalances).forEach(([key, data]) => {
-        const [bankName, accountEnding] = key.split('_');
-        map[key] = {
-          bankName,
-          accountEnding,
-          balance: parseFloat(data.amount) || 0,
-          transactionCount: 0
-        };
-      });
-    }
-
-    allTx.forEach(t => {
-      const isUPI = t.bankName === 'GPay/UPI' || t.bankName === 'PhonePe';
-      if (isUPI) return; // Do not create a bank card for UPI apps since they are not real accounts
-
-      if (t.bankName && t.accountEnding) {
-        const key = `${t.bankName}_${t.accountEnding}`;
-        if (!map[key]) map[key] = { bankName: t.bankName, accountEnding: t.accountEnding, balance: 0, transactionCount: 0 };
-        const isVisible = !state.accountingStartDate || new Date(t.date) >= new Date(state.accountingStartDate);
-        if (isVisible) {
-          map[key].transactionCount++;
-        }
-      }
-    });
-
-    Object.keys(map).forEach(key => {
-      const accountTxs = allTx.filter(t => `${t.bankName}_${t.accountEnding}` === key);
-      
-      // We need a stable tie-breaker for identical dates (like PDF imports which all share T00:00:00)
-      const txsWithIndex = accountTxs.map((t, i) => ({ ...t, _originalIdx: i }));
-      
-      const withBalance = txsWithIndex
-        .filter(t => t.availableBalance != null)
-        .sort((a, b) => {
-          const dateDiff = new Date(b.date) - new Date(a.date);
-          if (dateDiff !== 0) return dateDiff;
-          return b._originalIdx - a._originalIdx; // LATER index = newer transaction
-        });
-
-      const seedData = state.initialBankBalances?.[key];
-      let seedDate = seedData?.date ? new Date(seedData.date) : null;
-
-      const hasManualAmount = seedData && seedData.amount !== undefined && seedData.amount !== '';
-      if (state.accountingStartDate && hasManualAmount) {
-        const startD = new Date(state.accountingStartDate);
-        if (!seedDate || seedDate < startD) {
-          seedDate = startD;
-        }
-      }
-
-      if (withBalance.length > 0) {
-        const smsAnchor = withBalance[0];
-        let computedBalance;
-        let anchorDate;
-        let anchorIdx = -1;
-
-        if (seedDate && seedDate > new Date(smsAnchor.date)) {
-          // Manual seed is newer than the latest SMS/PDF balance
-          computedBalance = parseFloat(seedData.amount) || 0;
-          anchorDate = seedDate;
-        } else {
-          // SMS/PDF balance is newer
-          computedBalance = smsAnchor.availableBalance;
-          anchorDate = new Date(smsAnchor.date);
-          anchorIdx = smsAnchor._originalIdx;
-        }
-
-        txsWithIndex.forEach(t => {
-          const tDate = new Date(t.date);
-          // Only add transactions that happened strictly AFTER the anchor
-          // If dates are identical (like same day PDF imports), only add if it appeared LATER in the array
-          const isStrictlyNewer = tDate > anchorDate;
-          const isSameTimeButNewer = (tDate.getTime() === anchorDate.getTime()) && (t._originalIdx > anchorIdx);
-
-          if (isStrictlyNewer || isSameTimeButNewer) {
-            // If this transaction has its own availableBalance, USE IT as the new anchor
-            // instead of computing from type (which may be wrong for PDF imports)
-            if (t.availableBalance != null) {
-              computedBalance = t.availableBalance;
-            } else {
-              if (t.type === "income") computedBalance += t.amount;
-              else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
-            }
-          }
-        });
-        map[key].balance = computedBalance;
-      } else {
-        let computedBalance = seedData ? (parseFloat(seedData.amount) || 0) : 0;
-        const effectiveLimitDate = state.accountingStartDate ? new Date(state.accountingStartDate) : null;
-        
-        accountTxs.forEach(t => {
-          if (seedDate && new Date(t.date) < seedDate) return;
-          if (effectiveLimitDate && new Date(t.date) < effectiveLimitDate) return;
-          if (t.type === "income") computedBalance += t.amount;
-          else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
-        });
-        map[key].balance = computedBalance;
-      }
-    });
-    return Object.values(map);
+    return computeBankAccountBalancesFor(myTransactions, state.initialBankBalances, state.accountingStartDate);
   }, [myTransactions, state.initialBankBalances, state.accountingStartDate]);
+
 
   const bankBalance = React.useMemo(() => {
     return bankAccountBalances.reduce((sum, b) => sum + b.balance, 0);
   }, [bankAccountBalances]);
 
   // ─── Household: per-member balances + total ──────────────────────────────
-  // Note: for the signed-in user, "my" balance above (bankBalance/cashBalance)
-  // uses the full precise algorithm (per-bank-account, SMS-anchored where
-  // available). For OTHER members we only have what they've synced into
-  // households/{id}.members.{uid} (their seed balances) plus the shared
-  // transactions array filtered to their ownerId - so their balance here is
-  // a simpler running-total approximation (seed + net income/expense), not
-  // the full SMS-anchored precision. Good enough for a household overview;
-  // each member still sees their own exact number on their own Dashboard.
+  // Every member gets the SAME precision here (per-bank-account, SMS-
+  // anchored where available) - not an approximation. This works because
+  // transactions are a shared field (so everyone's SMS-derived balance data
+  // is already in the same list), and each member syncs their own seed
+  // values (initialBankBalances/initialCashBalance/cashSeedDate) into
+  // households/{id}.members.{uid} - Firestore rules don't allow reading
+  // another member's personal users/{uid} doc directly, so this synced copy
+  // is what makes it possible to compute their balance at all.
   const householdMemberBalances = React.useMemo(() => {
     if (!state.householdId || !state.householdMembers) return [];
     const members = state.householdMembers;
@@ -879,26 +905,19 @@ export function FinanceProvider({ children }) {
           balance: bankBalance + cashBalance,
         };
       }
-      const seedCash = parseFloat(m.initialCashBalance) || 0;
-      const seedBank = Object.values(m.initialBankBalances || {})
-        .reduce((sum, b) => sum + (parseFloat(b?.amount) || 0), 0);
-      const seedDate = m.cashSeedDate ? new Date(m.cashSeedDate) : null;
 
       const theirTx = validTransactions.filter(t => t.ownerId === uid);
-      const net = theirTx.reduce((sum, t) => {
-        if (seedDate && new Date(t.date) < seedDate) return sum;
-        if (t.type === "income") return sum + (t.amount || 0);
-        if (t.type === "expense" || t.type === "debt") return sum - (t.amount || 0);
-        return sum;
-      }, 0);
+      const theirBank = computeBankAccountBalancesFor(theirTx, m.initialBankBalances, state.accountingStartDate)
+        .reduce((sum, b) => sum + b.balance, 0);
+      const theirCash = computeCashBalanceFor(theirTx, m.initialCashBalance, m.cashSeedDate, state.accountingStartDate);
 
       return {
         uid, name: m.name || "Member", photoURL: m.photoURL || null,
         hideBalance: !!m.hideBalance, isMe: false,
-        balance: seedCash + seedBank + net,
+        balance: theirBank + theirCash,
       };
     });
-  }, [state.householdId, state.householdMembers, currentUser, bankBalance, cashBalance, validTransactions]);
+  }, [state.householdId, state.householdMembers, state.accountingStartDate, currentUser, bankBalance, cashBalance, validTransactions]);
 
   const householdTotalBalance = React.useMemo(() => {
     return householdMemberBalances.reduce((sum, m) => sum + m.balance, 0);
