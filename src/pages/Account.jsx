@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle, Sparkles } from 'lucide-react';
+import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle, Sparkles, Users, UserPlus, Copy, Trash2, Eye, EyeOff, LogOut as LeaveIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Capacitor } from '@capacitor/core';
@@ -577,6 +577,7 @@ const Account = () => {
                     </div>
                 </div>
 
+                <HouseholdCard />
 
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:col-span-2">
                     <div className="flex items-center gap-4 mb-4">
@@ -611,6 +612,251 @@ const Account = () => {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// ─── Household (Team Sharing) ──────────────────────────────────────────────
+const SEAT_LIMIT_LABELS = { free: 1, trial: 1, starter: 2, monthly: 4, yearly: 4, lifetime: 4, sms_pro: 4 };
+
+const HouseholdCard = () => {
+    const {
+        householdId, householdMeta, householdMemberBalances, householdTotalBalance,
+        createHousehold, joinHousehold, leaveHousehold, removeHouseholdMember,
+        regenerateInviteCode, toggleBalancePrivacy, profile, formatMoney, subscription,
+    } = useFinanceData();
+    const { currentUser } = useAuth();
+
+    const [mode, setMode] = useState('choose'); // 'choose' | 'create' | 'join'
+    const [name, setName] = useState('');
+    const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [inviteCode, setInviteCode] = useState(null);
+    const [copied, setCopied] = useState(false);
+
+    const isOwner = householdMeta?.ownerId === currentUser?.uid;
+    const seatLimit = SEAT_LIMIT_LABELS[subscription] || 1;
+
+    async function handleCreate(e) {
+        e.preventDefault();
+        setLoading(true); setError('');
+        try {
+            const res = await createHousehold(name.trim());
+            setInviteCode(res.inviteCode);
+        } catch (err) {
+            setError(err.message);
+        }
+        setLoading(false);
+    }
+
+    async function handleJoin(e) {
+        e.preventDefault();
+        setLoading(true); setError('');
+        try {
+            await joinHousehold(code.trim());
+            setMode('choose');
+        } catch (err) {
+            setError(err.message);
+        }
+        setLoading(false);
+    }
+
+    async function handleGetInviteCode() {
+        setLoading(true); setError('');
+        try {
+            const res = await regenerateInviteCode();
+            setInviteCode(res.inviteCode);
+        } catch (err) {
+            setError(err.message);
+        }
+        setLoading(false);
+    }
+
+    async function handleLeave() {
+        if (!confirm(isOwner
+            ? "Owners can't leave while other members remain. Remove all other members first if you want to leave."
+            : "Leave this household? You'll go back to your own private data.")) return;
+        setLoading(true); setError('');
+        try {
+            await leaveHousehold();
+        } catch (err) {
+            setError(err.message);
+        }
+        setLoading(false);
+    }
+
+    async function handleRemove(uid) {
+        if (!confirm("Remove this member from the household?")) return;
+        setLoading(true); setError('');
+        try {
+            await removeHouseholdMember(uid);
+        } catch (err) {
+            setError(err.message);
+        }
+        setLoading(false);
+    }
+
+    function copyCode() {
+        if (!inviteCode) return;
+        navigator.clipboard?.writeText(inviteCode);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+
+    // ── Not in a household yet ──────────────────────────────────────────────
+    if (!householdId) {
+        return (
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:col-span-2">
+                <div className="flex items-center gap-4 mb-4">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">Household (Team Sharing)</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Share transactions, categories, budget & loans with family members — each person keeps their own balance private or visible, your choice.
+                </p>
+
+                {error && (
+                    <div className="mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg p-3 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                    </div>
+                )}
+
+                {mode === 'choose' && (
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <button onClick={() => setMode('create')} className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm">
+                            <UserPlus className="w-4 h-4" /> Create Household
+                        </button>
+                        <button onClick={() => setMode('join')} className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-border font-semibold text-sm">
+                            <Users className="w-4 h-4" /> Join with Code
+                        </button>
+                    </div>
+                )}
+
+                {mode === 'create' && !inviteCode && (
+                    <form onSubmit={handleCreate} className="space-y-3">
+                        <input
+                            type="text" value={name} onChange={(e) => setName(e.target.value)}
+                            placeholder="e.g. Kumar Family" required
+                            className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm"
+                        />
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => setMode('choose')} className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold">Back</button>
+                            <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2">
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                {mode === 'create' && inviteCode && (
+                    <div className="text-center space-y-3">
+                        <p className="text-sm text-muted-foreground">Household created! Share this code with family members:</p>
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="text-2xl font-black tracking-widest bg-muted px-4 py-2 rounded-xl">{inviteCode}</span>
+                            <button onClick={copyCode} className="p-2.5 rounded-xl border border-border"><Copy className="w-4 h-4" /></button>
+                        </div>
+                        {copied && <p className="text-xs text-green-600">Copied!</p>}
+                        <button onClick={() => { setMode('choose'); setInviteCode(null); }} className="text-sm font-semibold text-primary">Done</button>
+                    </div>
+                )}
+
+                {mode === 'join' && (
+                    <form onSubmit={handleJoin} className="space-y-3">
+                        <input
+                            type="text" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
+                            placeholder="E.G. AB12CD" required maxLength={6}
+                            className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm tracking-widest uppercase"
+                        />
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => setMode('choose')} className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold">Back</button>
+                            <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2">
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Join'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        );
+    }
+
+    // ── Already in a household ──────────────────────────────────────────────
+    return (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">{householdMeta?.name || 'My Household'}</h3>
+                </div>
+                <span className="text-xs text-muted-foreground">{householdMemberBalances.length} / {seatLimit} members</span>
+            </div>
+
+            {error && (
+                <div className="mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg p-3">{error}</div>
+            )}
+
+            <div className="mb-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-xs text-muted-foreground mb-1">Household Total</p>
+                <p className="text-2xl font-black">{formatMoney(householdTotalBalance)}</p>
+            </div>
+
+            <div className="space-y-2.5 mb-4">
+                {householdMemberBalances.map((m) => (
+                    <div key={m.uid} className="flex items-center justify-between p-3 rounded-xl border border-border">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-border">
+                                {m.photoURL ? <img src={m.photoURL} alt={m.name} className="w-full h-full object-cover" /> : <AvatarFallback />}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate">{m.name}{m.isMe && ' (You)'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {m.hideBalance && !m.isMe ? 'Balance hidden' : formatMoney(m.balance)}
+                                </p>
+                            </div>
+                        </div>
+                        {isOwner && !m.isMe && (
+                            <button onClick={() => handleRemove(m.uid)} disabled={loading} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg flex-shrink-0">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <button
+                onClick={toggleBalancePrivacy}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-border mb-4 text-sm"
+            >
+                <span className="flex items-center gap-2">
+                    {profile?.hideBalanceFromHousehold ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    Hide my balance from household
+                </span>
+                <span className={cn("w-10 h-6 rounded-full relative transition-colors flex-shrink-0", profile?.hideBalanceFromHousehold ? "bg-primary" : "bg-muted")}>
+                    <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform", profile?.hideBalanceFromHousehold ? "translate-x-4" : "translate-x-0.5")} />
+                </span>
+            </button>
+
+            <div className="flex gap-3">
+                {isOwner && (
+                    <button onClick={handleGetInviteCode} disabled={loading} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold flex items-center justify-center gap-2">
+                        <UserPlus className="w-4 h-4" /> Invite Member
+                    </button>
+                )}
+                <button onClick={handleLeave} disabled={loading} className="flex-1 py-2.5 rounded-xl border border-red-200 dark:border-red-900/30 text-red-600 text-sm font-semibold flex items-center justify-center gap-2">
+                    <LeaveIcon className="w-4 h-4" /> Leave Household
+                </button>
+            </div>
+
+            {inviteCode && (
+                <div className="mt-4 text-center space-y-2 p-4 rounded-xl bg-muted">
+                    <p className="text-xs text-muted-foreground">New invite code (old one stopped working):</p>
+                    <div className="flex items-center justify-center gap-2">
+                        <span className="text-xl font-black tracking-widest">{inviteCode}</span>
+                        <button onClick={copyCode} className="p-2 rounded-lg border border-border"><Copy className="w-4 h-4" /></button>
+                    </div>
+                    {copied && <p className="text-xs text-green-600">Copied!</p>}
+                </div>
+            )}
         </div>
     );
 };
