@@ -1,6 +1,11 @@
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 
+// Haptics/vibration disabled app-wide per user request (2026-08).
+// Kept as no-ops (rather than deleting call sites) so it's a one-line
+// revert if wanted back later - just flip this flag to true.
+const HAPTICS_ENABLED = false;
+
 // Check if app is running on a native device (Android/iOS)
 const isNative = Capacitor.isNativePlatform();
 
@@ -9,7 +14,7 @@ const isNative = Capacitor.isNativePlatform();
  * @param {string} style - 'LIGHT', 'MEDIUM', 'HEAVY'
  */
 export const triggerHapticImpact = async (style = 'LIGHT') => {
-  if (!isNative) return;
+  if (!HAPTICS_ENABLED || !isNative) return;
   try {
     const impactStyle = 
       style === 'HEAVY' ? ImpactStyle.Heavy :
@@ -26,7 +31,7 @@ export const triggerHapticImpact = async (style = 'LIGHT') => {
  * @param {string} type - 'SUCCESS', 'WARNING', 'ERROR'
  */
 export const triggerHapticNotification = async (type = 'SUCCESS') => {
-  if (!isNative) return;
+  if (!HAPTICS_ENABLED || !isNative) return;
   try {
     const notificationType = 
       type === 'ERROR' ? NotificationType.Error :
@@ -42,7 +47,7 @@ export const triggerHapticNotification = async (type = 'SUCCESS') => {
  * Trigger subtle selection change haptic click (best for switches, dials, navigation tabs)
  */
 export const triggerHapticSelection = async () => {
-  if (!isNative) return;
+  if (!HAPTICS_ENABLED || !isNative) return;
   try {
     await Haptics.selectionStart();
     await Haptics.selectionChanged();
@@ -56,7 +61,7 @@ export const triggerHapticSelection = async () => {
  * @param {number} duration - vibration duration in milliseconds
  */
 export const triggerVibrate = async (duration = 50) => {
-  if (!isNative) return;
+  if (!HAPTICS_ENABLED || !isNative) return;
   try {
     await Haptics.vibrate({ duration });
   } catch (error) {
