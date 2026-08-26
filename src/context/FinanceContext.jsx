@@ -70,6 +70,15 @@ const DEFAULT_STATE = {
 const STORAGE_KEY = "fintrack_data";
 const FREE_PLAN_MONTHLY_TX_LIMIT = 50;
 
+// Fields that live on the shared households/{id} document once a user
+// belongs to a household, instead of their personal users/{uid} document.
+// Everything else (profile, subscription, balances, privacy toggle) stays
+// personal - see the "Household" feature notes near saveImmediate below.
+const HOUSEHOLD_SHARED_FIELDS = [
+  "transactions", "categories", "recurring", "loans",
+  "monthlyBudget", "salaryDate", "accountingStartDate", "lastProcessedMonth",
+];
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 const FinanceContext = createContext(undefined);
 
@@ -92,17 +101,44 @@ export function FinanceProvider({ children }) {
     return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? null : value)));
   };
 
+  // ─── Household-aware save ───────────────────────────────────────────────
+  // When a user belongs to a household, HOUSEHOLD_SHARED_FIELDS get written
+  // to households/{householdId} (visible to every member) and everything
+  // else still goes to users/{uid} (personal - profile, subscription,
+  // balances, privacy toggle). Non-household users are completely
+  // unaffected: householdId is undefined, so this always takes the
+  // original single-doc path.
+  const splitForHousehold = (data) => {
+    const householdId = data.householdId;
+    if (!householdId) return { householdId: null, shared: null, personal: data };
+    const shared = {};
+    const personal = { ...data };
+    HOUSEHOLD_SHARED_FIELDS.forEach((f) => {
+      if (f in data) {
+        shared[f] = data[f];
+        delete personal[f];
+      }
+    });
+    return { householdId, shared, personal };
+  };
+
   const saveImmediate = useCallback((data) => {
     setState(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
     // All logged-in users get cloud sync (not just Pro)
     if (currentUser && !currentUser.isAnonymous) {
+      const { householdId, shared, personal } = splitForHousehold(data);
       // Return the write promise so callers that care about success/failure
       // (e.g. saveProfile) can await it instead of this being silently
       // fire-and-forget. Existing callers that don't await it are unaffected.
-      return setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true })
-        .catch(e => { console.error("Firebase save failed", e); throw e; });
+      const writes = [
+        setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(personal), { merge: true }),
+      ];
+      if (householdId) {
+        writes.push(setDoc(doc(db, "households", householdId), sanitizeForFirestore(shared), { merge: true }));
+      }
+      return Promise.all(writes).catch(e => { console.error("Firebase save failed", e); throw e; });
     }
     return Promise.resolve();
   }, [currentUser]);
@@ -115,8 +151,13 @@ export function FinanceProvider({ children }) {
     if (currentUser && !currentUser.isAnonymous) {
       if (persistDebounce.current) clearTimeout(persistDebounce.current);
       persistDebounce.current = setTimeout(() => {
-        setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true })
+        const { householdId, shared, personal } = splitForHousehold(data);
+        setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(personal), { merge: true })
           .catch(e => console.error("Firebase save failed", e));
+        if (householdId) {
+          setDoc(doc(db, "households", householdId), sanitizeForFirestore(shared), { merge: true })
+            .catch(e => console.error("Firebase household save failed", e));
+        }
       }, 800);
     }
   }, [currentUser]);
@@ -378,6 +419,88 @@ export function FinanceProvider({ children }) {
     return () => { cancelled = true; unsub(); };
   }, [currentUser, saveImmediate]);
 
+  // ─── Household: subscribe to shared data once householdId is known ───────
+  // Separate from the effect above on purpose - the vast majority of users
+  // have no householdId, so this simply never subscribes for them (zero
+  // behavior change). When it does fire, it merges the shared fields
+  // (HOUSEHOLD_SHARED_FIELDS) on top of local state; setter functions like
+  // addTransaction keep working unchanged since they all do
+  // saveImmediate({ ...state, ... }) against this same merged state.
+  useEffect(() => {
+    const householdId = state.householdId;
+    if (!householdId || !currentUser || currentUser.isAnonymous) return;
+
+    const unsub = onSnapshot(doc(db, "households", householdId),
+      (snap) => {
+        if (!snap.exists()) return;
+        const hdata = snap.data();
+        setState(prev => {
+          if (prev.householdId !== householdId) return prev; // left/switched mid-flight
+          const merged = { ...prev };
+          HOUSEHOLD_SHARED_FIELDS.forEach((f) => {
+            if (hdata[f] !== undefined) merged[f] = hdata[f];
+          });
+          merged.householdMembers = hdata.members || {};
+          merged.householdMeta = { name: hdata.name, ownerId: hdata.ownerId, memberIds: hdata.memberIds || [] };
+          return merged;
+        });
+      },
+      (err) => console.error("Household snapshot error", err)
+    );
+    return () => unsub();
+  }, [state.householdId, currentUser]);
+
+  // ─── Household: keep my own entry in the shared "members" map fresh ──────
+  // So other members can see my name/photo and (for household-total math)
+  // my personal balance-seed values, without ever needing to read my
+  // personal users/{uid} doc (which Firestore rules don't allow them to).
+  useEffect(() => {
+    const householdId = state.householdId;
+    if (!householdId || !currentUser || currentUser.isAnonymous) return;
+
+    const memberInfo = {
+      name: [state.profile?.firstName, state.profile?.lastName].filter(Boolean).join(" ")
+        || currentUser.displayName || currentUser.email || "Member",
+      photoURL: currentUser.photoURL || null,
+      hideBalance: !!state.profile?.hideBalanceFromHousehold,
+      initialBankBalances: state.initialBankBalances || {},
+      initialCashBalance: state.initialCashBalance || 0,
+      cashSeedDate: state.cashSeedDate || null,
+    };
+
+    setDoc(
+      doc(db, "households", householdId),
+      { members: { [currentUser.uid]: sanitizeForFirestore(memberInfo) } },
+      { merge: true }
+    ).catch((e) => console.error("Household member sync failed", e));
+  }, [
+    state.householdId, currentUser,
+    state.profile?.firstName, state.profile?.lastName, state.profile?.hideBalanceFromHousehold,
+    currentUser?.photoURL,
+    state.initialBankBalances, state.initialCashBalance, state.cashSeedDate,
+  ]);
+
+  // ─── Household actions (call the /api/household/* backend) ──────────────
+  const callHouseholdApi = async (endpoint, body) => {
+    if (!currentUser) throw new Error("Not signed in");
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/household/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify(body || {}),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || "Request failed");
+    return json;
+  };
+
+  const createHousehold = (name) => callHouseholdApi("create", { name });
+  const joinHousehold = (code) => callHouseholdApi("accept", { code });
+  const leaveHousehold = () => callHouseholdApi("remove", {});
+  const removeHouseholdMember = (memberUid) => callHouseholdApi("remove", { memberUid });
+  const regenerateInviteCode = () => callHouseholdApi("invite", {});
+  const toggleBalancePrivacy = () => saveProfile({ hideBalanceFromHousehold: !state.profile?.hideBalanceFromHousehold });
+
   // ─── Subscription Status ─────────────────────────────────────────────────
   // isStarter = user has Starter plan (trial or paid) — unlocks everything except SMS
   const isPro = useMemo(() => {
@@ -569,9 +692,19 @@ export function FinanceProvider({ children }) {
     return validTransactions.filter(t => new Date(t.date) >= start);
   }, [validTransactions, state.accountingStartDate]);
 
+  // In a household, transactions/categories/budget stay shared (everyone
+  // sees everyone's entries - used above for `filteredTransactions` and
+  // downstream budget/category spend calculations). But each person's
+  // BANK/CASH BALANCE is their own - "myTransactions" narrows to just the
+  // signed-in user's own entries, and only balance math below uses it.
+  const myTransactions = React.useMemo(() => {
+    if (!state.householdId) return validTransactions;
+    return validTransactions.filter(t => !t.ownerId || t.ownerId === currentUser?.uid);
+  }, [validTransactions, state.householdId, currentUser]);
+
 
   const cashBalance = React.useMemo(() => {
-    const allTx   = validTransactions;
+    const allTx   = myTransactions;
     const startLimit = state.accountingStartDate ? new Date(state.accountingStartDate) : null;
     const seedLimit = state.cashSeedDate ? new Date(state.cashSeedDate) : null;
     
@@ -611,12 +744,12 @@ export function FinanceProvider({ children }) {
     const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
     const outflow = cashOut.reduce((s, t) => s + t.amount, 0);
     return (state.initialCashBalance || 0) + inflow - outflow;
-  }, [validTransactions, state.initialCashBalance, state.cashSeedDate, state.accountingStartDate]);
+  }, [myTransactions, state.initialCashBalance, state.cashSeedDate, state.accountingStartDate]);
 
   // ─── Per-bank balances (for dashboard cards) ──────────────────────────────
   const bankAccountBalances = React.useMemo(() => {
     const map = {};
-    const allTx = validTransactions;
+    const allTx = myTransactions;
 
     if (state.initialBankBalances) {
       Object.entries(state.initialBankBalances).forEach(([key, data]) => {
@@ -719,11 +852,57 @@ export function FinanceProvider({ children }) {
       }
     });
     return Object.values(map);
-  }, [validTransactions, state.initialBankBalances, state.accountingStartDate]);
+  }, [myTransactions, state.initialBankBalances, state.accountingStartDate]);
 
   const bankBalance = React.useMemo(() => {
     return bankAccountBalances.reduce((sum, b) => sum + b.balance, 0);
   }, [bankAccountBalances]);
+
+  // ─── Household: per-member balances + total ──────────────────────────────
+  // Note: for the signed-in user, "my" balance above (bankBalance/cashBalance)
+  // uses the full precise algorithm (per-bank-account, SMS-anchored where
+  // available). For OTHER members we only have what they've synced into
+  // households/{id}.members.{uid} (their seed balances) plus the shared
+  // transactions array filtered to their ownerId - so their balance here is
+  // a simpler running-total approximation (seed + net income/expense), not
+  // the full SMS-anchored precision. Good enough for a household overview;
+  // each member still sees their own exact number on their own Dashboard.
+  const householdMemberBalances = React.useMemo(() => {
+    if (!state.householdId || !state.householdMembers) return [];
+    const members = state.householdMembers;
+    return Object.keys(members).map((uid) => {
+      const m = members[uid] || {};
+      if (uid === currentUser?.uid) {
+        return {
+          uid, name: m.name || "Me", photoURL: m.photoURL || null,
+          hideBalance: !!m.hideBalance, isMe: true,
+          balance: bankBalance + cashBalance,
+        };
+      }
+      const seedCash = parseFloat(m.initialCashBalance) || 0;
+      const seedBank = Object.values(m.initialBankBalances || {})
+        .reduce((sum, b) => sum + (parseFloat(b?.amount) || 0), 0);
+      const seedDate = m.cashSeedDate ? new Date(m.cashSeedDate) : null;
+
+      const theirTx = validTransactions.filter(t => t.ownerId === uid);
+      const net = theirTx.reduce((sum, t) => {
+        if (seedDate && new Date(t.date) < seedDate) return sum;
+        if (t.type === "income") return sum + (t.amount || 0);
+        if (t.type === "expense" || t.type === "debt") return sum - (t.amount || 0);
+        return sum;
+      }, 0);
+
+      return {
+        uid, name: m.name || "Member", photoURL: m.photoURL || null,
+        hideBalance: !!m.hideBalance, isMe: false,
+        balance: seedCash + seedBank + net,
+      };
+    });
+  }, [state.householdId, state.householdMembers, currentUser, bankBalance, cashBalance, validTransactions]);
+
+  const householdTotalBalance = React.useMemo(() => {
+    return householdMemberBalances.reduce((sum, m) => sum + m.balance, 0);
+  }, [householdMemberBalances]);
 
   // ─── formatMoney ─────────────────────────────────────────────────────────
   const formatMoney = useCallback((amount) =>
@@ -752,11 +931,21 @@ export function FinanceProvider({ children }) {
     }
     const next = {
       ...state,
-      transactions: [...state.transactions, { ...tx, id: uuidv4(), date: tx.date || new Date().toISOString() }],
+      transactions: [
+        ...state.transactions,
+        {
+          ...tx,
+          id: uuidv4(),
+          date: tx.date || new Date().toISOString(),
+          // Whose personal balance this affects. Always the creator, even
+          // inside a household (shared visibility, separate balances).
+          ownerId: tx.ownerId || currentUser?.uid || null,
+        },
+      ],
     };
     saveDebounced(next);
-    return { success: true };
-  }, [state, saveDebounced, transactionLimitReached]);
+    return { success: true, transactionId: next.transactions[next.transactions.length - 1].id };
+  }, [state, saveDebounced, transactionLimitReached, currentUser]);
 
   const addTransactions = useCallback((txList) => {
     if (transactionLimitReached) {
@@ -766,11 +955,42 @@ export function FinanceProvider({ children }) {
       ...state,
       transactions: [
         ...state.transactions,
-        ...txList.map(tx => ({ ...tx, id: uuidv4(), date: tx.date || new Date().toISOString() })),
+        ...txList.map(tx => ({
+          ...tx,
+          id: uuidv4(),
+          date: tx.date || new Date().toISOString(),
+          ownerId: tx.ownerId || currentUser?.uid || null,
+        })),
       ],
     };
     saveImmediate(next);
-  }, [state, saveImmediate]);
+  }, [state, saveImmediate, currentUser]);
+
+  const addTransferTransaction = useCallback((txData, toMemberUid) => {
+    if (!state.householdId) return { success: false, reason: "not_in_household" };
+    if (transactionLimitReached) {
+      return { success: false, reason: "limit_reached", limit: FREE_PLAN_MONTHLY_TX_LIMIT };
+    }
+    const transferGroupId = uuidv4();
+    const date = txData.date || new Date().toISOString();
+    const toName = state.householdMembers?.[toMemberUid]?.name || "member";
+    const myName = state.profile?.firstName || "Me";
+
+    const myTx = {
+      ...txData, id: uuidv4(), date, type: "expense",
+      ownerId: currentUser?.uid, transferGroupId, transferWith: toMemberUid,
+      description: txData.description || `Sent to ${toName}`,
+    };
+    const theirTx = {
+      ...txData, id: uuidv4(), date, type: "income",
+      ownerId: toMemberUid, transferGroupId, transferWith: currentUser?.uid,
+      description: txData.description || `Received from ${myName}`,
+    };
+
+    const next = { ...state, transactions: [...state.transactions, myTx, theirTx] };
+    saveImmediate(next);
+    return { success: true };
+  }, [state, saveImmediate, currentUser, transactionLimitReached]);
 
   const updateTransaction = useCallback((id, updates) => {
     const next = { ...state, transactions: state.transactions.map(t => t.id === id ? { ...t, ...updates } : t) };
@@ -1031,6 +1251,16 @@ export function FinanceProvider({ children }) {
     cashBalance,
     totalBalance: bankBalance + cashBalance,
     bankAccountBalances,
+
+    // Household (team sharing)
+    householdId:            state.householdId || null,
+    householdMeta:          state.householdMeta || null,
+    householdMembers:       state.householdMembers || {},
+    householdMemberBalances,
+    householdTotalBalance,
+    createHousehold, joinHousehold, leaveHousehold,
+    removeHouseholdMember, regenerateInviteCode, toggleBalancePrivacy,
+    addTransferTransaction,
 
     // helpers
     formatMoney,
