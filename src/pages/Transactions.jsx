@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard, Download, MessageSquare, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard, Download, MessageSquare, RefreshCw, Share2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { parseStatement } from '../lib/StatementParser';
@@ -10,6 +10,7 @@ import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
 import { triggerHapticNotification } from '../lib/haptics';
+import { useAuth } from '../context/AuthContext';
 
 const Transactions = () => {
     const {
@@ -30,8 +31,14 @@ const Transactions = () => {
         recurring,
         loans,
         formatMoney,
-        rescanTransactions
+        rescanTransactions,
+
+        householdId,
+        householdMembers,
+        addTransferTransaction,
     } = useFinanceData();
+    const { currentUser } = useAuth();
+    const currentUserUid = currentUser?.uid;
 
     // Form State
     const [amount, setAmount] = useState('');
@@ -46,6 +53,10 @@ const Transactions = () => {
     // Editing State
     const [editingTx, setEditingTx] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
+
+    // Household "Share" transfer state
+    const [shareWithUid, setShareWithUid] = useState('');
+    const [showShareOptions, setShowShareOptions] = useState(false);
 
     // Lock body scroll when Add Transaction modal is open on mobile
     React.useEffect(() => {
@@ -122,6 +133,8 @@ const Transactions = () => {
         setRepaymentType('principal');
         setDebtType('personal');
         setPaymentMode('upi');
+        setShareWithUid('');
+        setShowShareOptions(false);
     };
 
     // Derived Logic
@@ -179,7 +192,9 @@ const Transactions = () => {
                 });
             }
         } else {
-            const result = addTransaction(txData);
+            const result = shareWithUid
+                ? addTransferTransaction(txData, shareWithUid)
+                : addTransaction(txData);
             if (result && result.success === false) {
                 setUploadError(`Free plan limit reached — ${result.limit} transactions/month used. Upgrade to Starter for unlimited entries.`);
                 return;
@@ -710,6 +725,52 @@ const Transactions = () => {
                                     className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
                                 />
                             </div>
+
+                            {householdId && type === 'expense' && !editingTx && (
+                                <div className="space-y-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowShareOptions(v => !v)}
+                                        className="w-full flex items-center justify-between text-xs font-medium py-2 px-3 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground"
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            <Share2 className="w-3.5 h-3.5" />
+                                            {shareWithUid ? `Sharing with ${householdMembers[shareWithUid]?.name || 'member'}` : 'Share with household member'}
+                                        </span>
+                                        {shareWithUid && (
+                                            <span
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={(e) => { e.stopPropagation(); setShareWithUid(''); setShowShareOptions(false); }}
+                                                className="text-destructive"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </span>
+                                        )}
+                                    </button>
+                                    {showShareOptions && !shareWithUid && (
+                                        <div className="grid grid-cols-2 gap-1.5 p-1">
+                                            {Object.entries(householdMembers)
+                                                .filter(([uid]) => uid !== currentUserUid)
+                                                .map(([uid, m]) => (
+                                                    <button
+                                                        key={uid}
+                                                        type="button"
+                                                        onClick={() => { setShareWithUid(uid); setShowShareOptions(false); }}
+                                                        className="text-xs font-medium py-2 px-2 rounded-lg border border-border hover:bg-muted/50 truncate"
+                                                    >
+                                                        {m.name || 'Member'}
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
+                                    {shareWithUid && (
+                                        <p className="text-[10px] text-muted-foreground px-1">
+                                            This creates a matching income entry for them automatically — you don't need to add it twice.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-medium">Payment Mode</label>
