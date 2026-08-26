@@ -2,11 +2,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle } from 'lucide-react';
+import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Capacitor } from '@capacitor/core';
 import { Checkout } from 'capacitor-razorpay';
+import AvatarFallback from '../components/AvatarFallback';
+import { AVATAR_PRESETS, renderAvatarDataUrl } from '../lib/avatars';
 
 const Account = () => {
     const { currentUser, logout, updateUserProfile } = useAuth();
@@ -16,6 +18,7 @@ const Account = () => {
     const [photoLoading, setPhotoLoading] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState('');
+    const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
     const razorpayOpenRef = useRef(false);
     const razorpayInstanceRef = useRef(null);
@@ -122,6 +125,20 @@ const Account = () => {
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
+    };
+
+    const handleChooseAvatar = (presetId) => {
+        setShowAvatarPicker(false);
+        setPhotoLoading(true);
+        const dataUrl = renderAvatarDataUrl(presetId, 150);
+        updateUserProfile(null, dataUrl)
+            .catch((err) => {
+                console.error(err);
+                alert("Failed to update profile picture.");
+            })
+            .finally(() => {
+                setPhotoLoading(false);
+            });
     };
 
     const loadRazorpayScript = () => {
@@ -317,9 +334,7 @@ const Account = () => {
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    <div className="w-full h-full bg-gradient-to-tr from-primary/20 to-purple-500/20 flex items-center justify-center text-primary font-bold text-3xl">
-                                        {(currentUser?.displayName || currentUser?.email || 'U')[0].toUpperCase()}
-                                    </div>
+                                    <AvatarFallback />
                                 )}
 
                                 {/* Image upload overlay */}
@@ -342,7 +357,35 @@ const Account = () => {
                                     <Crown className="w-3.5 h-3.5" />
                                 </div>
                             )}
+
+                            {/* Choose-a-preset-avatar trigger */}
+                            <button
+                                type="button"
+                                onClick={() => setShowAvatarPicker((v) => !v)}
+                                disabled={photoLoading}
+                                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Choose Avatar
+                            </button>
                         </div>
+
+                        {showAvatarPicker && (
+                            <div className="w-full grid grid-cols-6 gap-2.5 -mt-2 sm:mt-0 sm:ml-2">
+                                {AVATAR_PRESETS.map((preset) => (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        onClick={() => handleChooseAvatar(preset.id)}
+                                        title={preset.id}
+                                        className="w-11 h-11 rounded-full flex items-center justify-center text-xl border-2 border-transparent hover:border-primary transition-colors"
+                                        style={{ background: `linear-gradient(135deg, ${preset.from}, ${preset.to})` }}
+                                    >
+                                        {preset.emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         {/* User Details */}
                         <div className="flex-1 w-full text-center sm:text-left space-y-2">

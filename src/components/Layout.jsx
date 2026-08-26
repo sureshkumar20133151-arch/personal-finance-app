@@ -11,6 +11,7 @@ import ClockWidget from './ClockWidget';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { triggerHapticSelection } from '../lib/haptics';
+import AvatarFallback from './AvatarFallback';
 
 const desktopNavItems = [
   { name: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard, color: 'text-violet-400' },
@@ -43,7 +44,6 @@ const Layout = () => {
     return () => main.removeEventListener('scroll', onScroll);
   }, []);
 
-  const userInitial = (currentUser?.displayName || currentUser?.email || 'U')[0].toUpperCase();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/8 via-background to-background w-full max-w-full overflow-x-hidden relative">
@@ -77,9 +77,7 @@ const Layout = () => {
           {currentUser?.photoURL ? (
             <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/30 to-purple-500/30 flex items-center justify-center text-primary font-bold text-sm">
-              {userInitial}
-            </div>
+            <AvatarFallback />
           )}
           {(isPro || subscription === 'trial') && (
             <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full border-2 border-background" />
@@ -151,7 +149,7 @@ const Layout = () => {
                 {currentUser?.photoURL ? (
                   <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-primary font-bold text-xs">{userInitial}</span>
+                  <AvatarFallback />
                 )}
               </div>
               <div className="flex-1 min-w-0">
