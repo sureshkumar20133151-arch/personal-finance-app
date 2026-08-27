@@ -21,6 +21,7 @@ import { db }                from "../lib/firebase";          // ← your fireba
 import { useAuth }           from "./AuthContext";       // ← your auth context path
 import { autoScanTransactions, autoCategory, getAvailableBalance, parseSms } from "./autoScanSms";
 import { v4 as uuidv4 }     from "uuid";
+import { apiUrl } from "../lib/apiBase";
 
 const App = registerPlugin("App");
 
@@ -629,7 +630,7 @@ export function FinanceProvider({ children }) {
   const callHouseholdApi = async (endpoint, body) => {
     if (!currentUser) throw new Error("Not signed in");
     const idToken = await currentUser.getIdToken();
-    const res = await fetch(`/api/household/${endpoint}`, {
+    const res = await fetch(apiUrl(`/api/household/${endpoint}`), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
       body: JSON.stringify(body || {}),

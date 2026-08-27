@@ -9,6 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { Checkout } from 'capacitor-razorpay';
 import AvatarFallback from '../components/AvatarFallback';
 import { AVATAR_PRESETS, renderAvatarDataUrl } from '../lib/avatars';
+import { apiUrl } from '../lib/apiBase';
 
 const Account = () => {
     const { currentUser, logout, updateUserProfile } = useAuth();
@@ -161,7 +162,7 @@ const Account = () => {
     // knows which uid this order belongs to.
     const createOrderOnServer = async (planType) => {
         const idToken = await currentUser.getIdToken();
-        const res = await fetch('/api/payment/create-order', {
+        const res = await fetch(apiUrl('/api/payment/create-order'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
             body: JSON.stringify({ planType }),
@@ -178,7 +179,7 @@ const Account = () => {
     // The client never sets its own subscription field for paid plans anymore.
     const verifyPaymentOnServer = async (payload) => {
         const idToken = await currentUser.getIdToken();
-        const res = await fetch('/api/payment/verify', {
+        const res = await fetch(apiUrl('/api/payment/verify'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
             body: JSON.stringify(payload),
