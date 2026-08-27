@@ -1,4 +1,5 @@
 import { requireAuth, adminDb } from "../_lib/firebaseAdmin.js";
+import { applyCors } from "../_lib/cors.js";
 
 function generateInviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
@@ -8,6 +9,7 @@ function generateInviteCode() {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res)) return;
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }

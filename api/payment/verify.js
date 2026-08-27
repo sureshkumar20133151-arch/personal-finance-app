@@ -1,8 +1,10 @@
 import { requireAuth, adminDb } from "../_lib/firebaseAdmin.js";
 import { getRazorpayClient, verifyPaymentSignature } from "../_lib/razorpay.js";
 import { PLAN_AMOUNTS_PAISE } from "../_lib/plans.js";
+import { applyCors } from "../_lib/cors.js";
 
 export default async function handler(req, res) {
+  if (applyCors(req, res)) return;
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
