@@ -18,8 +18,13 @@ const ProtectedRoute = ({ children, requireProfile = true }) => {
     // Demo/anonymous users skip profile completion entirely — it's a local-only preview.
     const skipCheck = !requireProfile || currentUser.isAnonymous || loading;
 
-    if (!skipCheck && !profile?.profileComplete) {
-        return <Navigate to="/complete-profile" replace />;
+    if (!skipCheck) {
+        if (!profile?.profileComplete) {
+            return <Navigate to="/complete-profile" replace />;
+        }
+        if (!profile?.categoriesSelected) {
+            return <Navigate to="/select-categories" replace />;
+        }
     }
 
     return children;
