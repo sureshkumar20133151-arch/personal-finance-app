@@ -16,7 +16,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { registerPlugin }    from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { doc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, getDoc, deleteDoc } from "firebase/firestore";
 import { db }                from "../lib/firebase";          // ← your firebase.js path
 import { useAuth }           from "./AuthContext";       // ← your auth context path
 import { autoScanTransactions, autoCategory, getAvailableBalance, parseSms } from "./autoScanSms";
@@ -26,6 +26,60 @@ import { apiUrl } from "../lib/apiBase";
 const App = registerPlugin("App");
 
 // ─── Default data ─────────────────────────────────────────────────────────────
+export const SUGGESTED_CATEGORIES = {
+  "Business": [
+    { name: "Business Revenue", type: "income", color: "#10b981", icon: "Briefcase", budget: 0 },
+    { name: "Investments", type: "income", color: "#8b5cf6", icon: "TrendingUp", budget: 0 },
+    { name: "Consulting", type: "income", color: "#06b6d4", icon: "UserCheck", budget: 0 },
+    { name: "Office Rent", type: "expense", color: "#6366f1", icon: "Building", budget: 10000 },
+    { name: "Marketing", type: "expense", color: "#ec4899", icon: "Megaphone", budget: 5000 },
+    { name: "Travel", type: "expense", color: "#ef4444", icon: "Plane", budget: 3000 },
+    { name: "Food", type: "expense", color: "#f59e0b", icon: "Utensils", budget: 3000 },
+    { name: "Supplies", type: "expense", color: "#8b5cf6", icon: "Package", budget: 2000 },
+    { name: "Utilities", type: "expense", color: "#3b82f6", icon: "Zap", budget: 2000 },
+    { name: "Emergency Fund", type: "savings", color: "#06b6d4", icon: "ShieldCheck", budget: 0 },
+    { name: "Credit Card", type: "debt", color: "#f97316", icon: "CreditCard", budget: 0 },
+  ],
+  "Working Professional": [
+    { name: "Salary", type: "income", color: "#10b981", icon: "Wallet", budget: 0 },
+    { name: "Bonus", type: "income", color: "#3b82f6", icon: "Gift", budget: 0 },
+    { name: "Side Income", type: "income", color: "#8b5cf6", icon: "Laptop", budget: 0 },
+    { name: "Food", type: "expense", color: "#f59e0b", icon: "Utensils", budget: 5000 },
+    { name: "Transport", type: "expense", color: "#ef4444", icon: "Car", budget: 2000 },
+    { name: "Rent/EMI", type: "expense", color: "#6366f1", icon: "Home", budget: 15000 },
+    { name: "Utilities", type: "expense", color: "#3b82f6", icon: "Zap", budget: 2000 },
+    { name: "Entertainment", type: "expense", color: "#14b8a6", icon: "Clapperboard", budget: 2000 },
+    { name: "Clothes", type: "expense", color: "#ec4899", icon: "ShoppingBag", budget: 2000 },
+    { name: "Coffee", type: "expense", color: "#8b5cf6", icon: "Coffee", budget: 1000 },
+    { name: "Emergency Fund", type: "savings", color: "#06b6d4", icon: "ShieldCheck", budget: 0 },
+    { name: "Credit Card", type: "debt", color: "#f97316", icon: "CreditCard", budget: 0 },
+  ],
+  "Student": [
+    { name: "Pocket Money", type: "income", color: "#f59e0b", icon: "Coins", budget: 0 },
+    { name: "Part-time Job", type: "income", color: "#3b82f6", icon: "Clock", budget: 0 },
+    { name: "Scholarship", type: "income", color: "#10b981", icon: "GraduationCap", budget: 0 },
+    { name: "Food", type: "expense", color: "#f59e0b", icon: "Utensils", budget: 3000 },
+    { name: "Transport", type: "expense", color: "#ef4444", icon: "Car", budget: 1000 },
+    { name: "Books/Stationery", type: "expense", color: "#8b5cf6", icon: "BookOpen", budget: 1500 },
+    { name: "Tuition", type: "expense", color: "#3b82f6", icon: "GraduationCap", budget: 5000 },
+    { name: "Entertainment", type: "expense", color: "#14b8a6", icon: "Clapperboard", budget: 1000 },
+    { name: "Coffee", type: "expense", color: "#8b5cf6", icon: "Coffee", budget: 500 },
+    { name: "Emergency Fund", type: "savings", color: "#06b6d4", icon: "ShieldCheck", budget: 0 },
+  ],
+  "Home Maker/Housewife": [
+    { name: "Household Budget", type: "income", color: "#10b981", icon: "Home", budget: 0 },
+    { name: "Savings Interest", type: "income", color: "#06b6d4", icon: "Percent", budget: 0 },
+    { name: "Groceries", type: "expense", color: "#10b981", icon: "ShoppingBasket", budget: 8000 },
+    { name: "Utilities", type: "expense", color: "#6366f1", icon: "Zap", budget: 3000 },
+    { name: "Kids Education", type: "expense", color: "#3b82f6", icon: "GraduationCap", budget: 5000 },
+    { name: "Medical", type: "expense", color: "#ef4444", icon: "HeartPulse", budget: 2000 },
+    { name: "Household Items", type: "expense", color: "#f59e0b", icon: "Home", budget: 3000 },
+    { name: "Beauty", type: "expense", color: "#f472b6", icon: "Sparkles", budget: 1500 },
+    { name: "Emergency Fund", type: "savings", color: "#06b6d4", icon: "ShieldCheck", budget: 0 },
+    { name: "Credit Card", type: "debt", color: "#f97316", icon: "CreditCard", budget: 0 },
+  ]
+};
+
 const DEFAULT_CATEGORIES = [
   { id: "1",  name: "Salary",         type: "income",  color: "#10b981", icon: "Wallet",      budget: 0   },
   { id: "2",  name: "Freelance",      type: "income",  color: "#3b82f6", icon: "Laptop",      budget: 0   },
@@ -56,6 +110,7 @@ const DEFAULT_STATE = {
     mobile: "",
     profession: "",
     profileComplete: false,
+    categoriesSelected: false,
   },
   recurring:          [],
   loans:              [],
@@ -217,7 +272,7 @@ function computeCashBalanceFor(allTx, initialCashBalance, cashSeedDate, accounti
 const FinanceContext = createContext(undefined);
 
 export function FinanceProvider({ children }) {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
 
   const [state, setState] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -322,7 +377,10 @@ export function FinanceProvider({ children }) {
         // Genuinely new signups always get a `profile` object written at signup time,
         // so this only ever fires once, for old accounts, the first time they load.
         if (loadedState.profile === undefined) {
-          loadedState.profile = { ...DEFAULT_STATE.profile, profileComplete: true };
+          loadedState.profile = { ...DEFAULT_STATE.profile, profileComplete: true, categoriesSelected: true };
+          stateChanged = true;
+        } else if (loadedState.profile && loadedState.profile.categoriesSelected === undefined) {
+          loadedState.profile.categoriesSelected = true;
           stateChanged = true;
         }
 
@@ -1063,6 +1121,93 @@ export function FinanceProvider({ children }) {
     });
   };
 
+  const saveCategorySelection = (selectedCategories) => {
+    const formattedCategories = selectedCategories.map(cat => ({
+      id: cat.id || uuidv4(),
+      name: cat.name,
+      type: cat.type,
+      color: cat.color || "#3b82f6",
+      icon: cat.icon || "Tag",
+      budget: cat.budget || 0
+    }));
+    return saveImmediate({
+      ...state,
+      categories: formattedCategories,
+      profile: {
+        ...state.profile,
+        categoriesSelected: true
+      }
+    });
+  };
+
+  const deleteAccount = async () => {
+    if (currentUser && !currentUser.isAnonymous) {
+      try {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          // Soft delete: move to deleted_users/{uid} with deletedAt timestamp
+          await setDoc(doc(db, "deleted_users", currentUser.uid), {
+            ...userData,
+            deletedAt: new Date().toISOString(),
+          });
+          // Delete from users collection
+          await deleteDoc(userDocRef);
+        }
+      } catch (e) {
+        console.error("Soft delete failed in Firestore:", e);
+      }
+    }
+    // Clear local storage
+    localStorage.removeItem(STORAGE_KEY);
+    // Sign out user
+    if (logout) {
+      await logout();
+    }
+    window.location.reload();
+  };
+
+  const checkDeletedAccount = async (uid) => {
+    if (!uid) return null;
+    try {
+      const snap = await getDoc(doc(db, "deleted_users", uid));
+      if (snap.exists()) {
+        return snap.data();
+      }
+    } catch (e) {
+      console.error("Error checking deleted account:", e);
+    }
+    return null;
+  };
+
+  const restoreDeletedAccount = async (uid) => {
+    if (!uid) return false;
+    try {
+      const deletedSnap = await getDoc(doc(db, "deleted_users", uid));
+      if (deletedSnap.exists()) {
+        const data = deletedSnap.data();
+        delete data.deletedAt;
+        await setDoc(doc(db, "users", uid), data);
+        await deleteDoc(doc(db, "deleted_users", uid));
+        window.location.reload();
+        return true;
+      }
+    } catch (e) {
+      console.error("Error restoring deleted account:", e);
+    }
+    return false;
+  };
+
+  const startFreshAccount = async (uid) => {
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, "deleted_users", uid));
+    } catch (e) {
+      console.error("Error permanently deleting old account data:", e);
+    }
+  };
+
   // ─── Coupon Redemption ──────────────────────────────────────────────────
   // Coupons live in Firestore at coupons/{CODE} with fields: { bonusDays: number, active: boolean }
   // Each user can redeem a given code only once (tracked in their own couponsRedeemed array).
@@ -1252,6 +1397,11 @@ export function FinanceProvider({ children }) {
     isSmsUnlocked,
     profile:              state.profile || DEFAULT_STATE.profile,
     saveProfile,
+    saveCategorySelection,
+    deleteAccount,
+    checkDeletedAccount,
+    restoreDeletedAccount,
+    startFreshAccount,
     couponsRedeemed:      state.couponsRedeemed || [],
     redeemCoupon,
     monthlyTransactionCount,

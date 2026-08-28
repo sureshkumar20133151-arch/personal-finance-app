@@ -14,10 +14,12 @@ const Account = lazy(() => import('./pages/Account'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Signup = lazy(() => import('./pages/auth/Signup'));
 const CompleteProfile = lazy(() => import('./pages/auth/CompleteProfile'));
+const SelectCategories = lazy(() => import('./pages/auth/SelectCategories'));
 const Landing = lazy(() => import('./pages/Landing'));
 const Legal = lazy(() => import('./pages/Legal'));
 
 import { FinanceProvider } from './context/FinanceContext';
+import AccountRecoveryModal from './components/AccountRecoveryModal';
 const SmsSetupGuide = lazy(() => import('./context/SmsSetupGuide'));
 
 // Branded loading spinner shown while lazy chunks are downloading
@@ -61,6 +63,7 @@ const App = () => {
     <Router>
       <AuthProvider>
         <FinanceProvider>
+          <AccountRecoveryModal />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -69,6 +72,9 @@ const App = () => {
               <Route path="/signup" element={<Signup />} />
               <Route path="/complete-profile" element={
                 <ProtectedRoute requireProfile={false}><CompleteProfile /></ProtectedRoute>
+              } />
+              <Route path="/select-categories" element={
+                <ProtectedRoute requireProfile={false}><SelectCategories /></ProtectedRoute>
               } />
               
               {/* Legal Pages for Razorpay Verification */}

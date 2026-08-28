@@ -10,7 +10,7 @@ const perks = [
   "100% private & secure data",
 ];
 
-const professionOptions = ["Business", "Working Professional", "Freelancer", "Student"];
+const professionOptions = ["Business", "Working Professional", "Student", "Home Maker/Housewife"];
 
 const Signup = () => {
     const { signup, loginWithGoogle, loginAsDemoUser } = useAuth();

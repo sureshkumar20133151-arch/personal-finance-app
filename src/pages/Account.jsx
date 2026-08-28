@@ -13,7 +13,7 @@ import { apiUrl } from '../lib/apiBase';
 
 const Account = () => {
     const { currentUser, logout, updateUserProfile } = useAuth();
-    const { subscription, isPro, trialEndDate, updateSubscription, clearData } = useFinanceData();
+    const { subscription, isPro, trialEndDate, updateSubscription, clearData, deleteAccount } = useFinanceData();
     const navigate = useNavigate();
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [photoLoading, setPhotoLoading] = useState(false);
@@ -596,21 +596,35 @@ const Account = () => {
                 </div>
 
                 {/* Danger Zone */}
-                <div className="rounded-2xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-6 shadow-sm md:col-span-2">
-                    <h3 className="font-semibold text-red-600 mb-2">Danger Zone</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        Permanently delete all your transaction data and start fresh. This cannot be undone.
+                <div className="rounded-2xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-6 shadow-sm md:col-span-2 space-y-4">
+                    <h3 className="font-semibold text-red-600">Danger Zone</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Manage account deletion or reset data. Deleting your account moves your data to temporary backup. If you sign up again with the same email, you can choose to restore your data or start fresh.
                     </p>
-                    <button
-                        onClick={() => {
-                            if (confirm("Are you sure you want to delete ALL data? This cannot be undone.")) {
-                                clearData();
-                            }
-                        }}
-                        className="bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
-                    >
-                        Reset All Data
-                    </button>
+                    <div className="flex flex-wrap gap-3">
+                        <button
+                            onClick={() => {
+                                if (confirm("Are you sure you want to reset all transaction data? This cannot be undone.")) {
+                                    clearData();
+                                }
+                            }}
+                            className="bg-red-600/10 text-red-600 border border-red-600/20 hover:bg-red-600/20 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                        >
+                            Reset All Data
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                if (confirm("Are you sure you want to DELETE your account?\n\nYour data will be soft-deleted. If you log back in later with the same email, you can restore your data or start fresh.")) {
+                                    deleteAccount();
+                                }
+                            }}
+                            className="bg-red-600 text-white hover:bg-red-700 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm flex items-center gap-2"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Delete Account
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

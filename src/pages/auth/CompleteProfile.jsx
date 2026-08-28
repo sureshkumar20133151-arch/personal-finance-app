@@ -4,7 +4,7 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 import { useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle, Wallet, ArrowRight, Mail, User } from "lucide-react";
 
-const professionOptions = ["Business", "Working Professional", "Freelancer", "Student"];
+const professionOptions = ["Business", "Working Professional", "Student", "Home Maker/Housewife"];
 
 const CompleteProfile = () => {
     const { currentUser } = useAuth();
@@ -42,7 +42,7 @@ const CompleteProfile = () => {
                 mobile,
                 profession,
             });
-            navigate("/dashboard");
+            navigate("/select-categories");
         } catch (err) {
             console.error(err);
             setError(
