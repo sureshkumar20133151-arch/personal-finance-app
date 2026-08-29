@@ -469,14 +469,61 @@ const Account = () => {
                 <div className="md:col-span-2">
                     <h2 className="text-xl font-bold mb-1">Subscription Plans</h2>
                     <p className="text-sm text-muted-foreground mb-5">All features included in Starter. Only SMS auto-scan is a future Pro add-on.</p>
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
+
+                        {/* Free Plan */}
+                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", subscription === 'free' ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm")}>
+                            <div>
+                                {subscription === 'free' && (
+                                    <div className="absolute top-0 right-0 bg-muted text-muted-foreground text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl border-l border-b border-border">
+                                        ✅ ACTIVE
+                                    </div>
+                                )}
+                                <h3 className="text-2xl font-bold text-foreground mb-2">Free Plan</h3>
+                                <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-black text-foreground">₹0</span>
+                                        <span className="text-sm font-medium text-muted-foreground">/ month</span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground font-medium mt-1">
+                                        Basic plan for personal tracking
+                                    </div>
+                                </div>
+                                <ul className="space-y-2.5 mb-6 mt-4">
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Up to 50 Txns / Month</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> 1 Member Max (Owner only)</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Manual Transaction Entry</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Basic Category Tracking</li>
+                                    <li className="flex items-center gap-2 text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" /> <span>Family Sharing</span></li>
+                                    <li className="flex items-center gap-2 text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" /> <span>Statement PDF Import</span></li>
+                                </ul>
+                            </div>
+                            <div>
+                                {subscription === 'free' ? (
+                                    <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
+                                        Current Plan
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            if (confirm("Switch to Free plan? You will be limited to 50 txns/mo and 1 member max.")) {
+                                                updateSubscription('free');
+                                            }
+                                        }}
+                                        className="block w-full py-2.5 px-6 text-center rounded-xl border border-border text-muted-foreground hover:bg-muted font-bold transition-colors text-xs"
+                                    >
+                                        Switch to Free
+                                    </button>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Starter Plan */}
-                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", isPro ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm")}>
+                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", subscription === 'starter' ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm")}>
                             <div>
-                                {isPro && (
+                                {subscription === 'starter' && (
                                     <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
-                                        {subscription === 'trial' ? '✨ TRIAL ACTIVE' : '✅ ACTIVE'}
+                                        ✅ ACTIVE
                                     </div>
                                 )}
                                 <h3 className="text-2xl font-bold text-foreground mb-2">Starter Plan</h3>
@@ -485,46 +532,24 @@ const Account = () => {
                                         <span className="text-3xl font-black text-foreground">₹9</span>
                                         <span className="text-sm font-medium text-muted-foreground">/ month</span>
                                     </div>
-                                    {subscription === 'trial' && trialEndDate && (
-                                        <div className="text-xs text-amber-500 font-semibold mt-1">
-                                            🎉 Free Trial active — {remainingTrialDays} days remaining. Subscribe to continue after trial.
-                                        </div>
-                                    )}
-                                    {subscription !== 'trial' && !isPro && (
-                                        <div className="text-xs text-primary font-semibold mt-1">
-                                            Start with a free 90-day trial — no credit card required!
-                                        </div>
-                                    )}
+                                    <div className="text-xs text-primary font-semibold mt-1">
+                                        Best for couples & solo tracking
+                                    </div>
                                 </div>
                                 <ul className="space-y-2.5 mb-6 mt-4">
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Manual Transaction Entry</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Multiple Bank Accounts & Cash Wallet</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Bank Statement PDF & CSV Import</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Unlimited Monthly Txns</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> 2 Members (Owner + 1 Invited)</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Multiple Banks & Cash Wallet</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Statement PDF & CSV Import</li>
                                     <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> CSV / Excel Data Export</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Category Budgets & Limit Alerts</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Loans & Debts EMI Tracker</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Real-time Cloud Sync (Firebase)</li>
-                                    <li className="flex items-center gap-2 text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" /> <span>SMS Auto-scan <span className="text-xs italic">(Pro add-on — coming soon)</span></span></li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Category Budgets & Alerts</li>
                                 </ul>
                             </div>
-                            <div className="space-y-2">
-                                {isPro && subscription !== 'trial' ? (
-                                    <>
-                                        <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
-                                            ✅ Starter Plan Active
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                if (confirm("Are you sure you want to cancel? You will lose access to all features.")) {
-                                                    updateSubscription('free');
-                                                }
-                                            }}
-                                            className="block w-full mt-1 py-2 px-6 text-center rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 font-bold transition-colors text-xs"
-                                        >
-                                            Cancel Subscription
-                                        </button>
-                                    </>
+                            <div>
+                                {subscription === 'starter' ? (
+                                    <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
+                                        ✅ Starter Plan Active
+                                    </div>
                                 ) : (
                                     <button
                                         onClick={() => handleUpgrade('starter')}
@@ -533,46 +558,68 @@ const Account = () => {
                                     >
                                         {checkoutLoading ? (
                                             <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
-                                        ) : subscription === 'trial' ? (
-                                            "Subscribe Now — ₹9 / month"
                                         ) : (
-                                            "Start Free 90-Day Trial"
+                                            "Subscribe — ₹9 / mo"
                                         )}
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        {/* Coupon Code Redemption */}
-                        <CouponCard />
-
-                        {/* SMS Pro Add-on — Coming Soon */}
-                        <div className="relative p-6 rounded-2xl border border-dashed border-border bg-muted/30 flex flex-col justify-between opacity-75">
-                            <div className="absolute top-0 right-0 bg-amber-400/20 text-amber-600 dark:text-amber-400 text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl border border-amber-400/30">
-                                🚧 COMING SOON
-                            </div>
+                        {/* Pro Plan */}
+                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between border-amber-500/40 ring-1 ring-amber-500/20 bg-amber-500/5 shadow-md")}>
                             <div>
+                                <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-extrabold px-3 py-1 rounded-bl-xl rounded-tr-xl shadow-sm">
+                                    {subscription === 'trial' ? '✨ TRIAL ACTIVE' : (isPro && subscription !== 'starter' ? '✅ ACTIVE' : '🔥 POPULAR')}
+                                </div>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Crown className="w-5 h-5 text-amber-500" />
-                                    <h3 className="text-2xl font-bold text-foreground">SMS Pro Add-on</h3>
+                                    <h3 className="text-2xl font-bold text-foreground">Pro Plan</h3>
                                 </div>
-                                <div className="flex items-baseline gap-2 mb-4 pb-4 border-b border-border">
-                                    <span className="text-2xl font-black text-muted-foreground">₹TBD</span>
-                                    <span className="text-sm text-muted-foreground">/ month</span>
+                                <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-black text-foreground">₹100</span>
+                                        <span className="text-sm font-medium text-muted-foreground">/ month</span>
+                                    </div>
+                                    {subscription === 'trial' && trialEndDate ? (
+                                        <div className="text-xs text-amber-500 font-semibold mt-1">
+                                            🎉 Free Trial active — {remainingTrialDays} days remaining!
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-amber-500 font-semibold mt-1">
+                                            Includes Free 90-Day Trial!
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-4 italic">
-                                    Automatic bank SMS scanning is currently under development and will be available as a future add-on.
-                                </p>
-                                <ul className="space-y-2.5 mb-6">
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> Auto SMS Transaction Scan</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> Real-time UPI Push Notifications</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> ATM Auto Cash Routing</li>
-                                    <li className="flex items-center gap-3 text-sm text-muted-foreground"><CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" /> Zero-touch Background Import</li>
+                                <ul className="space-y-2.5 mb-6 mt-4">
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Everything in Starter</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> 4 Members (Team/Family)</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Advanced Charts & Trends</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Loans & Debts EMI Tracker</li>
+                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Priority Cloud Sync</li>
                                 </ul>
                             </div>
-                            <button disabled className="block w-full py-3 px-6 text-center rounded-xl font-bold bg-muted text-muted-foreground cursor-not-allowed border border-border text-sm">
-                                🔔 Notify Me When Available
-                            </button>
+                            <div>
+                                {isPro && subscription !== 'starter' && subscription !== 'free' && subscription !== 'trial' ? (
+                                    <div className="text-center py-2.5 px-6 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30 text-sm">
+                                        ✅ Pro Active
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => handleUpgrade('monthly')}
+                                        disabled={checkoutLoading}
+                                        className="block w-full py-3 px-6 text-center rounded-xl font-bold transition-all bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:opacity-90 shadow-md text-sm"
+                                    >
+                                        {checkoutLoading ? (
+                                            <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
+                                        ) : subscription === 'trial' ? (
+                                            "Subscribe Pro — ₹100 / mo"
+                                        ) : (
+                                            "Upgrade to Pro — ₹100 / mo"
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                     </div>
