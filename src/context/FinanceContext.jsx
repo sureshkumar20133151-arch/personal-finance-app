@@ -541,6 +541,7 @@ export function FinanceProvider({ children }) {
       return;
     }
 
+    setLoading(true);
     let hasMigrated = false;
     const unsub = onSnapshot(doc(db, "users", currentUser.uid),
       (snap) => {
