@@ -4,6 +4,7 @@ import { useFinanceData } from "../../hooks/useFinanceData";
 import { useNavigate } from "react-router-dom";
 import { SUGGESTED_CATEGORIES } from "../../context/FinanceContext";
 import CategoryIcon from "../../components/CategoryIcon";
+import { cn } from "../../lib/utils";
 import {
     Loader2, AlertCircle, Wallet, ArrowRight, Plus, Check, X,
     Briefcase, TrendingUp, Utensils, Car, Home, Zap, Clapperboard,
@@ -49,21 +50,34 @@ const TYPE_LABELS = {
     debt: { label: "Debt & EMI", badge: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
 };
 
+const PROFESSION_OPTIONS = ["Business", "Working Professional", "Student", "Home Maker/Housewife"];
+
 const SelectCategories = () => {
-    const { profile, saveCategorySelection } = useFinanceData();
+    const { profile, saveCategorySelection, saveProfile } = useFinanceData();
     const navigate = useNavigate();
 
-    const userProfession = profile?.profession || "Working Professional";
-    const suggestedList = SUGGESTED_CATEGORIES[userProfession] || SUGGESTED_CATEGORIES["Working Professional"];
+    const [currentProfession, setCurrentProfession] = useState(profile?.profession || "Working Professional");
 
-    // Initialize checked state with suggested items
+    // Initialize checked state with suggested items for current profession
     const [categories, setCategories] = useState(() => {
-        return suggestedList.map((cat, idx) => ({
+        const initialList = SUGGESTED_CATEGORIES[currentProfession] || SUGGESTED_CATEGORIES["Working Professional"];
+        return initialList.map((cat, idx) => ({
             ...cat,
             id: `suggested_${idx}`,
             selected: true,
         }));
     });
+
+    const handleProfessionChange = (newProf) => {
+        setCurrentProfession(newProf);
+        saveProfile({ profession: newProf });
+        const newSuggested = SUGGESTED_CATEGORIES[newProf] || SUGGESTED_CATEGORIES["Working Professional"];
+        setCategories(newSuggested.map((cat, idx) => ({
+            ...cat,
+            id: `suggested_${idx}`,
+            selected: true,
+        })));
+    };
 
     const [addingType, setAddingType] = useState(null); // 'income' | 'expense' | 'savings' | 'debt' | null
     const [customName, setCustomName] = useState("");
@@ -126,18 +140,35 @@ const SelectCategories = () => {
             </div>
 
             <div className="relative w-full max-w-2xl animate-up my-8 space-y-6">
-                {/* Header */}
+                {/* Header with Profession Switcher */}
                 <div className="glass-strong rounded-3xl p-6 sm:p-8 space-y-4 text-center">
                     <div className="flex justify-center">
                         <div className="p-3 bg-gradient-to-br from-primary to-purple-600 rounded-2xl shadow-xl shadow-primary/30">
                             <Wallet className="w-7 h-7 text-white" />
                         </div>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-3">
                         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Select your categories</h1>
                         <p className="text-sm text-muted-foreground">
-                            Tailored for <span className="text-primary font-semibold">{userProfession}</span>. Uncheck any you don't need or add your own!
+                            Switch your role anytime below to get instant category recommendations:
                         </p>
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                            {PROFESSION_OPTIONS.map((p) => (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => handleProfessionChange(p)}
+                                    className={cn(
+                                        "px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-sm",
+                                        currentProfession === p
+                                            ? "border-primary bg-primary/20 text-primary ring-2 ring-primary/30"
+                                            : "border-border text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                                    )}
+                                >
+                                    {currentProfession === p && "✓ "}{p}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
