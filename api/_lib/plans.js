@@ -20,13 +20,13 @@ export const PLAN_NAMES = {
 
 // Household seat limits by subscription value (used by the household API only).
 export const SEAT_LIMITS = {
-  free: 1,
-  trial: 4,
-  starter: 4,
-  monthly: 4,
-  yearly: 4,
-  lifetime: 4,
-  sms_pro: 4,
+  free: 1,       // 1 person (owner only - cannot invite people)
+  starter: 2,    // 2 members max (owner + 1 invited person)
+  trial: 4,      // 4 members max (Pro trial)
+  monthly: 4,    // 4 members max (Pro)
+  yearly: 4,     // 4 members max (Pro)
+  lifetime: 4,   // 4 members max (Pro)
+  sms_pro: 4,    // 4 members max (Pro)
 };
 
 export function seatLimitFor(subscription) {
