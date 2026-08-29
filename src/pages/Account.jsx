@@ -632,7 +632,7 @@ const Account = () => {
 };
 
 // ─── Household (Team Sharing) ──────────────────────────────────────────────
-const SEAT_LIMIT_LABELS = { free: 1, trial: 4, starter: 4, monthly: 4, yearly: 4, lifetime: 4, sms_pro: 4 };
+const SEAT_LIMIT_LABELS = { free: 1, starter: 2, trial: 4, monthly: 4, yearly: 4, lifetime: 4, sms_pro: 4 };
 
 const HouseholdCard = () => {
     const {

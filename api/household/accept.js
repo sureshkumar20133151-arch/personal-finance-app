@@ -61,9 +61,13 @@ export default async function handler(req, res) {
       const limit = seatLimitFor(ownerSubscription);
 
       if (household.memberIds.length >= limit) {
-        const err = new Error(
-          `This household is full (${limit} member${limit === 1 ? "" : "s"} max on the owner's current plan).`
-        );
+        let msg = `This household is full (${limit} member${limit === 1 ? "" : "s"} max on the owner's current plan).`;
+        if (ownerSubscription === 'free') {
+          msg = "This household is full. Free plan is 1-person only. Upgrade to Starter (2 members) or Pro (4 members) to invite family.";
+        } else if (ownerSubscription === 'starter') {
+          msg = "This household is full. Starter plan allows 2 members total (owner + 1 invited person). Upgrade to Pro for up to 4 members.";
+        }
+        const err = new Error(msg);
         err.statusCode = 403;
         throw err;
       }
