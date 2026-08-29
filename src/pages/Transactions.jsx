@@ -24,6 +24,8 @@ const Transactions = () => {
         addRecurringTransaction,
         deleteRecurringTransaction,
         isSmsUnlocked,
+        isPro,
+        subscription,
         transactionLimitReached,
         monthlyTransactionCount,
         FREE_PLAN_MONTHLY_TX_LIMIT,
@@ -298,6 +300,11 @@ const Transactions = () => {
     // Process file for parsing (shared by upload and drag&drop)
     const processFile = async (file, password = null) => {
         if (!file) return;
+
+        if (subscription === 'free' || !isPro) {
+            setUploadError('Bank statement PDF & CSV upload requires a Starter or Pro plan. Upgrade to upload statements!');
+            return;
+        }
 
         setIsParsing(true);
         setUploadError('');
