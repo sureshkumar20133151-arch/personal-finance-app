@@ -696,9 +696,23 @@ const HouseholdCard = () => {
     const [error, setError] = useState('');
     const [inviteCode, setInviteCode] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [inlineJoinCode, setInlineJoinCode] = useState('');
 
     const isOwner = householdMeta?.ownerId === currentUser?.uid;
     const seatLimit = SEAT_LIMIT_LABELS[subscription] || 1;
+
+    async function handleJoinWithCodeInline(e) {
+        e.preventDefault();
+        if (!inlineJoinCode.trim()) return;
+        setLoading(true); setError('');
+        try {
+            await joinHousehold(inlineJoinCode.trim());
+            setInlineJoinCode('');
+        } catch (err) {
+            setError(err.message || 'Could not join household. Please check the code.');
+        }
+        setLoading(false);
+    }
 
     async function handleCreate(e) {
         e.preventDefault();
@@ -971,6 +985,38 @@ const HouseholdCard = () => {
                             Generate Household Invite Code
                         </button>
                     )}
+                </div>
+            )}
+
+            {/* Inline Join Code Box (Shown if in a 1-person household) */}
+            {householdMemberBalances.length === 1 && (
+                <div className="mb-4 p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-primary uppercase tracking-wider">
+                        <span className="flex items-center gap-1.5">
+                            <Users className="w-4 h-4" /> Join Existing Household
+                        </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Have an invite code from a teammate or family member? Enter their 6-digit code below to join their household:
+                    </p>
+                    <form onSubmit={handleJoinWithCodeInline} className="flex flex-col sm:flex-row gap-2">
+                        <input
+                            type="text"
+                            value={inlineJoinCode}
+                            onChange={(e) => setInlineJoinCode(e.target.value.toUpperCase())}
+                            placeholder="Enter 6-digit code (e.g. AB12CD)"
+                            maxLength={6}
+                            required
+                            className="flex-1 px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm font-mono tracking-widest font-extrabold uppercase shadow-inner text-foreground placeholder:text-muted-foreground"
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading || !inlineJoinCode.trim()}
+                            className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm hover:opacity-90 transition-all disabled:opacity-50"
+                        >
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join Household"}
+                        </button>
+                    </form>
                 </div>
             )}
 
