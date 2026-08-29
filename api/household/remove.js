@@ -47,11 +47,18 @@ export default async function handler(req, res) {
         throw err;
       }
       if (targetUid === household.ownerId) {
-        const err = new Error(
-          "The owner can't leave/be removed while the household exists. Remove all other members and delete the household instead."
-        );
-        err.statusCode = 400;
-        throw err;
+        if ((household.memberIds || []).length <= 1) {
+          // Delete 1-person household completely
+          tx.delete(householdRef);
+          tx.set(db.doc(`users/${targetUid}`), { householdId: null }, { merge: true });
+          return;
+        } else {
+          const err = new Error(
+            "Owners can't leave while other members remain in the household. Remove all other members first."
+          );
+          err.statusCode = 400;
+          throw err;
+        }
       }
       if (!household.memberIds.includes(targetUid)) {
         const err = new Error("That user is not a member of this household");
