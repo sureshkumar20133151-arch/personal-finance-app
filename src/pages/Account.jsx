@@ -951,7 +951,7 @@ const HouseholdCard = () => {
                                 {copied ? "Copied!" : "Copy Code"}
                             </button>
                             <a
-                                href={`https://wa.me/?text=${encodeURIComponent(`Join my household on BudgetTracker! Use invite code: ${activeCode}`)}`}
+                                href={`https://wa.me/?text=${encodeURIComponent(`Join my household on BudgetTracker!\n\nClick link to join: ${window.location.origin}${window.location.pathname}#/join?code=${activeCode}\nOr use invite code: ${activeCode}`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-3.5 py-2 rounded-xl bg-green-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:bg-green-700 transition-all"

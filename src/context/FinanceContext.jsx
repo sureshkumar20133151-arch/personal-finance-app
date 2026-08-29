@@ -667,6 +667,22 @@ export function FinanceProvider({ children }) {
     return () => unsub();
   }, [state.householdId, currentUser]);
 
+  // ─── Household: auto-join pending invite code after login/onboarding ─────
+  useEffect(() => {
+    const pendingCode = localStorage.getItem("pending_household_code");
+    if (pendingCode && currentUser && !currentUser.isAnonymous && !state.householdId && state.profile?.profileComplete) {
+      console.log("[FinanceContext] Auto-joining pending household code:", pendingCode);
+      callHouseholdApi("accept", { code: pendingCode })
+        .then(() => {
+          localStorage.removeItem("pending_household_code");
+        })
+        .catch((err) => {
+          console.error("Auto-join household failed:", err);
+          localStorage.removeItem("pending_household_code");
+        });
+    }
+  }, [currentUser, state.householdId, state.profile?.profileComplete]);
+
   // ─── Household: keep my own entry in the shared "members" map fresh ──────
   // So other members can see my name/photo and (for household-total math)
   // my personal balance-seed values, without ever needing to read my
