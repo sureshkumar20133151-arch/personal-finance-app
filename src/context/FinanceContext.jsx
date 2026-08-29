@@ -562,6 +562,10 @@ export function FinanceProvider({ children }) {
           let data = {
             ...DEFAULT_STATE,
             ...cloudData,
+            profile: {
+              ...DEFAULT_STATE.profile,
+              ...(cloudData.profile || {}),
+            },
             theme:    cloudData.theme    || DEFAULT_STATE.theme,
             currency: cloudData.currency || DEFAULT_STATE.currency,
           };
@@ -582,6 +586,14 @@ export function FinanceProvider({ children }) {
              hasMigrated = true;
              localStorage.removeItem(STORAGE_KEY);
              
+             // Merge profile (preserve completed profile status)
+             if (localData.profile) {
+                 data.profile = {
+                     ...data.profile,
+                     ...localData.profile,
+                 };
+             }
+
              // Merge Pro status and other primitive settings
              if (localData.subscription && localData.subscription !== 'free') {
                  data.subscription = localData.subscription;
