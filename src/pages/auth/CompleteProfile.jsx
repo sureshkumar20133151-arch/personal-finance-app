@@ -8,16 +8,22 @@ const professionOptions = ["Business", "Working Professional", "Student", "Home 
 
 const CompleteProfile = () => {
     const { currentUser } = useAuth();
-    const { saveProfile } = useFinanceData();
+    const { profile, saveProfile } = useFinanceData();
     const navigate = useNavigate();
 
+    useEffect(() => {
+        if (profile?.profileComplete) {
+            navigate("/select-categories", { replace: true });
+        }
+    }, [profile?.profileComplete, navigate]);
+
     const nameParts = (currentUser?.displayName || "").trim().split(" ");
-    const [firstName, setFirstName] = useState(nameParts[0] || "");
-    const [lastName, setLastName] = useState(nameParts.slice(1).join(" ") || "");
-    const [age, setAge] = useState("");
-    const [place, setPlace] = useState("");
-    const [mobile, setMobile] = useState("");
-    const [profession, setProfession] = useState("");
+    const [firstName, setFirstName] = useState(profile?.firstName || nameParts[0] || "");
+    const [lastName, setLastName] = useState(profile?.lastName || nameParts.slice(1).join(" ") || "");
+    const [age, setAge] = useState(profile?.age ? String(profile.age) : "");
+    const [place, setPlace] = useState(profile?.place || "");
+    const [mobile, setMobile] = useState(profile?.mobile || "");
+    const [profession, setProfession] = useState(profile?.profession || "Working Professional");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -110,7 +116,7 @@ const CompleteProfile = () => {
                             <div className="space-y-1.5">
                                 <label htmlFor="age" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Age</label>
                                 <input id="age" type="number" min="13" max="120" value={age} onChange={e => setAge(e.target.value)}
-                                    placeholder="28" className="input-field" required />
+                                    placeholder="e.g. 25" className="input-field" required />
                             </div>
                             <div className="space-y-1.5">
                                 <label htmlFor="place" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Place</label>
