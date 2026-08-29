@@ -21,8 +21,8 @@ export const PLAN_NAMES = {
 // Household seat limits by subscription value (used by the household API only).
 export const SEAT_LIMITS = {
   free: 1,
-  trial: 1,
-  starter: 2,
+  trial: 4,
+  starter: 4,
   monthly: 4,
   yearly: 4,
   lifetime: 4,
