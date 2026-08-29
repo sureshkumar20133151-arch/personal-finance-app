@@ -44,15 +44,22 @@ export default async function handler(req, res) {
       }
       const household = householdSnap.data();
 
-      if (userSnap.data()?.householdId) {
-        const err = new Error("You're already in a household. Leave it first.");
-        err.statusCode = 409;
-        throw err;
-      }
-      if (household.memberIds.includes(decoded.uid)) {
-        const err = new Error("You're already a member of this household");
-        err.statusCode = 409;
-        throw err;
+      const existingHouseholdId = userSnap.data()?.householdId;
+      if (existingHouseholdId) {
+        if (existingHouseholdId === householdId) {
+          const err = new Error("You're already a member of this household");
+          err.statusCode = 409;
+          throw err;
+        }
+        const existingSnap = await tx.get(db.doc(`households/${existingHouseholdId}`));
+        if (existingSnap.exists && (existingSnap.data()?.memberIds || []).length <= 1) {
+          // Auto-delete user's 1-person household to allow seamless joining
+          tx.delete(db.doc(`households/${existingHouseholdId}`));
+        } else if (existingSnap.exists) {
+          const err = new Error("You're currently in another household with active members. Please leave it first.");
+          err.statusCode = 409;
+          throw err;
+        }
       }
 
       const ownerRef = db.doc(`users/${household.ownerId}`);
