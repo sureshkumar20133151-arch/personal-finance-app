@@ -50,6 +50,7 @@ export default async function handler(req, res) {
       householdId,
       createdAt: new Date().toISOString(),
     });
+    batch.update(householdRef, { inviteCode: code });
     await batch.commit();
 
     return res.status(200).json({ success: true, inviteCode: code });

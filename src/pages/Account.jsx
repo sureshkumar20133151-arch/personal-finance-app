@@ -735,6 +735,12 @@ const HouseholdCard = () => {
         setLoading(false);
     }
 
+    useEffect(() => {
+        if (householdId && isOwner && !householdMeta?.inviteCode && !inviteCode && !loading) {
+            handleGetInviteCode();
+        }
+    }, [householdId, isOwner, householdMeta?.inviteCode]);
+
     async function handleLeave() {
         if (!confirm(isOwner
             ? "Owners can't leave while other members remain. Remove all other members first if you want to leave."
@@ -913,7 +919,7 @@ const HouseholdCard = () => {
             )}
 
             {/* Invite Teammate / Family Member Banner */}
-            {subscription !== 'free' && !isAtSeatLimit && activeCode && (
+            {subscription !== 'free' && !isAtSeatLimit && (
                 <div className="mb-4 p-4 rounded-xl bg-primary/10 border border-primary/20 space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-bold text-primary">
@@ -927,32 +933,44 @@ const HouseholdCard = () => {
                     <p className="text-xs text-muted-foreground">
                         Share this 6-digit invite code with your family member or teammate. They can join from Account &gt; Household &gt; Join with Code:
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="px-4 py-2 rounded-xl bg-background border border-border font-mono text-xl font-black tracking-widest text-foreground shadow-inner">
-                            {activeCode}
+                    {activeCode ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="px-4 py-2 rounded-xl bg-background border border-border font-mono text-xl font-black tracking-widest text-foreground shadow-inner">
+                                {activeCode}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard?.writeText(activeCode);
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 2000);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:opacity-90 transition-all"
+                            >
+                                <Copy className="w-4 h-4" />
+                                {copied ? "Copied!" : "Copy Code"}
+                            </button>
+                            <a
+                                href={`https://wa.me/?text=${encodeURIComponent(`Join my household on BudgetTracker! Use invite code: ${activeCode}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3.5 py-2 rounded-xl bg-green-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:bg-green-700 transition-all"
+                            >
+                                <Share2 className="w-4 h-4" />
+                                Share WhatsApp
+                            </a>
                         </div>
+                    ) : (
                         <button
                             type="button"
-                            onClick={() => {
-                                navigator.clipboard?.writeText(activeCode);
-                                setCopied(true);
-                                setTimeout(() => setCopied(false), 2000);
-                            }}
-                            className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:opacity-90 transition-all"
+                            onClick={handleGetInviteCode}
+                            disabled={loading}
+                            className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center gap-2 shadow-sm hover:bg-primary/90 transition-all"
                         >
-                            <Copy className="w-4 h-4" />
-                            {copied ? "Copied!" : "Copy Code"}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                            Generate Household Invite Code
                         </button>
-                        <a
-                            href={`https://wa.me/?text=${encodeURIComponent(`Join my household on BudgetTracker! Use invite code: ${activeCode}`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3.5 py-2 rounded-xl bg-green-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:bg-green-700 transition-all"
-                        >
-                            <Share2 className="w-4 h-4" />
-                            Share WhatsApp
-                        </a>
-                    </div>
+                    )}
                 </div>
             )}
 

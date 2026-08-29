@@ -51,6 +51,7 @@ export default async function handler(req, res) {
         name: (name || "My Household").trim().slice(0, 60),
         ownerId: decoded.uid,
         memberIds: [decoded.uid],
+        inviteCode: code,
         createdAt: new Date().toISOString(),
       });
       tx.set(codeRef, { householdId: householdRef.id, createdAt: new Date().toISOString() });
