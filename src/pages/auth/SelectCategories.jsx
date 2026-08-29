@@ -183,7 +183,7 @@ const SelectCategories = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {types.map((type) => {
                         const groupCats = categories.filter((c) => c.type === type);
-                        if (groupCats.length === 0 && type === "debt" && userProfession === "Student") {
+                        if (groupCats.length === 0 && type === "debt" && currentProfession === "Student") {
                             // Student default doesn't have debt, but user can still add if they wish
                         }
 
