@@ -750,10 +750,75 @@ export function FinanceProvider({ children }) {
     }
     return res;
   };
-  const joinHousehold = (code) => callHouseholdApi("accept", { code });
+  const generateClientInviteCode = async () => {
+    if (!currentUser || !state.householdId) throw new Error("Not in a household");
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    
+    await setDoc(doc(db, "householdInviteCodes", code), {
+      householdId: state.householdId,
+      createdAt: new Date().toISOString(),
+    });
+    await setDoc(doc(db, "households", state.householdId), {
+      inviteCode: code,
+    }, { merge: true });
+    
+    return { inviteCode: code };
+  };
+
+  const regenerateInviteCode = async () => {
+    try {
+      const res = await callHouseholdApi("invite", {});
+      if (res && res.inviteCode) return res;
+      throw new Error("No code returned from API");
+    } catch (e) {
+      console.warn("[FinanceContext] Backend invite API failed, falling back to client-side Firestore:", e);
+      return await generateClientInviteCode();
+    }
+  };
+
+  const joinHousehold = async (code) => {
+    const cleanCode = (code || "").trim().toUpperCase();
+    if (!cleanCode) throw new Error("Enter an invite code");
+    
+    try {
+      return await callHouseholdApi("accept", { code: cleanCode });
+    } catch (e) {
+      console.warn("[FinanceContext] Backend accept API failed, falling back to client-side Firestore:", e);
+      const codeSnap = await getDoc(doc(db, "householdInviteCodes", cleanCode));
+      if (!codeSnap.exists()) {
+        throw new Error("Invalid or expired invite code");
+      }
+      const { householdId: targetHouseholdId } = codeSnap.data();
+      const targetSnap = await getDoc(doc(db, "households", targetHouseholdId));
+      if (!targetSnap.exists()) {
+        throw new Error("Household no longer exists");
+      }
+      const targetData = targetSnap.data();
+      const currentMembers = targetData.memberIds || [];
+
+      // Auto-leave 1-person household if user is in one
+      if (state.householdId && state.householdId !== targetHouseholdId) {
+        const myHouseholdSnap = await getDoc(doc(db, "households", state.householdId));
+        if (myHouseholdSnap.exists() && (myHouseholdSnap.data()?.memberIds || []).length <= 1) {
+          await deleteDoc(doc(db, "households", state.householdId)).catch(() => {});
+        }
+      }
+
+      await setDoc(doc(db, "households", targetHouseholdId), {
+        memberIds: [...new Set([...currentMembers, currentUser.uid])],
+      }, { merge: true });
+      await setDoc(doc(db, "users", currentUser.uid), {
+        householdId: targetHouseholdId,
+      }, { merge: true });
+
+      return { householdId: targetHouseholdId, name: targetData.name };
+    }
+  };
+
   const leaveHousehold = () => callHouseholdApi("remove", {});
   const removeHouseholdMember = (memberUid) => callHouseholdApi("remove", { memberUid });
-  const regenerateInviteCode = () => callHouseholdApi("invite", {});
   const toggleBalancePrivacy = () => saveProfile({ hideBalanceFromHousehold: !state.profile?.hideBalanceFromHousehold });
 
   // ─── Subscription Status ─────────────────────────────────────────────────
