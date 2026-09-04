@@ -56,6 +56,12 @@ const SelectCategories = () => {
     const { profile, saveCategorySelection, saveProfile } = useFinanceData();
     const navigate = useNavigate();
 
+    useEffect(() => {
+        if (profile?.categoriesSelected) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [profile?.categoriesSelected, navigate]);
+
     const [currentProfession, setCurrentProfession] = useState(profile?.profession || "Working Professional");
 
     // Initialize checked state with suggested items for current profession

@@ -570,6 +570,28 @@ export function FinanceProvider({ children }) {
             currency: cloudData.currency || DEFAULT_STATE.currency,
           };
 
+          // Existing user auto-migration: if cloudData has transactions, categories, household, subscription, or profile fields, treat profile & categories as completed!
+          const hasExistingData = (cloudData.transactions && cloudData.transactions.length > 0) || 
+                                  (cloudData.categories && cloudData.categories.length > 0) ||
+                                  cloudData.householdId ||
+                                  cloudData.profile?.firstName ||
+                                  cloudData.profile?.profession ||
+                                  (cloudData.subscription && cloudData.subscription !== 'free');
+
+          if (hasExistingData) {
+            data.profile.profileComplete = true;
+            data.profile.categoriesSelected = true;
+            if (!cloudData.profile?.profileComplete || !cloudData.profile?.categoriesSelected) {
+              setDoc(doc(db, "users", currentUser.uid), {
+                profile: {
+                  ...data.profile,
+                  profileComplete: true,
+                  categoriesSelected: true,
+                }
+              }, { merge: true }).catch((e) => console.error("[FinanceContext] Failed to persist auto-completed profile:", e));
+            }
+          }
+
           // Household fix: HOUSEHOLD_SHARED_FIELDS on this personal doc are
           // leftover/stale once a user is in a household (writes stopped
           // going here, but Firestore merge:true never deletes the old
