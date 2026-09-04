@@ -13,9 +13,13 @@ const CompleteProfile = () => {
 
     useEffect(() => {
         if (profile?.profileComplete) {
-            navigate("/select-categories", { replace: true });
+            if (profile?.categoriesSelected) {
+                navigate("/dashboard", { replace: true });
+            } else {
+                navigate("/select-categories", { replace: true });
+            }
         }
-    }, [profile?.profileComplete, navigate]);
+    }, [profile?.profileComplete, profile?.categoriesSelected, navigate]);
 
     const nameParts = (currentUser?.displayName || "").trim().split(" ");
     const [firstName, setFirstName] = useState(profile?.firstName || nameParts[0] || "");
