@@ -56,7 +56,7 @@ const SelectCategories = () => {
     const { profile, saveCategorySelection, saveProfile } = useFinanceData();
     const navigate = useNavigate();
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (profile?.categoriesSelected) {
             navigate("/dashboard", { replace: true });
         }

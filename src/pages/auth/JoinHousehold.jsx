@@ -17,7 +17,7 @@ const JoinHousehold = () => {
     const [error, setError] = useState("");
     const [joined, setJoined] = useState(false);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (codeParam) {
             const formatted = codeParam.toUpperCase().trim();
             setCode(formatted);
