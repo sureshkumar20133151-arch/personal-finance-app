@@ -1,0 +1,12 @@
+node_modules
+android
+dist_nsis
+electron
+build
+scratch
+*.apk
+*.pdf
+*.jpeg
+*.jpg
+pnpm-lock.yaml
+.git
