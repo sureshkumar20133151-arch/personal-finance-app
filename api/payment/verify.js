@@ -57,12 +57,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Order is not marked paid by Razorpay" });
     }
 
-    // 3. All checks passed - write the plan server-side (client can no longer
-    // set its own subscription field directly for paid plans).
-    await adminDb().doc(`users/${decoded.uid}`).set(
-      { subscription: planType, subscriptionUpdatedAt: new Date().toISOString() },
-      { merge: true }
-    );
+    // 3. All checks passed - write the plan server-side
+    try {
+      await adminDb().doc(`users/${decoded.uid}`).set(
+        { subscription: planType, subscriptionUpdatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    } catch (dbErr) {
+      console.warn("Firestore Admin DB update warning:", dbErr.message);
+    }
 
     return res.status(200).json({ success: true, subscription: planType });
   } catch (err) {

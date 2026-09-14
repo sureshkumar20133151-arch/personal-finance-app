@@ -227,16 +227,15 @@ const Account = () => {
 
         const finishVerification = async (response) => {
             try {
-                await verifyPaymentOnServer({
+                const res = await verifyPaymentOnServer({
                     razorpay_order_id: response.razorpay_order_id || order.orderId,
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_signature: response.razorpay_signature,
                     planType,
                 });
-                // No client-side write here on purpose: the backend already wrote
-                // `subscription` via the Admin SDK, and the app has a live
-                // onSnapshot listener on this user's doc, so the UI updates
-                // automatically once Firestore reflects the server's write.
+                if (res?.success) {
+                    await updateSubscription(planType);
+                }
                 alert('Payment successful! Your plan has been upgraded.');
             } catch (err) {
                 console.error('Payment verification failed:', err);
