@@ -4,13 +4,6 @@ const ACTIVE_KEY_ID = "rzp_live_TbaEqXiggkCFdn";
 const ACTIVE_KEY_SECRET = "lskN2g7hFhZTyzE5jff5hwaR";
 
 export function getRazorpayCredentials() {
-  const envId = (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "").trim();
-  const envSecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
-
-  // If env var has the old deactivated key or empty, fallback to the confirmed active keys
-  if (envId && envId !== "rzp_live_SxnMdRoFHmdcg8" && envSecret && envSecret !== "IyfJMVATRJEbY42hSjAaqR7r") {
-    return { keyId: envId, keySecret: envSecret };
-  }
   return { keyId: ACTIVE_KEY_ID, keySecret: ACTIVE_KEY_SECRET };
 }
 
