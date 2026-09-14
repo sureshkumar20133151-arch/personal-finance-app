@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const order = await razorpay.orders.create({
       amount,
       currency: "INR",
-      receipt: `${decoded.uid}_${planType}_${Date.now()}`,
+      receipt: `rcpt_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
       notes: { uid: decoded.uid, planType },
     });
 
@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("create-order failed", err);
-    return res.status(500).json({ error: err.message || "Could not create payment order" });
+    const msg = err?.error?.description || err?.message || "Could not create payment order";
+    return res.status(500).json({ error: msg });
   }
 }
