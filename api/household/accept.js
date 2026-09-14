@@ -20,7 +20,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Enter an invite code" });
   }
 
-  const db = adminDb();
+  const db = await adminDb();
+  if (!db) {
+    return res.status(500).json({ error: "Server database not configured" });
+  }
 
   try {
     const codeSnap = await db.doc(`householdInviteCodes/${code}`).get();
