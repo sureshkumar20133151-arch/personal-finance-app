@@ -1,5 +1,5 @@
 import { requireAuth } from "../_lib/firebaseAdmin.js";
-import { getRazorpayClient } from "../_lib/razorpay.js";
+import { getRazorpayClient, getRazorpayKeyId } from "../_lib/razorpay.js";
 import { PLAN_AMOUNTS_PAISE, PLAN_NAMES } from "../_lib/plans.js";
 import { applyCors } from "../_lib/cors.js";
 
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TbaEqXiggkCFdn",
+      keyId: getRazorpayKeyId(),
       planName: PLAN_NAMES[planType],
     });
   } catch (err) {
