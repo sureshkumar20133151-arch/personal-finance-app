@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SxnMdRoFHmdcg8",
+      keyId: process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TbaEqXiggkCFdn",
       planName: PLAN_NAMES[planType],
     });
   } catch (err) {

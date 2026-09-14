@@ -205,7 +205,7 @@ const Account = () => {
         }
 
         const options = {
-            key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_SxnMdRoFHmdcg8',
+            key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_TbaEqXiggkCFdn',
             amount: order.amount,
             currency: order.currency,
             order_id: order.orderId,
