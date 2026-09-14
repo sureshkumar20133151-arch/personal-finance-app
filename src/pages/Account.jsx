@@ -199,13 +199,13 @@ const Account = () => {
             order = await createOrderOnServer(planType);
         } catch (err) {
             console.error('create-order failed:', err);
-            alert('Could not start checkout. Please try again.');
+            alert('Could not start checkout: ' + (err.message || 'Please try again.'));
             setCheckoutLoading(false);
             return;
         }
 
         const options = {
-            key: order.keyId,
+            key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_SxnMdRoFHmdcg8',
             amount: order.amount,
             currency: order.currency,
             order_id: order.orderId,

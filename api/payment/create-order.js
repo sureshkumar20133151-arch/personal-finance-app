@@ -35,11 +35,11 @@ export default async function handler(req, res) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId: process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SxnMdRoFHmdcg8",
       planName: PLAN_NAMES[planType],
     });
   } catch (err) {
     console.error("create-order failed", err);
-    return res.status(500).json({ error: "Could not create payment order" });
+    return res.status(500).json({ error: err.message || "Could not create payment order" });
   }
 }
