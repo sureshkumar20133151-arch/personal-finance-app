@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
     // 3. All checks passed - write the plan server-side (if Admin SDK is available)
     try {
-      const db = adminDb();
+      const db = await adminDb();
       if (db) {
         await db.doc(`users/${decoded.uid}`).set(
           { subscription: planType, subscriptionUpdatedAt: new Date().toISOString() },

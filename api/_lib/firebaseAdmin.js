@@ -1,14 +1,5 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-
-// ─── Firebase Admin SDK (only used if env vars are configured) ──────────────
-// Required env vars (optional — set in Vercel Project Settings → Environment Variables):
-//   FIREBASE_PROJECT_ID
-//   FIREBASE_CLIENT_EMAIL
-//   FIREBASE_PRIVATE_KEY   (paste the private_key value from the service account JSON)
-
-function tryGetAdminApp() {
+// ─── Firebase Admin SDK (lazily imported only if env vars are present) ──────
+async function tryGetAdminApp() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const rawKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -16,6 +7,7 @@ function tryGetAdminApp() {
   if (!projectId || !clientEmail || !rawKey) return null;
 
   try {
+    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
     if (getApps().length) return getApps()[0];
     const privateKey = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
     return initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
@@ -25,10 +17,11 @@ function tryGetAdminApp() {
   }
 }
 
-export function adminDb() {
-  const app = tryGetAdminApp();
+export async function adminDb() {
+  const app = await tryGetAdminApp();
   if (!app) return null;
   try {
+    const { getFirestore } = await import("firebase-admin/firestore");
     return getFirestore(app);
   } catch (e) {
     console.warn("[firebaseAdmin] adminDb() failed:", e.message);
@@ -36,10 +29,9 @@ export function adminDb() {
   }
 }
 
-// ─── JWT payload decoder (no Admin SDK required) ────────────────────────────
-// Firebase ID tokens are standard JWTs. Decoding the payload gives uid/email.
-// This is safe: the token was issued by Firebase/Google and signed with their
-// private key. We use it as the fallback when Admin SDK creds are absent.
+// ─── JWT payload decoder (zero external dependencies) ────────────────────────
+// Firebase ID tokens are standard JWTs signed by Google.
+// We extract the user identity (uid/email) directly from the payload.
 function decodeFirebaseJwt(token) {
   try {
     const parts = token.split(".");
@@ -68,17 +60,18 @@ export async function requireAuth(req) {
   }
   const token = match[1];
 
-  // Try Admin SDK verification first (most secure)
-  const app = tryGetAdminApp();
-  if (app) {
-    try {
+  // Try Admin SDK verification if credentials exist
+  try {
+    const app = await tryGetAdminApp();
+    if (app) {
+      const { getAuth } = await import("firebase-admin/auth");
       return await getAuth(app).verifyIdToken(token);
-    } catch (e) {
-      console.warn("[firebaseAdmin] verifyIdToken failed, falling back to JWT decode:", e.message);
     }
+  } catch (e) {
+    console.warn("[firebaseAdmin] verifyIdToken failed, falling back to JWT decode:", e.message);
   }
 
-  // Fallback: decode JWT payload (always works, no credentials needed)
+  // Fallback: decode JWT payload (always works, zero dependencies)
   const decoded = decodeFirebaseJwt(token);
   if (decoded) return decoded;
 
