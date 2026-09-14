@@ -684,7 +684,11 @@ export function FinanceProvider({ children }) {
           return merged;
         });
       },
-      (err) => console.error("Household snapshot error", err)
+      (err) => {
+        if (err?.code !== 'permission-denied') {
+          console.warn("[FinanceContext] Household snapshot notice:", err?.message || err);
+        }
+      }
     );
     return () => unsub();
   }, [state.householdId, currentUser]);
@@ -727,7 +731,11 @@ export function FinanceProvider({ children }) {
       doc(db, "households", householdId),
       { members: { [currentUser.uid]: sanitizeForFirestore(memberInfo) } },
       { merge: true }
-    ).catch((e) => console.error("Household member sync failed", e));
+    ).catch((e) => {
+      if (e?.code !== 'permission-denied') {
+        console.warn("[FinanceContext] Household member sync notice:", e?.message || e);
+      }
+    });
   }, [
     state.householdId, currentUser,
     state.profile?.firstName, state.profile?.lastName, state.profile?.hideBalanceFromHousehold,
@@ -1292,7 +1300,9 @@ export function FinanceProvider({ children }) {
         return snap.data();
       }
     } catch (e) {
-      console.error("Error checking deleted account:", e);
+      if (e?.code !== 'permission-denied') {
+        console.warn("[FinanceContext] Deleted account check notice:", e?.message || e);
+      }
     }
     return null;
   };

@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Allow authenticated users to read and write their own profile document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow authenticated users to check & recover their deleted account document
+    match /deleted_users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow authenticated users to access household docs
+    match /households/{householdId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Allow authenticated users to read and write household invite codes
+    match /householdInviteCodes/{code} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
