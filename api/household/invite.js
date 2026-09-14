@@ -21,7 +21,10 @@ export default async function handler(req, res) {
     return res.status(err.statusCode || 401).json({ error: err.message });
   }
 
-  const db = adminDb();
+  const db = await adminDb();
+  if (!db) {
+    return res.status(500).json({ error: "Server database not configured" });
+  }
   const userRef = db.doc(`users/${decoded.uid}`);
 
   try {

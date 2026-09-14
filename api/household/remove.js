@@ -19,7 +19,10 @@ export default async function handler(req, res) {
   const { memberUid } = req.body || {};
   const targetUid = memberUid || decoded.uid;
 
-  const db = adminDb();
+  const db = await adminDb();
+  if (!db) {
+    return res.status(500).json({ error: "Server database not configured" });
+  }
 
   try {
     const callerRef = db.doc(`users/${decoded.uid}`);
