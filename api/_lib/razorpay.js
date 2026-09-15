@@ -1,10 +1,15 @@
 import crypto from "crypto";
 
-const ACTIVE_KEY_ID = "rzp_live_TbaEqXiggkCFdn";
-const ACTIVE_KEY_SECRET = "lskN2g7hFhZTyzE5jff5hwaR";
-
 export function getRazorpayCredentials() {
-  return { keyId: ACTIVE_KEY_ID, keySecret: ACTIVE_KEY_SECRET };
+  const keyId = (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "").trim();
+  const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
+
+  if (!keyId || !keySecret) {
+    throw new Error(
+      "Razorpay credentials are not configured (missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET env vars)"
+    );
+  }
+  return { keyId, keySecret };
 }
 
 export function getRazorpayKeyId() {
