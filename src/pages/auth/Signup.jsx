@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle, Wallet, Eye, EyeOff, ArrowRight, CheckCircle2, Gift } from "lucide-react";
@@ -13,7 +13,7 @@ const perks = [
 const professionOptions = ["Business", "Working Professional", "Student", "Home Maker/Housewife"];
 
 const Signup = () => {
-    const { signup, loginWithGoogle, loginAsDemoUser } = useAuth();
+    const { currentUser, signup, loginWithGoogle, loginAsDemoUser } = useAuth();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [age, setAge] = useState("");
@@ -27,6 +27,14 @@ const Signup = () => {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
+
+    // Safety net: don't leave an already-logged-in user stranded on the
+    // signup form if a persisted session resolves after this page renders.
+    useEffect(() => {
+        if (currentUser) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [currentUser, navigate]);
 
     async function handleGoogleSignup() {
         try {

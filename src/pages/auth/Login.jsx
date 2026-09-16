@@ -6,7 +6,7 @@ import { auth } from "../../lib/firebase";
 import { signInWithCredential, GoogleAuthProvider } from "firebase/auth";
 
 const Login = () => {
-    const { login, loginWithGoogle, loginAsDemoUser } = useAuth();
+    const { currentUser, login, loginWithGoogle, loginAsDemoUser } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -14,6 +14,15 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
+
+    // Safety net: if a persisted session resolves after this page has already
+    // rendered (slow IndexedDB restore on some devices), bounce straight back
+    // in rather than leaving an already-logged-in user stuck on the login form.
+    useEffect(() => {
+        if (currentUser) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [currentUser, navigate]);
 
     useEffect(() => {
         window.handleElectronDeepLink = async (url) => {

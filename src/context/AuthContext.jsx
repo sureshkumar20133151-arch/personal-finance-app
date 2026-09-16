@@ -140,10 +140,14 @@ export function AuthProvider({ children }) {
                 setLoading(false);
             });
 
-            // Fallback: Ensure app loads cleanly if network or IndexedDB initialization is slow
+            // Fallback: only kicks in if Firebase genuinely never responds (e.g. a
+            // hung network request or a broken IndexedDB store) — 1.5s was too
+            // aggressive and routinely fired before a real, persisted session had
+            // finished restoring on slower devices/WebViews, dumping people back
+            // onto the Login screen even though they were never signed out.
             const timer = setTimeout(() => {
                 setLoading((currentLoading) => currentLoading ? false : currentLoading);
-            }, 1500);
+            }, 8000);
 
             return () => {
                 unsubscribe();
