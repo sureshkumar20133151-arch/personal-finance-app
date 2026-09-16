@@ -1224,9 +1224,30 @@ export function FinanceProvider({ children }) {
     addTransaction(adjustmentTx);
   }, [bankAccountBalances, addTransaction]);
 
-  const addCategory    = (cat)    => saveImmediate({ ...state, categories: [...state.categories, { ...cat, id: uuidv4() }] });
-  const deleteCategory = (id)     => saveImmediate({ ...state, categories: state.categories.filter(c => c.id !== id) });
-  const updateCategory = (id, up) => saveImmediate({ ...state, categories: state.categories.map(c => c.id === id ? { ...c, ...up } : c) });
+  const addCategory = useCallback((cat) => {
+    const currentCats = Array.isArray(state.categories) ? state.categories : DEFAULT_CATEGORIES;
+    const newCat = {
+      id: uuidv4(),
+      budget: 0,
+      color: "#10b981",
+      icon: "Tag",
+      ...cat,
+    };
+    const next = { ...state, categories: [...currentCats, newCat] };
+    return saveImmediate(next);
+  }, [state, saveImmediate]);
+
+  const deleteCategory = useCallback((id) => {
+    const currentCats = Array.isArray(state.categories) ? state.categories : DEFAULT_CATEGORIES;
+    const next = { ...state, categories: currentCats.filter(c => c.id !== id) };
+    return saveImmediate(next);
+  }, [state, saveImmediate]);
+
+  const updateCategory = useCallback((id, up) => {
+    const currentCats = Array.isArray(state.categories) ? state.categories : DEFAULT_CATEGORIES;
+    const next = { ...state, categories: currentCats.map(c => c.id === id ? { ...c, ...up } : c) };
+    return saveImmediate(next);
+  }, [state, saveImmediate]);
 
   const updateCurrency    = (c)    => saveImmediate({ ...state, currency: c });
   const updateTheme       = (t)    => saveImmediate({ ...state, theme: { ...state.theme, ...t } });
