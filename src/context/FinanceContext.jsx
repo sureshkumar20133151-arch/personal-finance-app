@@ -562,6 +562,7 @@ export function FinanceProvider({ children }) {
           let data = {
             ...DEFAULT_STATE,
             ...cloudData,
+            categories: Array.isArray(cloudData.categories) ? cloudData.categories : DEFAULT_CATEGORIES,
             profile: {
               ...DEFAULT_STATE.profile,
               ...(cloudData.profile || {}),
@@ -569,6 +570,12 @@ export function FinanceProvider({ children }) {
             theme:    cloudData.theme    || DEFAULT_STATE.theme,
             currency: cloudData.currency || DEFAULT_STATE.currency,
           };
+
+          // If categories was not saved to Firestore yet, seed it once so Firestore explicitly tracks user's category list
+          if (!Array.isArray(cloudData.categories)) {
+            setDoc(doc(db, "users", currentUser.uid), { categories: data.categories }, { merge: true })
+              .catch(e => console.error("[FinanceContext] Failed to seed default categories:", e));
+          }
 
           // Existing user auto-migration: if cloudData has transactions, categories, household, subscription, or profile fields, treat profile & categories as completed!
           const hasExistingData = (cloudData.transactions && cloudData.transactions.length > 0) || 
@@ -592,23 +599,30 @@ export function FinanceProvider({ children }) {
             }
           }
 
-          // Household fix: HOUSEHOLD_SHARED_FIELDS on this personal doc are
-          // leftover/stale once a user is in a household (writes stopped
-          // going here, but Firestore merge:true never deletes the old
-          // values, it just stops touching them - see splitForHousehold).
-          // Force these back to defaults so stale personal data can't leak
-          // into `state` (and get duplicated into the household doc on the
-          // next save) before the separate household onSnapshot listener
-          // supplies the real shared values a moment later.
+          // Household fix: Do not let stale personal data leak into household doc,
+          // but avoid resetting categories to default state.
           if (data.householdId) {
-            HOUSEHOLD_SHARED_FIELDS.forEach((f) => { data[f] = DEFAULT_STATE[f]; });
+            ["transactions", "recurring", "loans"].forEach((f) => { data[f] = DEFAULT_STATE[f]; });
           }
           
-          if (localData && !hasMigrated) {
+          // One-time guest data migration:
+          // ONLY run if the user is transitioning from an offline guest session
+          // (cloud doc is brand new with no existing transactions/categories, and has never migrated)
+          const migrationKey = `fintrack_migrated_${currentUser.uid}`;
+          const alreadyMigrated = localStorage.getItem(migrationKey) === "true";
+
+          const isBrandNewCloudUser = !alreadyMigrated && (
+            (!cloudData.transactions || cloudData.transactions.length === 0) &&
+            (!cloudData.categories || cloudData.categories.length === 0) &&
+            !cloudData.householdId
+          );
+
+          if (localData && isBrandNewCloudUser && !hasMigrated) {
              hasMigrated = true;
+             localStorage.setItem(migrationKey, "true");
              localStorage.removeItem(STORAGE_KEY);
              
-             // Merge profile (preserve completed profile status)
+             // Merge profile
              if (localData.profile) {
                  data.profile = {
                      ...data.profile,
@@ -623,20 +637,14 @@ export function FinanceProvider({ children }) {
              if (localData.monthlyBudget) data.monthlyBudget = localData.monthlyBudget;
              if (localData.salaryDate) data.salaryDate = localData.salaryDate;
              
-             // Merge transactions (simple deduplication by ID)
-             if (localData.transactions && localData.transactions.length > 0) {
-                 const existingIds = new Set((data.transactions || []).map(t => t.id));
-                 const newTxs = localData.transactions.filter(t => !existingIds.has(t.id));
-                 data.transactions = [...(data.transactions || []), ...newTxs];
+             // Only seed transactions and categories from local if cloud had none
+             if (Array.isArray(localData.transactions) && localData.transactions.length > 0) {
+                 data.transactions = localData.transactions;
              }
-             // Merge categories
-             if (localData.categories) {
-                 const existingNames = new Set((data.categories || []).map(c => c.name));
-                 const newCats = localData.categories.filter(c => !existingNames.has(c.name));
-                 data.categories = [...(data.categories || []), ...newCats];
+             if (Array.isArray(localData.categories) && localData.categories.length > 0) {
+                 data.categories = localData.categories;
              }
              
-             // Write back the merged data to cloud (this will trigger onSnapshot again, but hasMigrated is true now)
              setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true });
           }
           
@@ -1239,13 +1247,13 @@ export function FinanceProvider({ children }) {
 
   const deleteCategory = useCallback((id) => {
     const currentCats = Array.isArray(state.categories) ? state.categories : DEFAULT_CATEGORIES;
-    const next = { ...state, categories: currentCats.filter(c => c.id !== id) };
+    const next = { ...state, categories: currentCats.filter(c => String(c.id) !== String(id)) };
     return saveImmediate(next);
   }, [state, saveImmediate]);
 
   const updateCategory = useCallback((id, up) => {
     const currentCats = Array.isArray(state.categories) ? state.categories : DEFAULT_CATEGORIES;
-    const next = { ...state, categories: currentCats.map(c => c.id === id ? { ...c, ...up } : c) };
+    const next = { ...state, categories: currentCats.map(c => String(c.id) === String(id) ? { ...c, ...up } : c) };
     return saveImmediate(next);
   }, [state, saveImmediate]);
 
