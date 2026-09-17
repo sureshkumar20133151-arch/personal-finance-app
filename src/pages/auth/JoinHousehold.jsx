@@ -64,16 +64,16 @@ const JoinHousehold = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background p-4 sm:p-6">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-32 -right-32 w-80 h-80 bg-primary/15 rounded-full blur-3xl animate-float" />
-                <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.2s' }} />
+            {/* Subtle background glow */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
             </div>
 
             <div className="relative w-full max-w-md animate-up">
                 <div className="glass-strong rounded-3xl p-7 sm:p-8 space-y-6 text-center">
                     <div className="flex justify-center">
-                        <div className="p-3.5 bg-gradient-to-br from-primary to-purple-600 rounded-2xl shadow-xl shadow-primary/30">
-                            <Users className="w-8 h-8 text-white" />
+                        <div className="p-3.5 bg-primary/10 border border-primary/20 rounded-2xl shadow-sm text-primary">
+                            <Users className="w-8 h-8" />
                         </div>
                     </div>
 

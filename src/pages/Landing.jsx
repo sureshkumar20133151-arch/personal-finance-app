@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import {
     TrendingUp, Shield, BarChart3, CheckCircle2,
     ArrowRight, Lock, Smartphone, Zap,
@@ -11,13 +10,7 @@ import {
 
 const Landing = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const { loginAsDemoUser } = useAuth();
     const navigate = useNavigate();
-
-    const handleDemo = async () => {
-        await loginAsDemoUser();
-        navigate('/dashboard');
-    };
 
     // FAQ Data
     const faqs = [
@@ -93,9 +86,6 @@ const Landing = () => {
                             <Link to="/signup" className="w-full sm:w-auto inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-xl">
                                 Get Started Free <ArrowRight className="ml-2 w-4 h-4" />
                             </Link>
-                            <button onClick={handleDemo} className="w-full sm:w-auto inline-flex h-12 items-center justify-center rounded-xl bg-orange-100 border border-orange-200 px-8 text-base font-bold text-orange-700 shadow-sm transition-all hover:bg-orange-200">
-                                Try Demo
-                            </button>
                             <Link to="/login" className="w-full sm:w-auto inline-flex h-12 items-center justify-center rounded-xl bg-white border border-slate-200 px-8 text-base font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-primary">
                                 Login
                             </Link>
