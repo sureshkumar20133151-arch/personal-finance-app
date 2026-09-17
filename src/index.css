@@ -6,80 +6,81 @@
 
 @layer base {
   :root {
-    /* Premium Light Theme */
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    /* Premium Clean Light Theme */
+    --background: 210 33% 99%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 246 80% 60%;
+    --primary: 226 70% 55%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 214 32% 96%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 214 32% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 214 32% 96%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 246 80% 60%;
+    --border: 214 24% 90%;
+    --input: 214 24% 90%;
+    --ring: 226 70% 55%;
 
-    --radius: 1rem;
+    --radius: 0.875rem;
 
-    /* Semantic income/expense colors */
-    --color-income: 142 71% 45%;
-    --color-expense: 0 84% 60%;
-    --color-savings: 217 91% 60%;
-    --color-debt: 25 95% 53%;
+    /* Semantic income/expense colors - clear, high-contrast, accessible */
+    --color-income: 156 72% 38%;
+    --color-expense: 0 72% 51%;
+    --color-savings: 217 80% 54%;
+    --color-debt: 28 85% 50%;
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
+    /* Deep Slate Dark Theme */
+    --background: 222 36% 7%;
+    --foreground: 210 30% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 32% 10%;
+    --card-foreground: 210 30% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 32% 10%;
+    --popover-foreground: 210 30% 98%;
 
-    --primary: 246 80% 65%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 226 75% 62%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 218 24% 14%;
+    --secondary-foreground: 210 30% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 218 24% 14%;
+    --muted-foreground: 215 16% 62%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 218 24% 14%;
+    --accent-foreground: 210 30% 98%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 52%;
+    --destructive-foreground: 210 30% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 246 80% 65%;
+    --border: 220 20% 16%;
+    --input: 220 20% 16%;
+    --ring: 226 75% 62%;
   }
 
-  [data-theme="green"]      { --primary: 150 100% 40%; }
-  .dark[data-theme="green"] { --primary: 150 70%  50%; }
-  [data-theme="purple"]     { --primary: 270 90%  60%; }
-  .dark[data-theme="purple"]{ --primary: 270 80%  70%; }
-  [data-theme="orange"]     { --primary: 25 100%  55%; }
-  .dark[data-theme="orange"]{ --primary: 25 100%  65%; }
+  [data-theme="green"]      { --primary: 158 64% 40%; }
+  .dark[data-theme="green"] { --primary: 158 60% 48%; }
+  [data-theme="purple"]     { --primary: 252 56% 56%; }
+  .dark[data-theme="purple"]{ --primary: 252 62% 66%; }
+  [data-theme="orange"]     { --primary: 28 80%  50%; }
+  .dark[data-theme="orange"]{ --primary: 28 85%  58%; }
 }
 
 @layer base {
@@ -224,10 +225,10 @@
     animation: pulse-green 2s ease-in-out infinite;
   }
 
-  /* Nav active glow */
+  /* Nav active elevation */
   .nav-active-glow {
-    box-shadow: 0 4px 24px -4px hsl(var(--primary) / 0.4),
-                0 0 0 1px hsl(var(--primary) / 0.1) inset;
+    box-shadow: 0 2px 8px -2px hsl(var(--primary) / 0.35),
+                0 0 0 1px hsl(var(--primary) / 0.2) inset;
   }
 
   /* Mobile-safe bottom padding */

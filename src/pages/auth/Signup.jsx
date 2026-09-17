@@ -13,7 +13,7 @@ const perks = [
 const professionOptions = ["Business", "Working Professional", "Student", "Home Maker/Housewife"];
 
 const Signup = () => {
-    const { currentUser, signup, loginWithGoogle, loginAsDemoUser } = useAuth();
+    const { currentUser, signup, loginWithGoogle } = useAuth();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [age, setAge] = useState("");
@@ -78,11 +78,9 @@ const Signup = () => {
     return (
         <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background p-4">
 
-            {/* Animated blobs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-32 -right-32 w-80 h-80 bg-primary/15 rounded-full blur-3xl animate-float" />
-                <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.2s' }} />
-                <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-emerald-500/8 rounded-full blur-3xl animate-float" style={{ animationDelay: '0.6s' }} />
+            {/* Subtle background glow */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
             </div>
 
             <div className="relative w-full max-w-lg animate-up">
@@ -91,18 +89,18 @@ const Signup = () => {
                     {/* Header */}
                     <div className="text-center space-y-2">
                         <div className="flex justify-center mb-3">
-                            <div className="p-3 bg-gradient-to-br from-primary to-purple-600 rounded-2xl shadow-xl shadow-primary/30">
-                                <Wallet className="w-7 h-7 text-white" />
+                            <div className="p-3 bg-primary/10 border border-primary/20 rounded-2xl shadow-sm">
+                                <Wallet className="w-7 h-7 text-primary" />
                             </div>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Create account</h1>
                         <p className="text-sm text-muted-foreground">
-                            Join <span className="text-gradient font-semibold">BudgetTracker</span> — free for 6 months
+                            Join <span className="font-semibold text-foreground">BudgetTracker</span> — free for 6 months
                         </p>
                     </div>
 
                     {/* Trial perks */}
-                    <div className="bg-gradient-to-r from-primary/8 to-purple-500/8 border border-primary/15 rounded-2xl p-4">
+                    <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4">
                         <div className="flex items-center gap-2 mb-2.5">
                             <Gift className="w-4 h-4 text-primary" />
                             <span className="text-xs font-bold text-primary uppercase tracking-wider">Free 6-Month Trial</span>
@@ -223,12 +221,6 @@ const Signup = () => {
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Create Account</span><ArrowRight className="w-4 h-4" /></>}
                         </button>
                     </form>
-
-                    {/* Demo */}
-                    <button type="button" onClick={() => { loginAsDemoUser(); navigate("/dashboard"); }}
-                        className="w-full h-10 rounded-xl border border-dashed border-border/80 text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-muted/40 transition-all duration-200 font-medium">
-                        ✨ Try Demo — No signup required
-                    </button>
 
                     <p className="text-center text-sm text-muted-foreground">
                         Already have an account?{" "}

@@ -14,12 +14,12 @@ import { triggerHapticSelection } from '../lib/haptics';
 import AvatarFallback from './AvatarFallback';
 
 const desktopNavItems = [
-  { name: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard, color: 'text-violet-400' },
-  { name: 'Transactions', path: '/transactions', icon: Receipt,         color: 'text-blue-400'   },
-  { name: 'Budget',       path: '/budget',       icon: PieChart,        color: 'text-emerald-400'},
-  { name: 'Loans',        path: '/loans',        icon: Building2,       color: 'text-amber-400'  },
-  { name: 'Setup',        path: '/setup',        icon: Settings,        color: 'text-pink-400'   },
-  { name: 'Account',      path: '/account',      icon: User,            color: 'text-cyan-400'   },
+  { name: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard },
+  { name: 'Transactions', path: '/transactions', icon: Receipt         },
+  { name: 'Budget',       path: '/budget',       icon: PieChart        },
+  { name: 'Loans',        path: '/loans',        icon: Building2       },
+  { name: 'Setup',        path: '/setup',        icon: Settings        },
+  { name: 'Account',      path: '/account',      icon: User            },
 ];
 
 const mobileNavItems = [
@@ -46,20 +46,20 @@ const Layout = () => {
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/8 via-background to-background w-full max-w-full overflow-x-hidden relative">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 w-full max-w-full overflow-x-hidden relative">
 
       {/* ── Mobile Header ─────────────────────────────────────── */}
       <header className={cn(
         "md:hidden flex items-center justify-between px-4 py-3 sticky top-0 z-40 transition-all duration-300",
         scrolled
-          ? "bg-card/90 backdrop-blur-xl border-b border-border shadow-sm"
-          : "bg-transparent"
+          ? "bg-card/95 backdrop-blur-xl border-b border-border shadow-sm"
+          : "bg-background/80 backdrop-blur-md"
       )}>
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 bg-gradient-to-br from-primary to-purple-600 rounded-lg shadow-md shadow-primary/30">
-            <Wallet className="w-4 h-4 text-white" />
+          <div className="p-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20 shadow-sm">
+            <Wallet className="w-4 h-4" />
           </div>
-          <span className="text-lg font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent tracking-tight">
+          <span className="text-lg font-bold text-foreground tracking-tight">
             BudgetTracker
           </span>
         </div>
@@ -80,25 +80,25 @@ const Layout = () => {
             <AvatarFallback />
           )}
           {(isPro || subscription === 'trial') && (
-            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full border-2 border-background" />
+            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-background" />
           )}
         </NavLink>
       </header>
 
       {/* ── Desktop Sidebar ────────────────────────────────────── */}
-      <aside className="hidden md:flex w-64 lg:w-72 bg-card/50 backdrop-blur-2xl border-r border-border/60 shadow-2xl h-screen sticky top-0 flex-col">
+      <aside className="hidden md:flex w-64 lg:w-72 bg-card border-r border-border shadow-sm h-screen sticky top-0 flex-col">
         <div className="h-full flex flex-col p-5 lg:p-6">
 
           {/* Logo */}
           <div className="flex items-center gap-3 mb-6 px-1">
-            <div className="p-2.5 bg-gradient-to-br from-primary via-purple-600 to-indigo-600 rounded-xl shadow-lg shadow-primary/30 shrink-0">
-              <Wallet className="w-5 h-5 text-white" />
+            <div className="p-2.5 bg-primary/10 text-primary border border-primary/20 rounded-xl shadow-sm shrink-0">
+              <Wallet className="w-5 h-5" />
             </div>
             <div>
               <span className="text-lg font-extrabold tracking-tight text-foreground">BudgetTracker</span>
               <div className="flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500">
+                <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
                   {subscription === 'trial' ? 'Free Trial' : isPro ? 'Pro' : 'Starter'}
                 </span>
               </div>
@@ -117,23 +117,21 @@ const Layout = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) => cn(
-                  "flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150 group relative",
                   isActive
-                    ? "bg-primary text-white shadow-lg nav-active-glow font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/70 font-medium"
                 )}
               >
                 {({ isActive }) => (
                   <>
                     <item.icon className={cn(
-                      "w-4.5 h-4.5 shrink-0 transition-all duration-200",
-                      isActive
-                        ? "text-white"
-                        : cn("group-hover:scale-110", item.color)
+                      "w-4 h-4 shrink-0 transition-colors",
+                      isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
                     )} />
-                    <span className="text-sm font-medium flex-1">{item.name}</span>
+                    <span className="text-sm flex-1">{item.name}</span>
                     {isActive && (
-                      <ChevronRight className="w-3.5 h-3.5 text-white/60" />
+                      <ChevronRight className="w-3.5 h-3.5 opacity-75" />
                     )}
                   </>
                 )}
@@ -142,7 +140,7 @@ const Layout = () => {
           </nav>
 
           {/* Pro tip / upgrade nudge */}
-          <div className="mt-4 pt-4 border-t border-border/50">
+          <div className="mt-4 pt-4 border-t border-border">
             {/* User info pill */}
             <div className="flex items-center gap-2.5 px-2 mb-4">
               <div className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0 flex items-center justify-center bg-primary/10">
@@ -163,10 +161,10 @@ const Layout = () => {
             </div>
 
             {/* Pro tip card */}
-            <div className="bg-gradient-to-br from-primary/10 via-purple-500/8 to-indigo-500/10 p-4 rounded-xl border border-primary/15 backdrop-blur-sm">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <TrendingUp className="w-3 h-3 text-primary" />
-                <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Pro Tip</p>
+            <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Pro Tip</p>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 Categorize expenses daily for 30% better spending insights & budget accuracy.

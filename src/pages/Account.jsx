@@ -20,6 +20,14 @@ const Account = () => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState('');
     const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+    const [toast, setToast] = useState(null);
+    const toastTimeoutRef = useRef(null);
+
+    const showToast = (message, type = 'success') => {
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        setToast({ message, type });
+        toastTimeoutRef.current = setTimeout(() => setToast(null), 3500);
+    };
 
     const razorpayOpenRef = useRef(false);
     const razorpayInstanceRef = useRef(null);
@@ -66,9 +74,10 @@ const Account = () => {
         try {
             await updateUserProfile(newName.trim(), null);
             setIsEditingName(false);
+            showToast("Name updated successfully!");
         } catch (err) {
             console.error("Failed to update name:", err);
-            alert("Failed to update name.");
+            showToast("Failed to update name.", "error");
         }
     };
 
@@ -77,7 +86,7 @@ const Account = () => {
         if (!file) return;
         
         if (file.size > 5 * 1024 * 1024) {
-            alert("File size must be less than 5MB");
+            showToast("File size must be less than 5MB", "error");
             return;
         }
 
@@ -113,11 +122,11 @@ const Account = () => {
                 setPhotoLoading(true);
                 updateUserProfile(null, dataUrl)
                     .then(() => {
-                        alert("Profile picture updated successfully!");
+                        showToast("Profile picture updated successfully!");
                     })
                     .catch((err) => {
                         console.error(err);
-                        alert("Failed to update profile picture.");
+                        showToast("Failed to update profile picture.", "error");
                     })
                     .finally(() => {
                         setPhotoLoading(false);
@@ -133,9 +142,12 @@ const Account = () => {
         setPhotoLoading(true);
         const dataUrl = renderAvatarDataUrl(presetId, 150);
         updateUserProfile(null, dataUrl)
+            .then(() => {
+                showToast("Avatar updated successfully!");
+            })
             .catch((err) => {
                 console.error(err);
-                alert("Failed to update profile picture.");
+                showToast("Failed to update profile avatar.", "error");
             })
             .finally(() => {
                 setPhotoLoading(false);
@@ -326,9 +338,29 @@ const Account = () => {
     const remainingTrialDays = trialEndDate ? Math.ceil((new Date(trialEndDate) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
 
     return (
-        <div className="space-y-8 max-w-4xl mx-auto animate-in fade-in duration-500 pb-20">
+        <div className="space-y-8 max-w-4xl mx-auto animate-in fade-in duration-500 pb-20 relative">
+            {/* Floating Toast Notification */}
+            {toast && (
+                <div className={cn(
+                    "fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm font-medium border animate-in slide-in-from-bottom-4 fade-in duration-300 max-w-[92vw] sm:max-w-md",
+                    toast.type === 'error'
+                        ? "bg-destructive text-destructive-foreground border-destructive/30"
+                        : "bg-background text-foreground border-border shadow-black/10 dark:shadow-black/40"
+                )}>
+                    {toast.type === 'error' ? (
+                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                    ) : (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    )}
+                    <span className="truncate">{toast.message}</span>
+                    <button onClick={() => setToast(null)} className="ml-2 text-muted-foreground hover:text-foreground shrink-0">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             <header className="flex flex-col gap-1">
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Account</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">Account</h1>
                 <p className="text-muted-foreground">Manage your profile and subscription.</p>
             </header>
 

@@ -117,7 +117,7 @@ const tourSteps = [
   },
   {
     title: "🚀 You're Ready!",
-    content: "Try entering a transaction or use the Demo Mode to play around. Your financial journey starts now!",
+    content: "Add your first transaction, set your monthly budget, or scan bank SMS. Your financial journey starts now!",
     target: null,
   }
 ];

@@ -6,7 +6,7 @@ import { auth } from "../../lib/firebase";
 import { signInWithCredential, GoogleAuthProvider } from "firebase/auth";
 
 const Login = () => {
-    const { currentUser, login, loginWithGoogle, loginAsDemoUser } = useAuth();
+    const { currentUser, login, loginWithGoogle } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -83,31 +83,23 @@ const Login = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background p-4">
-
-            {/* Animated background blobs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/15 rounded-full blur-3xl animate-float" />
-                <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
-                <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-indigo-500/8 rounded-full blur-3xl animate-float" style={{ animationDelay: '0.8s' }} />
-            </div>
-
+        <div className="min-h-screen flex items-center justify-center relative bg-background p-4 sm:p-6">
             {/* Card */}
             <div className="relative w-full max-w-md animate-up">
-                <div className="glass-strong rounded-3xl p-7 sm:p-8 space-y-6">
+                <div className="rounded-3xl border border-border bg-card shadow-xl p-7 sm:p-8 space-y-6">
 
                     {/* Header */}
-                    <div className="text-center space-y-3">
-                        <div className="flex justify-center mb-4">
-                            <div className="p-3 bg-gradient-to-br from-primary to-purple-600 rounded-2xl shadow-xl shadow-primary/30">
-                                <Wallet className="w-7 h-7 text-white" />
+                    <div className="text-center space-y-2.5">
+                        <div className="flex justify-center mb-3">
+                            <div className="p-3 bg-primary/10 text-primary border border-primary/20 rounded-2xl shadow-sm">
+                                <Wallet className="w-7 h-7" />
                             </div>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                             Welcome back
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Sign in to your <span className="text-gradient font-semibold">BudgetTracker</span> account
+                            Sign in to your BudgetTracker account
                         </p>
                     </div>
 
@@ -198,15 +190,6 @@ const Login = () => {
                             )}
                         </button>
                     </form>
-
-                    {/* Demo Mode */}
-                    <button
-                        type="button"
-                        onClick={() => { loginAsDemoUser(); navigate("/dashboard"); }}
-                        className="w-full h-10 rounded-xl border border-dashed border-border/80 text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-muted/40 transition-all duration-200 font-medium"
-                    >
-                        ✨ Try Demo Mode — No signup required
-                    </button>
 
                     {/* Sign up link */}
                     <p className="text-center text-sm text-muted-foreground">

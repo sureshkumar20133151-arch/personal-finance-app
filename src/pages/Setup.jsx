@@ -185,7 +185,7 @@ const Setup = () => {
             {/* Floating Toast Notification */}
             {toast && (
                 <div className={cn(
-                    "fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm font-medium border animate-in slide-in-from-top-4 fade-in duration-300",
+                    "fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm font-medium border animate-in slide-in-from-bottom-4 fade-in duration-300 max-w-[92vw] sm:max-w-md",
                     toast.type === 'error'
                         ? "bg-destructive text-destructive-foreground border-destructive/30"
                         : "bg-background text-foreground border-border shadow-black/10 dark:shadow-black/40"
@@ -195,8 +195,8 @@ const Setup = () => {
                     ) : (
                         <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                     )}
-                    <span>{toast.message}</span>
-                    <button onClick={() => setToast(null)} className="ml-2 text-muted-foreground hover:text-foreground">
+                    <span className="truncate">{toast.message}</span>
+                    <button onClick={() => setToast(null)} className="ml-2 text-muted-foreground hover:text-foreground shrink-0">
                         <X className="w-4 h-4" />
                     </button>
                 </div>
@@ -204,7 +204,7 @@ const Setup = () => {
 
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Setup</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Setup</h1>
                     <p className="text-muted-foreground">Customize categories, icons, and preferences.</p>
                 </div>
                 <button
