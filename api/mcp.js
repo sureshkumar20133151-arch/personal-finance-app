@@ -567,7 +567,10 @@ export default async function handler(req, res) {
 
   const authHeader = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
   const xApiKey    = (req.headers['x-api-key'] || '').trim();
-  const providedKey = authHeader || xApiKey;
+  // Also accept key as URL query param: /api/mcp?key=xxx
+  // This enables Claude's "No sign-in" connector mode where headers can't be set
+  const queryKey   = (req.query?.key || '').trim();
+  const providedKey = authHeader || xApiKey || queryKey;
 
   if (!providedKey || providedKey !== MCP_API_KEY) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or missing API key.' });
