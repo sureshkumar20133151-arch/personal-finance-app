@@ -92,6 +92,50 @@ const TOOLS = [
     },
   },
   {
+    name: 'add_category',
+    description:
+      'Create a new budget category. Type must be income, expense, savings, or debt. You can optionally set a monthly budget limit.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:   { type: 'string', description: 'Name of the category (e.g. Groceries, Gym, OTT Subscriptions)' },
+        type:   { type: 'string', enum: ['income', 'expense', 'savings', 'debt'], description: 'Category type (default: expense)' },
+        budget: { type: 'number', description: 'Monthly budget allocation in ₹ (optional, default: 0)' },
+        color:  { type: 'string', description: 'Hex color code (e.g. "#f59e0b", optional)' },
+        icon:   { type: 'string', description: 'Lucide icon name (e.g. "ShoppingBag", "Utensils", "Zap", optional)' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'edit_category',
+    description:
+      'Update an existing category: rename it, change its monthly budget limit, change color, or change icon. Identify category by name or ID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Category name or ID to edit (case-insensitive search)' },
+        new_name: { type: 'string', description: 'New name for the category (optional)' },
+        budget:   { type: 'number', description: 'New monthly budget in ₹ (optional)' },
+        color:    { type: 'string', description: 'New hex color code (optional)' },
+        icon:     { type: 'string', description: 'New Lucide icon name (optional)' },
+      },
+      required: ['category'],
+    },
+  },
+  {
+    name: 'delete_category',
+    description:
+      'Delete an existing category by its name or ID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Category name or ID to delete' },
+      },
+      required: ['category'],
+    },
+  },
+  {
     name: 'get_loans_and_recurring',
     description:
       'Get active loans (EMI details, remaining balance, interest rate) and recurring bills/subscriptions (next due date, amount, frequency).',
@@ -437,6 +481,163 @@ async function handleListCategories(args = {}) {
   return lines.join('\n');
 }
 
+// ─── TOOL: add_category ───────────────────────────────────────────────────────
+async function handleAddCategory(args = {}) {
+  const { name, type = 'expense', budget = 0, color, icon } = args;
+  if (!name || !name.trim()) {
+    throw new Error('Category name is required.');
+  }
+
+  const validTypes = ['income', 'expense', 'savings', 'debt'];
+  const catType = validTypes.includes(type) ? type : 'expense';
+
+  const data = await getUserData();
+  const { categories = [] } = data;
+
+  // Check duplicate name
+  const existing = categories.find(c => c.name.toLowerCase() === name.trim().toLowerCase());
+  if (existing) {
+    throw new Error(`Category "${name.trim()}" already exists (ID: ${existing.id}).`);
+  }
+
+  const defaultColors = {
+    income: '#10b981',
+    expense: '#f59e0b',
+    savings: '#06b6d4',
+    debt: '#f97316',
+  };
+
+  const defaultIcons = {
+    income: 'Wallet',
+    expense: 'Tag',
+    savings: 'PiggyBank',
+    debt: 'CreditCard',
+  };
+
+  const newId = `cat_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const newCat = {
+    id: newId,
+    name: name.trim(),
+    type: catType,
+    budget: Math.max(0, Number(budget) || 0),
+    color: color || defaultColors[catType] || '#6366f1',
+    icon: icon || defaultIcons[catType] || 'Tag',
+  };
+
+  const db = await adminDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  await db.collection('users').doc(MCP_USER_UID).update({
+    categories: [...categories, newCat],
+  });
+
+  return [
+    `✅ CATEGORY CREATED SUCCESSFULLY`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Name:    ${newCat.name}`,
+    `Type:    ${newCat.type.toUpperCase()}`,
+    `Budget:  ${fmt(newCat.budget)} / month`,
+    `ID:      ${newCat.id}`,
+    ``,
+    `The new category is now saved and available for transactions in Budget Tracker!`,
+  ].join('\n');
+}
+
+// ─── TOOL: edit_category ──────────────────────────────────────────────────────
+async function handleEditCategory(args = {}) {
+  const { category, new_name, budget, color, icon } = args;
+  if (!category) {
+    throw new Error('category (name or ID) is required.');
+  }
+
+  const data = await getUserData();
+  const { categories = [] } = data;
+
+  const targetIdx = categories.findIndex(c =>
+    String(c.id) === String(category) ||
+    c.name.toLowerCase() === String(category).toLowerCase() ||
+    c.name.toLowerCase().includes(String(category).toLowerCase())
+  );
+
+  if (targetIdx === -1) {
+    throw new Error(`Category "${category}" not found.`);
+  }
+
+  const current = categories[targetIdx];
+  const updated = {
+    ...current,
+    ...(new_name && new_name.trim() ? { name: new_name.trim() } : {}),
+    ...(budget !== undefined ? { budget: Math.max(0, Number(budget) || 0) } : {}),
+    ...(color ? { color } : {}),
+    ...(icon ? { icon } : {}),
+  };
+
+  const newCategories = [...categories];
+  newCategories[targetIdx] = updated;
+
+  const db = await adminDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  await db.collection('users').doc(MCP_USER_UID).update({
+    categories: newCategories,
+  });
+
+  return [
+    `✅ CATEGORY UPDATED SUCCESSFULLY`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Category: ${current.name} (ID: ${current.id})`,
+    new_name ? `New Name: ${updated.name}` : null,
+    budget !== undefined ? `New Budget: ${fmt(updated.budget)} / month (was: ${fmt(current.budget)})` : null,
+    color ? `New Color: ${updated.color}` : null,
+    icon ? `New Icon: ${updated.icon}` : null,
+    ``,
+    `Changes are saved to your Budget Tracker.`,
+  ].filter(Boolean).join('\n');
+}
+
+// ─── TOOL: delete_category ────────────────────────────────────────────────────
+async function handleDeleteCategory(args = {}) {
+  const { category } = args;
+  if (!category) {
+    throw new Error('category (name or ID) is required.');
+  }
+
+  const data = await getUserData();
+  const { categories = [], transactions = [] } = data;
+
+  const target = categories.find(c =>
+    String(c.id) === String(category) ||
+    c.name.toLowerCase() === String(category).toLowerCase() ||
+    c.name.toLowerCase().includes(String(category).toLowerCase())
+  );
+
+  if (!target) {
+    throw new Error(`Category "${category}" not found.`);
+  }
+
+  // Count existing transactions using this category
+  const txCount = transactions.filter(t => String(t.categoryId) === String(target.id)).length;
+
+  const remainingCategories = categories.filter(c => String(c.id) !== String(target.id));
+
+  const db = await adminDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  await db.collection('users').doc(MCP_USER_UID).update({
+    categories: remainingCategories,
+  });
+
+  return [
+    `🗑️ CATEGORY DELETED SUCCESSFULLY`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Deleted: ${target.name} (${target.type})`,
+    `ID:      ${target.id}`,
+    txCount > 0 ? `⚠️ Note: ${txCount} existing transactions used this category. They will now appear as Uncategorised.` : `No existing transactions were linked to this category.`,
+    ``,
+    `Category successfully removed from your Budget Tracker.`,
+  ].join('\n');
+}
+
 // ─── TOOL: get_loans_and_recurring ───────────────────────────────────────────
 async function handleGetLoansAndRecurring() {
   const data = await getUserData();
@@ -538,6 +739,9 @@ async function handleJsonRpc(request) {
           case 'get_monthly_summary':   text = await handleGetMonthlySummary(args); break;
           case 'add_transaction':       text = await handleAddTransaction(args); break;
           case 'list_categories':       text = await handleListCategories(args); break;
+          case 'add_category':          text = await handleAddCategory(args); break;
+          case 'edit_category':         text = await handleEditCategory(args); break;
+          case 'delete_category':       text = await handleDeleteCategory(args); break;
           case 'get_loans_and_recurring': text = await handleGetLoansAndRecurring(); break;
           default:
             return err(-32601, `Unknown tool: ${name}`);
