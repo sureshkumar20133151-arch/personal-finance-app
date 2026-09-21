@@ -511,7 +511,12 @@ async function handleJsonRpc(request) {
         return ok({
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'budget-tracker-mcp', version: '1.0.0' },
+          serverInfo: {
+            name: 'budget-tracker-mcp',
+            version: '1.0.0',
+            icon: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+            logo: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+          },
         });
 
       case 'notifications/initialized':
