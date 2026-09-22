@@ -13,6 +13,8 @@
 //    MCP_FIREBASE_PRIVATE_KEY  — from listing-generator-31b39 service account
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { verifyAccessToken } from './_lib/oauthTokens.js';
+
 const MCP_API_KEY  = process.env.MCP_API_KEY;
 
 const DEFAULT_SURESH_UID = 'mlbLQkDo0Ef95hns8p81TkQdUK83';
@@ -868,25 +870,35 @@ export default async function handler(req, res) {
   // Preflight
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  if (!MCP_API_KEY) {
-    return res.status(500).json({ error: 'MCP_API_KEY not configured on server.' });
+  // ── Authentication (OAuth Bearer Token OR Pre-shared API Key) ───────────
+  let targetUid = null;
+  const rawAuth = req.headers['authorization'] || '';
+  const bearerMatch = rawAuth.match(/^Bearer\s+(.+)$/i);
+  const candidateToken = bearerMatch ? bearerMatch[1].trim() : '';
+
+  // 1. Try OAuth Bearer Token
+  if (candidateToken) {
+    const oauthPayload = verifyAccessToken(candidateToken);
+    if (oauthPayload && oauthPayload.uid) {
+      targetUid = oauthPayload.uid;
+    }
   }
 
-  const targetUid = resolveTargetUid(req);
+  // 2. Fallback to API Key / Query Key
   if (!targetUid) {
-    return res.status(500).json({ error: 'User UID not configured or found.' });
+    const xApiKey = (req.headers['x-api-key'] || '').trim();
+    const queryKey = (req.query?.key || '').trim();
+    const providedKey = candidateToken === MCP_API_KEY ? MCP_API_KEY : (xApiKey || queryKey);
+
+    if (MCP_API_KEY && providedKey === MCP_API_KEY) {
+      targetUid = resolveTargetUid(req);
+    }
   }
 
-  const authHeader = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
-  const xApiKey    = (req.headers['x-api-key'] || '').trim();
-  // Also accept key as URL query param: /api/mcp?key=xxx
-  // This enables Claude's "No sign-in" connector mode where headers can't be set
-  const queryKey   = (req.query?.key || '').trim();
-  const providedKey = authHeader || xApiKey || queryKey;
-
-  if (!providedKey || providedKey !== MCP_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid or missing API key.' });
+  // 3. Reject if neither is valid
+  if (!targetUid) {
+    res.setHeader('WWW-Authenticate', 'Bearer error="invalid_token", realm="budget-tracker"');
+    return res.status(401).json({ error: 'Unauthorized: Valid OAuth Bearer token or API key required.' });
   }
 
   // ── GET — simple health check (some MCP clients ping via GET) ─────────────
