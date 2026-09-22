@@ -479,8 +479,22 @@ const Account = () => {
                                         </button>
                                     </div>
                                 )}
-                            </div>
                             <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
+                            {currentUser?.uid && (
+                                <div className="flex items-center gap-1.5 justify-center sm:justify-start text-xs text-muted-foreground/70 font-mono">
+                                    <span>UID: {currentUser.uid}</span>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(currentUser.uid);
+                                            showToast("UID copied to clipboard!");
+                                        }}
+                                        className="p-1 hover:text-foreground rounded transition-colors"
+                                        title="Copy UID"
+                                    >
+                                        <Copy className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
                             
                             <div className="flex justify-center sm:justify-start pt-1">
                                 {isPro ? (
