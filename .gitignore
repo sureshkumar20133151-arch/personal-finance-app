@@ -34,3 +34,5 @@ mobile apk/
 app-debug.apk
 google-services.json
 android/app/google-services.json
+*-firebase-adminsdk-*.json
+*adminsdk*.json
