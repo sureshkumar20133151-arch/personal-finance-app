@@ -121,31 +121,58 @@ This document serves as the single source of truth for the project setup, comple
 
 ---
 
-## 🚨 CRITICAL HANDOVER NOTE: The Two-Account / Zero-Balance Issue (Suresh & Rosie)
+## 🚨 CRITICAL HANDOVER NOTE: The Two-Account / Zero-Balance Issue & Firebase Project Alignment
 
 ### What Happened:
 1. In Claude Desktop / Mobile, Claude connects to the MCP server with `MCP_USER_UID=do139V31SkRXMSpkLIW1AroA9ZO2`.
 2. When Claude added transactions (e.g. ₹500 Salary, Gym Category), it wrote to UID `do139V31SkRXMSpkLIW1AroA9ZO2`.
 3. However, when user logged in as "Suresh" (`sureshkumar20133151@gmail.com`) on `personal-finance-app-mauve.vercel.app`, the dashboard showed **₹0 balance and 0 transactions**.
-4. **Root Cause:**
-   * In Firebase Authentication, logging in via **Google Sign-In** generates a **different UID** than logging in via **Email / Password**, even with the same email.
-   * Or, the user account currently active in the web app is a different UID than `do139V31SkRXMSpkLIW1AroA9ZO2`.
-   * Also, the Admin SDK in `api/_lib/firebaseAdmin.js` was historically using `FIREBASE_PROJECT_ID=billing-dc0b2` (from payment setup), whereas client app uses `VITE_FIREBASE_PROJECT_ID=listing-generator-31b39`.
-   * We added dedicated `getMcpDb()` and created `/api/mcp-debug` to verify the active Firestore project.
-   * We added a copyable `UID: <currentUser.uid>` badge on the **Account** page (`src/pages/Account.jsx`) so the user can easily see their exact active UID.
+4. **Root Causes:**
+   * **Firebase Project Discrepancy:** The Firebase Admin SDK in `api/_lib/firebaseAdmin.js` was historically defaulting to `FIREBASE_PROJECT_ID=billing-dc0b2` (from the Razorpay payment setup), whereas the actual user finance data lives in `listing-generator-31b39` (`VITE_FIREBASE_PROJECT_ID`).
+   * **Authentication Method UID Split:** In Firebase Authentication, logging in via **Google Sign-In** generates a **different UID** than logging in via **Email / Password**, even with the identical email address.
+   * **User Account Split (Suresh & Rosie):** Different family members or logins have different UIDs.
+
+### Diagnostic & Resolution Steps:
+
+#### Step 1 — Verify Active Firebase Project (30 seconds)
+Open this URL in a browser:
+```
+https://personal-finance-app-mauve.vercel.app/api/mcp-debug?key=e6318d93-0d54-4230-b16a-500dd23129db
+```
+Inspect the JSON response:
+* Check `active_project_id`
+* Check if `project_is_correct` is `true` or `false`
+
+#### Step 2 — Configure Service Account (If `project_is_correct: false`)
+1. Go to [Firebase Console](https://console.firebase.google.com/) and select the **listing-generator-31b39** project.
+2. Navigate to **Project Settings ⚙️** → **Service Accounts** tab.
+3. Click **"Generate new private key"** and download the JSON file.
+4. Add these environment variables in the **Vercel Project Settings → Environment Variables**:
+   | Vercel Env Var | JSON Field from Key File | Example / Value |
+   | :--- | :--- | :--- |
+   | `MCP_FIREBASE_PROJECT_ID` | `"project_id"` | `listing-generator-31b39` |
+   | `MCP_FIREBASE_CLIENT_EMAIL` | `"client_email"` | `firebase-adminsdk-...@listing-generator-31b39.iam.gserviceaccount.com` |
+   | `MCP_FIREBASE_PRIVATE_KEY` | `"private_key"` | `-----BEGIN PRIVATE KEY-----\n...` (entire key string) |
+5. Trigger a **Redeploy** on Vercel so the serverless function picks up the new credentials.
+
+#### Step 3 — Identify & Align Exact Active App UID (Suresh / Rosie)
+1. Open the app in browser (`personal-finance-app-mauve.vercel.app`) or mobile client.
+2. Navigate to the **Account** page (`src/pages/Account.jsx`).
+3. Click the newly added **UID badge** to copy the exact active UID to clipboard.
+4. Set `MCP_USER_UID` in Vercel to match this UID (or pass `?uid=<COPIED_UID>` / `?user=suresh`).
 
 ---
 
 ## 🚀 Upcoming Tasks & Next Steps for New Session
-1. **Identify Exact Active App UID:**
-   * Open the app in browser, navigate to **Account**, check the displayed UID for Suresh and Rosie.
-   * If the UID is different from `do139V31SkRXMSpkLIW1AroA9ZO2`, update `MCP_USER_UID` in Vercel to match the user's active UID (or support multi-user routing via query param `?uid=`).
-2. **Verify Firebase Project Alignment:**
-   * Ensure Vercel's `FIREBASE_PROJECT_ID` or `MCP_FIREBASE_PROJECT_ID` is set to `listing-generator-31b39` with the corresponding service account private key from Firebase Console.
-3. **Multi-User MCP Support:**
-   * Enhance `api/mcp.js` to accept `?user=suresh` or `?user=rosie` or pass the UID directly so Claude can interact with either account seamlessly.
-4. **Mobile APK Installation:** Ensure the rebuilt APK is installed on the mobile device to activate the new scanning rules.
-5. **Firebase Account Linking:** Implement Firebase's `linkWithCredential` to seamlessly merge Google and Email/Password accounts.
+1. **Run Step 1 Diagnosis:** Check `/api/mcp-debug` output.
+2. **Apply Step 2 Credentials:** Ensure `MCP_FIREBASE_*` variables point to `listing-generator-31b39` in Vercel.
+3. **Multi-User MCP Support:** Enhance `api/mcp.js` to route requests by `?user=suresh` or `?user=rosie` or direct `?uid=`.
+4. **Mobile APK Deployment:** Install the freshly built APK on mobile devices to apply the latest SMS & push parsing rules.
+5. **Firebase Account Linking:** Implement `linkWithCredential` to seamlessly merge Google Auth and Email/Password accounts if needed.
+
+> [!TIP]
+> **Prompt to resume in a new conversation:**
+> *"Read PROJECT_HANDOVER.md and check the latest section on MCP Server and Two-User UID setup to continue our work."*
 
 ---
 
