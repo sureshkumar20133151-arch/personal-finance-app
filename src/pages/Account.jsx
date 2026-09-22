@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle, Sparkles, Users, UserPlus, Copy, Share2, Trash2, Eye, EyeOff, LogOut as LeaveIcon } from 'lucide-react';
+import { User, LogOut, CreditCard, Shield, CheckCircle2, Loader2, Camera, Edit2, Check, X, Crown, Tag, AlertCircle, Sparkles, Users, UserPlus, Copy, Share2, Trash2, Eye, EyeOff, LogOut as LeaveIcon, Bot, ExternalLink, ChevronDown, ChevronUp, Zap, Terminal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Capacitor } from '@capacitor/core';
@@ -22,6 +22,16 @@ const Account = () => {
     const [showAvatarPicker, setShowAvatarPicker] = useState(false);
     const [toast, setToast] = useState(null);
     const toastTimeoutRef = useRef(null);
+
+    // MCP Connector UI State
+    const [copiedMcpUrl, setCopiedMcpUrl] = useState(false);
+    const [copiedPromptIdx, setCopiedPromptIdx] = useState(null);
+    const [showAdvancedMcp, setShowAdvancedMcp] = useState(false);
+
+    const mcpBaseUrl = (typeof window !== 'undefined' && (window.location.origin.includes('localhost') || window.location.origin.includes('capacitor')))
+        ? 'https://personal-finance-app-mauve.vercel.app'
+        : (typeof window !== 'undefined' ? window.location.origin : 'https://personal-finance-app-mauve.vercel.app');
+    const mcpConnectorUrl = `${mcpBaseUrl}/api/mcp`;
 
     const showToast = (message, type = 'success') => {
         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -525,6 +535,193 @@ const Account = () => {
                             <LogOut className="w-4 h-4" />
                             Log Out
                         </button>
+                    </div>
+                </div>
+
+                {/* AI & Claude MCP Connectors Card */}
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
+                                    <Bot className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-extrabold tracking-tight text-foreground">AI & Claude Connectors</h2>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Control finances via Claude, Cursor & MCP AIs</p>
+                                </div>
+                            </div>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                OAuth 2.0
+                            </span>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Connect Claude AI to check real-time account balances, record expenses, and analyze spending habits using natural language voice or text.
+                        </p>
+
+                        {/* Primary MCP URL Copy Box */}
+                        <div className="space-y-1.5 mb-4">
+                            <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                                <span>Connector URL</span>
+                                <span className="text-[11px] text-muted-foreground font-normal">SSE / Streamable HTTP</span>
+                            </div>
+                            <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-border">
+                                <code className="text-xs font-mono text-foreground truncate flex-1 px-1 select-all">
+                                    {mcpConnectorUrl}
+                                </code>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(mcpConnectorUrl);
+                                        setCopiedMcpUrl(true);
+                                        setTimeout(() => setCopiedMcpUrl(false), 2000);
+                                        showToast("MCP Connector URL copied!");
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all shrink-0 shadow-sm"
+                                >
+                                    {copiedMcpUrl ? (
+                                        <>
+                                            <Check className="w-3.5 h-3.5" />
+                                            <span>Copied</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="w-3.5 h-3.5" />
+                                            <span>Copy</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Quick Setup Instructions */}
+                        <div className="bg-muted/40 rounded-xl p-3 border border-border/60 mb-4 space-y-1.5">
+                            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                How to Connect in Claude:
+                            </h4>
+                            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                                <li>In Claude, go to <span className="font-semibold text-foreground">Settings &rarr; Connectors</span></li>
+                                <li>Add custom connector and paste the URL above</li>
+                                <li>Sign in with your Budget Tracker account via 1-click OAuth</li>
+                            </ol>
+                        </div>
+
+                        {/* Example Prompts */}
+                        <div className="space-y-2 mb-4">
+                            <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                <span>Try saying to Claude (click to copy):</span>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                {[
+                                    "What is my total account balance and net cashflow this month?",
+                                    "Add ₹450 expense for groceries paid via Google Pay",
+                                    "How much have I spent on Dining Out this week?",
+                                    "Give me a breakdown of all transactions by category"
+                                ].map((prompt, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(prompt);
+                                            setCopiedPromptIdx(idx);
+                                            setTimeout(() => setCopiedPromptIdx(null), 2000);
+                                            showToast("Prompt copied to clipboard!");
+                                        }}
+                                        className="w-full text-left p-2 rounded-lg bg-muted/30 hover:bg-muted/70 border border-border/50 text-xs text-muted-foreground hover:text-foreground transition-all flex items-center justify-between group"
+                                    >
+                                        <span className="truncate italic">"{prompt}"</span>
+                                        <span className="shrink-0 ml-2 text-[10px] font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                                            {copiedPromptIdx === idx ? "Copied!" : "Copy"}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Advanced Accordion */}
+                        <div className="border-t border-border/50 pt-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowAdvancedMcp(!showAdvancedMcp)}
+                                className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1"
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <Terminal className="w-3.5 h-3.5" />
+                                    Advanced / Claude Desktop Config
+                                </span>
+                                {showAdvancedMcp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+
+                            {showAdvancedMcp && (
+                                <div className="mt-3 space-y-3 pt-2 text-xs">
+                                    {/* Direct UID URL */}
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-muted-foreground">Direct URL (with your UID pre-attached):</label>
+                                        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border border-border font-mono text-[11px]">
+                                            <span className="truncate flex-1 px-1">{mcpConnectorUrl}?uid={currentUser?.uid || 'YOUR_UID'}</span>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(`${mcpConnectorUrl}?uid=${currentUser?.uid || ''}`);
+                                                    showToast("Direct UID URL copied!");
+                                                }}
+                                                className="p-1 hover:text-primary transition-colors"
+                                                title="Copy Direct URL"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Claude Desktop Config */}
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[11px] font-semibold text-muted-foreground">claude_desktop_config.json snippet:</label>
+                                            <button
+                                                onClick={() => {
+                                                    const snippet = JSON.stringify({
+                                                        mcpServers: {
+                                                            "budget-tracker": {
+                                                                "url": mcpConnectorUrl
+                                                            }
+                                                        }
+                                                    }, null, 2);
+                                                    navigator.clipboard.writeText(snippet);
+                                                    showToast("Config JSON copied!");
+                                                }}
+                                                className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                                            >
+                                                <Copy className="w-3 h-3" /> Copy JSON
+                                            </button>
+                                        </div>
+                                        <pre className="p-2.5 rounded-lg bg-black/90 text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed border border-border/40">
+{`{
+  "mcpServers": {
+    "budget-tracker": {
+      "url": "${mcpConnectorUrl}"
+    }
+  }
+}`}
+                                        </pre>
+                                    </div>
+
+                                    {/* Test OAuth Link */}
+                                    <div className="pt-1">
+                                        <a
+                                            href={`${mcpBaseUrl}/oauth/authorize?client_id=claude_desktop_preview&response_type=code&redirect_uri=${encodeURIComponent(mcpBaseUrl + '/api/mcp-debug')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-semibold"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                            Test OAuth 2.0 Consent Screen in New Tab
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
