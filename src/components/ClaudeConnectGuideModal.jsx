@@ -153,6 +153,16 @@ const ClaudeConnectGuideModal = ({ isOpen, onClose, mcpConnectorUrl, mcpConnecto
                         </div>
                     </div>
 
+                    {/* Quick Note about Claude's Screen */}
+                    <div className="p-3 rounded-xl bg-muted/60 border border-border/70 text-xs space-y-1">
+                        <p className="font-bold text-foreground text-[11px] flex items-center gap-1.5">
+                            <span>💡 If Claude shows "OAuth client" options:</span>
+                        </p>
+                        <p className="text-muted-foreground text-[11px] leading-relaxed">
+                            Select <strong>"Use Claude's published identity"</strong> (or <strong>"Register automatically"</strong>). No Client ID is needed!
+                        </p>
+                    </div>
+
                     {/* Big Action CTA Button */}
                     <a
                         href={openClaudeUrl}

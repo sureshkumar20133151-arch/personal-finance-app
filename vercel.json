@@ -36,6 +36,10 @@
       "destination": "/api/oauth/token"
     },
     {
+      "source": "/oauth/register",
+      "destination": "/api/oauth/register"
+    },
+    {
       "source": "/((?!api/|\\.well-known/|oauth/|mcp\\.json|.*\\.(?:ico|png|svg|jpg|jpeg|webp|json|txt)).*)",
       "destination": "/index.html"
     }
