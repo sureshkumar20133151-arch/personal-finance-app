@@ -6,16 +6,56 @@
 //  Compatible with: Claude Desktop, Claude Web (claude.ai), Claude Mobile
 //
 //  Required Vercel Environment Variables:
-//    MCP_API_KEY   — secret token you configure in Claude connector settings
-//    MCP_USER_UID  — your Firebase UID (e.g. do139V31SkRXMSpkLIW1AroA9ZO2)
-//    FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
-//      (already set for payment APIs — reused here)
+//    MCP_API_KEY            — secret token for Claude connector
+//    MCP_USER_UID           — your Firebase UID in listing-generator-31b39
+//    MCP_FIREBASE_PROJECT_ID   — from listing-generator-31b39 service account
+//    MCP_FIREBASE_CLIENT_EMAIL — from listing-generator-31b39 service account
+//    MCP_FIREBASE_PRIVATE_KEY  — from listing-generator-31b39 service account
 // ─────────────────────────────────────────────────────────────────────────────
-
-import { adminDb } from './_lib/firebaseAdmin.js';
 
 const MCP_API_KEY  = process.env.MCP_API_KEY;
 const MCP_USER_UID = process.env.MCP_USER_UID;
+
+// ─── Dedicated MCP Firebase Admin (always uses listing-generator-31b39) ───────
+// Uses MCP_FIREBASE_* vars first, falls back to FIREBASE_* only if the
+// project id already matches the expected Budget Tracker project.
+const BUDGET_TRACKER_PROJECT = 'listing-generator-31b39';
+let _mcpDb = null;
+
+async function getMcpDb() {
+  if (_mcpDb) return _mcpDb;
+
+  const projectId   = process.env.MCP_FIREBASE_PROJECT_ID   || process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.MCP_FIREBASE_CLIENT_EMAIL  || process.env.FIREBASE_CLIENT_EMAIL;
+  const rawKey      = process.env.MCP_FIREBASE_PRIVATE_KEY   || process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !rawKey) {
+    throw new Error('Missing Firebase Admin credentials. Set MCP_FIREBASE_PROJECT_ID, MCP_FIREBASE_CLIENT_EMAIL, MCP_FIREBASE_PRIVATE_KEY in Vercel.');
+  }
+
+  if (projectId !== BUDGET_TRACKER_PROJECT) {
+    throw new Error(
+      `Wrong Firebase project! Admin SDK is using "${projectId}" but Budget Tracker data lives in "${BUDGET_TRACKER_PROJECT}". ` +
+      `Add service account from ${BUDGET_TRACKER_PROJECT} Firebase Console as MCP_FIREBASE_PROJECT_ID / MCP_FIREBASE_CLIENT_EMAIL / MCP_FIREBASE_PRIVATE_KEY in Vercel.`
+    );
+  }
+
+  try {
+    const { initializeApp, getApps, cert } = await import('firebase-admin/app');
+    const { getFirestore } = await import('firebase-admin/firestore');
+
+    // Use a named app so it doesn't collide with the payment Admin SDK instance
+    const appName = 'mcp-budget-tracker';
+    const existing = getApps().find(a => a.name === appName);
+    const privateKey = rawKey.includes('\\n') ? rawKey.replace(/\\n/g, '\n') : rawKey;
+    const app = existing || initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) }, appName);
+    _mcpDb = getFirestore(app);
+    return _mcpDb;
+  } catch (e) {
+    throw new Error(`Firebase Admin init failed: ${e.message}`);
+  }
+}
+
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 function setCorsHeaders(res) {
@@ -159,8 +199,8 @@ const DEFAULT_CATEGORIES = [
 ];
 
 async function getUserData() {
-  const db = await adminDb();
-  if (!db) throw new Error('Firebase Admin not configured. Check FIREBASE_* env vars in Vercel.');
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured. Check MCP_FIREBASE_* env vars in Vercel.');
   
   const userRef = db.collection('users').doc(MCP_USER_UID);
   const snap = await userRef.get();
