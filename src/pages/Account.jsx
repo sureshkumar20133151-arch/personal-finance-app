@@ -562,6 +562,37 @@ const Account = () => {
                             Connect Claude AI to check real-time account balances, record expenses, and analyze spending habits using natural language voice or text.
                         </p>
 
+                        {/* Figma-style 1-Click "Connect to Claude" Action Button */}
+                        <div className="mb-4">
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(mcpConnectorUrl);
+                                    showToast("Connector URL copied! Opening Claude Connectors...");
+                                    window.open("https://claude.ai/settings/connectors", "_blank", "noopener,noreferrer");
+                                }}
+                                className="w-full group relative overflow-hidden bg-gradient-to-r from-[#D97757] via-[#c66849] to-[#b3573c] hover:from-[#c66849] hover:to-[#9f4830] text-white font-bold py-3.5 px-5 rounded-xl shadow-lg shadow-[#D97757]/20 hover:shadow-xl hover:shadow-[#D97757]/30 transition-all flex items-center justify-between active:scale-[0.99]"
+                            >
+                                <div className="flex items-center gap-2.5">
+                                    <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-sm font-black shadow-inner">
+                                        ✦
+                                    </span>
+                                    <div className="text-left">
+                                        <div className="text-sm font-bold tracking-tight flex items-center gap-1.5">
+                                            Connect to Claude
+                                            <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded font-medium">1-Click</span>
+                                        </div>
+                                        <div className="text-[11px] text-white/80 font-normal">
+                                            Copies URL & opens Claude Settings
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-xs font-semibold bg-white/15 px-2.5 py-1.5 rounded-lg group-hover:bg-white/25 transition-colors">
+                                    <span>Open</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                </div>
+                            </button>
+                        </div>
+
                         {/* Primary MCP URL Copy Box */}
                         <div className="space-y-1.5 mb-4">
                             <div className="flex items-center justify-between text-xs font-semibold text-foreground">
