@@ -23,39 +23,57 @@
   "tools": [
     {
       "name": "get_balances",
-      "description": "Get real-time total balance, bank ledgers, cash wallet, and subscription status."
+      "title": "Get Financial Snapshot & Balances",
+      "description": "Get real-time total balance, bank ledgers, cash wallet, and subscription status.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false }
     },
     {
       "name": "get_transactions",
-      "description": "Filter and search transaction history."
+      "title": "Search Transactions",
+      "description": "Filter and search transaction history.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false }
     },
     {
       "name": "get_monthly_summary",
-      "description": "Get income, expenses, savings, and top spending categories for any month."
+      "title": "Monthly Summary & Spending Breakdown",
+      "description": "Get income, expenses, savings, and top spending categories for any month.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false }
     },
     {
       "name": "add_transaction",
-      "description": "Log an expense or income entry into the user's ledger."
+      "title": "Add New Transaction",
+      "description": "Log an expense or income entry into the user's ledger.",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false }
     },
     {
       "name": "list_categories",
-      "description": "List all budget categories and their spending limits."
+      "title": "List Budget Categories",
+      "description": "List all budget categories and their spending limits.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false }
     },
     {
       "name": "add_category",
-      "description": "Create a new category."
+      "title": "Create Category",
+      "description": "Create a new category.",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false }
     },
     {
       "name": "edit_category",
-      "description": "Edit category budget limits, name, color, or icon."
+      "title": "Edit Category",
+      "description": "Edit category budget limits, name, color, or icon.",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false }
     },
     {
       "name": "delete_category",
-      "description": "Delete a category."
+      "title": "Delete Category",
+      "description": "Delete a category.",
+      "annotations": { "readOnlyHint": false, "destructiveHint": true }
     },
     {
       "name": "get_loans_and_recurring",
-      "description": "Fetch active loans, EMIs, and recurring subscriptions."
+      "title": "Get Loans, EMIs & Recurring Subscriptions",
+      "description": "Fetch active loans, EMIs, and recurring subscriptions.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false }
     }
   ]
 }

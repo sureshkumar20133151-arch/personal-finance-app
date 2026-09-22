@@ -89,14 +89,18 @@ function setCorsHeaders(res) {
 const TOOLS = [
   {
     name: 'get_balances',
+    title: 'Get Financial Snapshot & Balances',
     description:
       'Get the current financial snapshot: total balance, individual bank account balances, cash balance, monthly budget, and subscription plan.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
   {
     name: 'get_transactions',
+    title: 'Search Transactions',
     description:
       'Search and filter transactions. Returns a formatted list including date, type, amount, category, description, and bank.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -112,8 +116,10 @@ const TOOLS = [
   },
   {
     name: 'get_monthly_summary',
+    title: 'Monthly Summary & Spending Breakdown',
     description:
       'Get a financial summary for a specific month: total income, expenses, savings, net, top spending categories, and budget health.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -124,8 +130,10 @@ const TOOLS = [
   },
   {
     name: 'add_transaction',
+    title: 'Add New Transaction',
     description:
       'Add a new transaction to Budget Tracker. Returns confirmation with the saved transaction details.',
+    annotations: { readOnlyHint: false, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -141,8 +149,10 @@ const TOOLS = [
   },
   {
     name: 'list_categories',
+    title: 'List Budget Categories',
     description:
       'List all budget categories with monthly budget vs current month spending and remaining budget.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -152,8 +162,10 @@ const TOOLS = [
   },
   {
     name: 'add_category',
+    title: 'Create Category',
     description:
       'Create a new budget category. Type must be income, expense, savings, or debt. You can optionally set a monthly budget limit.',
+    annotations: { readOnlyHint: false, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -168,8 +180,10 @@ const TOOLS = [
   },
   {
     name: 'edit_category',
+    title: 'Edit Category',
     description:
       'Update an existing category: rename it, change its monthly budget limit, change color, or change icon. Identify category by name or ID.',
+    annotations: { readOnlyHint: false, destructiveHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -184,8 +198,10 @@ const TOOLS = [
   },
   {
     name: 'delete_category',
+    title: 'Delete Category',
     description:
       'Delete an existing category by its name or ID.',
+    annotations: { readOnlyHint: false, destructiveHint: true },
     inputSchema: {
       type: 'object',
       properties: {
@@ -196,8 +212,10 @@ const TOOLS = [
   },
   {
     name: 'get_loans_and_recurring',
+    title: 'Get Loans, EMIs & Recurring Subscriptions',
     description:
       'Get active loans (EMI details, remaining balance, interest rate) and recurring bills/subscriptions (next due date, amount, frequency).',
+    annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
 ];
