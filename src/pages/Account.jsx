@@ -644,8 +644,8 @@ const Account = () => {
                                 onClick={() => setShowClaudeGuideModal(true)}
                                 className="mt-2.5 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 hover:from-indigo-500/20 hover:to-pink-500/20 border border-indigo-500/20 text-foreground text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
                             >
-                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Need Help? Open Visual 2-Step Guide & 1-Click Auto-Fill</span>
+                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                <span>Need Help? Open 2-Step Quick Guide</span>
                             </button>
 
                             {/* Instant Visual Guidance Banner when Clicked */}
