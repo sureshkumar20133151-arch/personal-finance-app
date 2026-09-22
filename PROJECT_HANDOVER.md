@@ -148,18 +148,20 @@ This document serves as the single source of truth for the project setup, comple
   2. `?user=suresh` (points to `mlbLQkDo0Ef95hns8p81TkQdUK83`)
   3. `?user=rosie` (points to `do139V31SkRXMSpkLIW1AroA9ZO2`)
   4. Default fallback: `process.env.MCP_USER_UID || 'mlbLQkDo0Ef95hns8p81TkQdUK83'` (Suresh)
-* **Database Writes:** All tools (`add_transaction`, `add_category`, `edit_category`, `delete_category`) use `getMcpDb()` to write directly to the target user doc in `listing-generator-31b39`.
+### 11. Production OAuth 2.0 Authorization Server (SaaS Multi-Tenant Mode)
+* **Standard:** Implements RFC 6749 (OAuth 2.0), RFC 7636 (PKCE S256), and RFC 8414 (Server Metadata Discovery).
+* **Discovery Endpoint:** `/.well-known/oauth-authorization-server` and `/.well-known/openid-configuration` (rewritten to `/api/oauth/metadata`).
+* **Consent UI:** `/oauth/authorize` (rewritten to `/api/oauth/authorize`). Renders branded consent page with Firebase Google SSO and Email login, showing requested scopes and user profile.
+* **Token Exchange:** `/oauth/token` (rewritten to `/api/oauth/token`). Validates PKCE challenge and exchanges authorization code for 30-day HS256 JWT access token and 1-year refresh token.
+* **MCP Integration:** `api/mcp.js` checks `Authorization: Bearer <token>`, verifies JWT statelessly, and extracts user `uid` dynamically for zero-configuration, fully isolated multi-tenant access.
 
 ---
 
 ## 🚀 Upcoming Tasks & Next Steps
-1. **Update `MCP_USER_UID` in Vercel:** Change `MCP_USER_UID` in Vercel Environment Variables to `mlbLQkDo0Ef95hns8p81TkQdUK83` (so default without query param points to Suresh).
-2. **Claude Connector URLs:**
-   * For Suresh: `https://personal-finance-app-mauve.vercel.app/api/mcp?key=e6318d93-0d54-4230-b16a-500dd23129db` (or with `&user=suresh`)
-   * For Rosie: `https://personal-finance-app-mauve.vercel.app/api/mcp?key=e6318d93-0d54-4230-b16a-500dd23129db&user=rosie`
+1. **Claude OAuth Connection:** In Claude Connectors, users can now enter `https://personal-finance-app-mauve.vercel.app/api/mcp` without pre-shared keys and log in via the OAuth popup!
+2. **Backward Compatible Access:** Direct API key URLs (`?key=...`) remain active for personal/scripted access.
 3. **Mobile APK Deployment:** Install the freshly built APK on mobile devices to apply the latest SMS & push parsing rules.
 4. **Firebase Account Linking:** Implement `linkWithCredential` to seamlessly merge Google Auth and Email/Password accounts if needed.
-5. **Firebase Account Linking:** Implement `linkWithCredential` to seamlessly merge Google Auth and Email/Password accounts if needed.
 
 > [!TIP]
 > **Prompt to resume in a new conversation:**
