@@ -1,0 +1,61 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/server-manifest.json",
+  "name": "budget-tracker-pro",
+  "displayName": "Budget Tracker Pro",
+  "description": "Smart personal finance and budget manager. Check balances, log expenses, manage category limits, and analyze monthly cashflow via Claude AI.",
+  "version": "1.0.0",
+  "homepage": "https://personal-finance-app-mauve.vercel.app",
+  "iconUrl": "https://personal-finance-app-mauve.vercel.app/app-icon-512.png",
+  "transport": {
+    "type": "http",
+    "url": "https://personal-finance-app-mauve.vercel.app/api/mcp"
+  },
+  "authentication": {
+    "type": "oauth2",
+    "discoveryUrl": "https://personal-finance-app-mauve.vercel.app/.well-known/oauth-authorization-server",
+    "authorizationUrl": "https://personal-finance-app-mauve.vercel.app/oauth/authorize",
+    "tokenUrl": "https://personal-finance-app-mauve.vercel.app/oauth/token",
+    "scopes": [
+      "finance:read",
+      "finance:write"
+    ]
+  },
+  "tools": [
+    {
+      "name": "get_balances",
+      "description": "Get real-time total balance, bank ledgers, cash wallet, and subscription status."
+    },
+    {
+      "name": "get_transactions",
+      "description": "Filter and search transaction history."
+    },
+    {
+      "name": "get_monthly_summary",
+      "description": "Get income, expenses, savings, and top spending categories for any month."
+    },
+    {
+      "name": "add_transaction",
+      "description": "Log an expense or income entry into the user's ledger."
+    },
+    {
+      "name": "list_categories",
+      "description": "List all budget categories and their spending limits."
+    },
+    {
+      "name": "add_category",
+      "description": "Create a new category."
+    },
+    {
+      "name": "edit_category",
+      "description": "Edit category budget limits, name, color, or icon."
+    },
+    {
+      "name": "delete_category",
+      "description": "Delete a category."
+    },
+    {
+      "name": "get_loans_and_recurring",
+      "description": "Fetch active loans, EMIs, and recurring subscriptions."
+    }
+  ]
+}
