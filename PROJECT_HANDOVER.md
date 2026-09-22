@@ -97,16 +97,55 @@ This document serves as the single source of truth for the project setup, comple
 ## ⏳ Active Status & Balance Verification
 * **Indian Bank Balance:** Verified at **₹355.69** (anchored to June 10th statement balance of **₹271.59**).
 * **Database State:** Successfully deduplicated to 482 clean transactions.
-* **Razorpay Status:** Verification submitted for live production credentials. Currently runs on test key.
+### 9. Zombie Deleted Categories Reappearing from Local Storage
+* **Problem:** When deleting a category in Cloud mode, the category would reappear upon page reload or snapshot refresh.
+* **Cause:** `hasMigrated` was resetting on snapshot triggers, causing old `localStorage` categories to merge back into Firestore.
+* **Fix:** `FinanceContext.jsx` migration now writes a persistent flag (`fintrack_migrated_${uid}`) to `localStorage` and only runs once for brand-new cloud users. Also ensured category IDs are compared using `String(id)`.
+
+### 10. Remote MCP Server & Claude Connector Integration
+* **Architecture:**
+  * Created `api/mcp.js` hosted as a Vercel Serverless Function supporting Streamable HTTP (JSON-RPC 2.0).
+  * Endpoint: `https://personal-finance-app-mauve.vercel.app/api/mcp?key=<MCP_API_KEY>`
+  * Authentication: Query parameter `?key=` (for Claude "No sign-in" mode) or `Authorization: Bearer <key>`.
+  * Exposed Tools to Claude:
+    1. `get_balances` — bank-by-bank balances and cash ledger.
+    2. `get_transactions` — search & filter transactions.
+    3. `get_monthly_summary` — income, expense, savings & category breakdowns.
+    4. `add_transaction` — writes transactions directly into Firestore.
+    5. `list_categories` — lists categories, budgets, and monthly burn.
+    6. `add_category` — creates custom budget category.
+    7. `edit_category` — edits category name, budget limit, icon, color.
+    8. `delete_category` — deletes custom category.
+    9. `get_loans_and_recurring` — loans & recurring bills.
+  * **Favicon & Icon:** Updated `index.html` and MCP `serverInfo` to point to `/app-icon-512.png` so Claude shows the official app icon in Connectors.
 
 ---
 
-## 🚀 Upcoming Tasks & Next Steps
-1. **Mobile APK Installation:** Ensure the rebuilt [app-debug.apk](file:///d:/anti%20gravity/Demo/4.Budget%20tracker/app-debug.apk) is installed on the mobile device to activate the new scanning rules.
-2. **Razorpay Live Activation:** Once approved, update the `.env` file with `rzp_live_...` keys and rebuild the production bundles.
-3. **Monitor Vercel Builds:** Ensure auto-deployments build cleanly following commits on the `main` branch.
-4. **Fix SMS Parsing for Unrecognized Bank Formats:** Analyze user-provided bank SMS samples and update `src/context/autoScanSms.js` and `src/context/smsParser.js` to parse them accurately.
-4. **Firebase Account Linking:** Implement Firebase's `linkWithCredential` to seamlessly merge Google and Email/Password accounts to prevent the "dual-account" confusion for users.
+## 🚨 CRITICAL HANDOVER NOTE: The Two-Account / Zero-Balance Issue (Suresh & Rosie)
+
+### What Happened:
+1. In Claude Desktop / Mobile, Claude connects to the MCP server with `MCP_USER_UID=do139V31SkRXMSpkLIW1AroA9ZO2`.
+2. When Claude added transactions (e.g. ₹500 Salary, Gym Category), it wrote to UID `do139V31SkRXMSpkLIW1AroA9ZO2`.
+3. However, when user logged in as "Suresh" (`sureshkumar20133151@gmail.com`) on `personal-finance-app-mauve.vercel.app`, the dashboard showed **₹0 balance and 0 transactions**.
+4. **Root Cause:**
+   * In Firebase Authentication, logging in via **Google Sign-In** generates a **different UID** than logging in via **Email / Password**, even with the same email.
+   * Or, the user account currently active in the web app is a different UID than `do139V31SkRXMSpkLIW1AroA9ZO2`.
+   * Also, the Admin SDK in `api/_lib/firebaseAdmin.js` was historically using `FIREBASE_PROJECT_ID=billing-dc0b2` (from payment setup), whereas client app uses `VITE_FIREBASE_PROJECT_ID=listing-generator-31b39`.
+   * We added dedicated `getMcpDb()` and created `/api/mcp-debug` to verify the active Firestore project.
+   * We added a copyable `UID: <currentUser.uid>` badge on the **Account** page (`src/pages/Account.jsx`) so the user can easily see their exact active UID.
+
+---
+
+## 🚀 Upcoming Tasks & Next Steps for New Session
+1. **Identify Exact Active App UID:**
+   * Open the app in browser, navigate to **Account**, check the displayed UID for Suresh and Rosie.
+   * If the UID is different from `do139V31SkRXMSpkLIW1AroA9ZO2`, update `MCP_USER_UID` in Vercel to match the user's active UID (or support multi-user routing via query param `?uid=`).
+2. **Verify Firebase Project Alignment:**
+   * Ensure Vercel's `FIREBASE_PROJECT_ID` or `MCP_FIREBASE_PROJECT_ID` is set to `listing-generator-31b39` with the corresponding service account private key from Firebase Console.
+3. **Multi-User MCP Support:**
+   * Enhance `api/mcp.js` to accept `?user=suresh` or `?user=rosie` or pass the UID directly so Claude can interact with either account seamlessly.
+4. **Mobile APK Installation:** Ensure the rebuilt APK is installed on the mobile device to activate the new scanning rules.
+5. **Firebase Account Linking:** Implement Firebase's `linkWithCredential` to seamlessly merge Google and Email/Password accounts.
 
 ---
 
@@ -129,3 +168,4 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
 cd ..
 Copy-Item android/app/build/outputs/apk/debug/app-debug.apk -Destination . -Force
 ```
+
