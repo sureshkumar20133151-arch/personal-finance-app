@@ -10,6 +10,7 @@ import { Checkout } from 'capacitor-razorpay';
 import AvatarFallback from '../components/AvatarFallback';
 import { AVATAR_PRESETS, renderAvatarDataUrl } from '../lib/avatars';
 import { apiUrl } from '../lib/apiBase';
+import ClaudeConnectGuideModal from '../components/ClaudeConnectGuideModal';
 
 const Account = () => {
     const { currentUser, logout, updateUserProfile } = useAuth();
@@ -28,6 +29,7 @@ const Account = () => {
     const [copiedMcpName, setCopiedMcpName] = useState(false);
     const [copiedPromptIdx, setCopiedPromptIdx] = useState(null);
     const [showAdvancedMcp, setShowAdvancedMcp] = useState(false);
+    const [showClaudeGuideModal, setShowClaudeGuideModal] = useState(false);
 
     const mcpConnectorName = 'Budget Tracker Pro';
     const mcpBaseUrl = (typeof window !== 'undefined' && (window.location.origin.includes('localhost') || window.location.origin.includes('capacitor')))
@@ -77,6 +79,7 @@ const Account = () => {
         setCopiedMcpUrl(true);
         setTimeout(() => setCopiedMcpUrl(false), 6000);
         showToast("✨ URL Copied! Opening Claude Connectors — Just paste (Ctrl+V)!", "success");
+        setShowClaudeGuideModal(true);
         const claudeDeepLink = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=${encodeURIComponent(mcpConnectorName)}&name=${encodeURIComponent(mcpConnectorName)}&connectorUrl=${encodeURIComponent(mcpConnectorUrl)}&url=${encodeURIComponent(mcpConnectorUrl)}`;
         window.open(claudeDeepLink, "_blank", "noopener,noreferrer");
     };
@@ -636,6 +639,15 @@ const Account = () => {
                                 </div>
                             </button>
 
+                            {/* Open Visual Guide Button */}
+                            <button
+                                onClick={() => setShowClaudeGuideModal(true)}
+                                className="mt-2.5 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 hover:from-indigo-500/20 hover:to-pink-500/20 border border-indigo-500/20 text-foreground text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+                            >
+                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Need Help? Open Visual 2-Step Guide & 1-Click Auto-Fill</span>
+                            </button>
+
                             {/* Instant Visual Guidance Banner when Clicked */}
                             {copiedMcpUrl && (
                                 <div className="mt-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -1060,6 +1072,14 @@ const Account = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Claude Interactive Setup Guide Modal */}
+            <ClaudeConnectGuideModal
+                isOpen={showClaudeGuideModal}
+                onClose={() => setShowClaudeGuideModal(false)}
+                mcpConnectorUrl={mcpConnectorUrl}
+                mcpConnectorName={mcpConnectorName}
+            />
         </div>
     );
 };
