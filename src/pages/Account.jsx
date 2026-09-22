@@ -33,6 +33,30 @@ const Account = () => {
         : (typeof window !== 'undefined' ? window.location.origin : 'https://personal-finance-app-mauve.vercel.app');
     const mcpConnectorUrl = `${mcpBaseUrl}/api/mcp`;
 
+    const handleConnectToClaude = async () => {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(mcpConnectorUrl);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = mcpConnectorUrl;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+            }
+        } catch (e) {
+            console.warn("Clipboard copy fallback used:", e);
+        }
+        setCopiedMcpUrl(true);
+        setTimeout(() => setCopiedMcpUrl(false), 4000);
+        showToast("✨ URL Copied! Opening Claude Connectors — Just press Ctrl+V and connect!", "success");
+        window.open("https://claude.ai/settings/connectors", "_blank", "noopener,noreferrer");
+    };
+
     const showToast = (message, type = 'success') => {
         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         setToast({ message, type });
@@ -565,11 +589,7 @@ const Account = () => {
                         {/* Figma-style 1-Click "Connect to Claude" Action Button */}
                         <div className="mb-4">
                             <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(mcpConnectorUrl);
-                                    showToast("Connector URL copied! Opening Claude Connectors...");
-                                    window.open("https://claude.ai/settings/connectors", "_blank", "noopener,noreferrer");
-                                }}
+                                onClick={handleConnectToClaude}
                                 className="w-full group relative overflow-hidden bg-gradient-to-r from-[#D97757] via-[#c66849] to-[#b3573c] hover:from-[#c66849] hover:to-[#9f4830] text-white font-bold py-3.5 px-5 rounded-xl shadow-lg shadow-[#D97757]/20 hover:shadow-xl hover:shadow-[#D97757]/30 transition-all flex items-center justify-between active:scale-[0.99]"
                             >
                                 <div className="flex items-center gap-2.5">
@@ -591,6 +611,19 @@ const Account = () => {
                                     <ExternalLink className="w-3.5 h-3.5" />
                                 </div>
                             </button>
+
+                            {/* Instant Visual Guidance Banner when Clicked */}
+                            {copiedMcpUrl && (
+                                <div className="mt-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <Check className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold text-[12px] text-foreground">✨ URL Copied to your Clipboard!</p>
+                                        <p className="text-muted-foreground mt-0.5">
+                                            In the opened Claude window, click <strong>+ Add &rarr; Add custom connector</strong>, press <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[11px] font-mono text-foreground">Ctrl+V</kbd> and click <strong>Connect</strong>!
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Primary MCP URL Copy Box */}
