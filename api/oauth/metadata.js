@@ -25,5 +25,12 @@ export default function handler(req, res) {
     token_endpoint_auth_methods_supported: ['none', 'client_secret_post', 'client_secret_basic'],
     code_challenge_methods_supported: ['S256', 'plain'],
     service_documentation: `${baseUrl}/terms`,
+    client_name: 'Budget Tracker Pro',
+    service_name: 'Budget Tracker Pro',
+    app_name: 'Budget Tracker Pro',
+    logo_uri: `${baseUrl}/app-icon-512.png`,
+    icon_url: `${baseUrl}/app-icon-512.png`,
+    op_policy_uri: `${baseUrl}/privacy`,
+    op_tos_uri: `${baseUrl}/terms`,
   });
 }

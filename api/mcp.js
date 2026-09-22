@@ -817,10 +817,13 @@ async function handleJsonRpc(request, targetUid) {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
           serverInfo: {
-            name: 'budget-tracker-mcp',
+            name: 'Budget Tracker Pro',
+            title: 'Budget Tracker Pro',
             version: '1.0.0',
             icon: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
             logo: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+            icon_url: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+            logo_uri: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
           },
         });
 
@@ -870,7 +873,23 @@ export default async function handler(req, res) {
   // Preflight
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // ── Authentication (OAuth Bearer Token OR Pre-shared API Key) ───────────
+  // ── GET — public server metadata & health check (discovered by Claude / MCP clients) ───
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      name: 'Budget Tracker Pro',
+      title: 'Budget Tracker Pro',
+      version: '1.0.0',
+      description: 'Personal finance & smart budget tracking with Claude AI',
+      icon: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+      logo: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+      icon_url: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+      logo_uri: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+      tools: TOOLS.map(t => ({ name: t.name, description: t.description })),
+      status: 'ok',
+    });
+  }
+
+  // ── Authentication for POST (OAuth Bearer Token OR Pre-shared API Key) ───────────
   let targetUid = null;
   const rawAuth = req.headers['authorization'] || '';
   const bearerMatch = rawAuth.match(/^Bearer\s+(.+)$/i);
@@ -899,17 +918,6 @@ export default async function handler(req, res) {
   if (!targetUid) {
     res.setHeader('WWW-Authenticate', 'Bearer error="invalid_token", realm="budget-tracker"');
     return res.status(401).json({ error: 'Unauthorized: Valid OAuth Bearer token or API key required.' });
-  }
-
-  // ── GET — simple health check (some MCP clients ping via GET) ─────────────
-  if (req.method === 'GET') {
-    return res.status(200).json({
-      name: 'budget-tracker-mcp',
-      version: '1.0.0',
-      description: 'Budget Tracker MCP Server',
-      tools: TOOLS.map(t => t.name),
-      status: 'ok',
-    });
   }
 
   // ── POST — JSON-RPC 2.0 ───────────────────────────────────────────────────
