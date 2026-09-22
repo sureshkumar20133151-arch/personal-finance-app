@@ -132,42 +132,33 @@ This document serves as the single source of truth for the project setup, comple
    * **Authentication Method UID Split:** In Firebase Authentication, logging in via **Google Sign-In** generates a **different UID** than logging in via **Email / Password**, even with the identical email address.
    * **User Account Split (Suresh & Rosie):** Different family members or logins have different UIDs.
 
-### Diagnostic & Resolution Steps:
+### Diagnostic & Resolution Status: ✅ RESOLVED
 
-#### Step 1 — Verify Active Firebase Project (30 seconds)
-Open this URL in a browser:
-```
-https://personal-finance-app-mauve.vercel.app/api/mcp-debug?key=e6318d93-0d54-4230-b16a-500dd23129db
-```
-Inspect the JSON response:
-* Check `active_project_id`
-* Check if `project_is_correct` is `true` or `false`
+#### Step 1 & 2 — Verified Firebase Project & Service Account:
+* **`active_project_id`:** `listing-generator-31b39`
+* **`project_is_correct`:** `true`
+* **Service Account Credentials:** `MCP_FIREBASE_PROJECT_ID`, `MCP_FIREBASE_CLIENT_EMAIL`, `MCP_FIREBASE_PRIVATE_KEY` successfully configured in Vercel.
 
-#### Step 2 — Configure Service Account (If `project_is_correct: false`)
-1. Go to [Firebase Console](https://console.firebase.google.com/) and select the **listing-generator-31b39** project.
-2. Navigate to **Project Settings ⚙️** → **Service Accounts** tab.
-3. Click **"Generate new private key"** and download the JSON file.
-4. Add these environment variables in the **Vercel Project Settings → Environment Variables**:
-   | Vercel Env Var | JSON Field from Key File | Example / Value |
-   | :--- | :--- | :--- |
-   | `MCP_FIREBASE_PROJECT_ID` | `"project_id"` | `listing-generator-31b39` |
-   | `MCP_FIREBASE_CLIENT_EMAIL` | `"client_email"` | `firebase-adminsdk-...@listing-generator-31b39.iam.gserviceaccount.com` |
-   | `MCP_FIREBASE_PRIVATE_KEY` | `"private_key"` | `-----BEGIN PRIVATE KEY-----\n...` (entire key string) |
-5. Trigger a **Redeploy** on Vercel so the serverless function picks up the new credentials.
-
-#### Step 3 — Identify & Align Exact Active App UID (Suresh / Rosie)
-1. Open the app in browser (`personal-finance-app-mauve.vercel.app`) or mobile client.
-2. Navigate to the **Account** page (`src/pages/Account.jsx`).
-3. Click the newly added **UID badge** to copy the exact active UID to clipboard.
-4. Set `MCP_USER_UID` in Vercel to match this UID (or pass `?uid=<COPIED_UID>` / `?user=suresh`).
+#### Step 3 — Verified User UIDs & Multi-User Support:
+* **Suresh's Active Web/Mobile UID:** `mlbLQkDo0Ef95hns8p81TkQdUK83`
+* **Rosie's Active UID:** `do139V31SkRXMSpkLIW1AroA9ZO2`
+* **Multi-User MCP Routing:**
+  `api/mcp.js` now dynamically resolves target UIDs via:
+  1. `?uid=<CUSTOM_UID>`
+  2. `?user=suresh` (points to `mlbLQkDo0Ef95hns8p81TkQdUK83`)
+  3. `?user=rosie` (points to `do139V31SkRXMSpkLIW1AroA9ZO2`)
+  4. Default fallback: `process.env.MCP_USER_UID || 'mlbLQkDo0Ef95hns8p81TkQdUK83'` (Suresh)
+* **Database Writes:** All tools (`add_transaction`, `add_category`, `edit_category`, `delete_category`) use `getMcpDb()` to write directly to the target user doc in `listing-generator-31b39`.
 
 ---
 
-## 🚀 Upcoming Tasks & Next Steps for New Session
-1. **Run Step 1 Diagnosis:** Check `/api/mcp-debug` output.
-2. **Apply Step 2 Credentials:** Ensure `MCP_FIREBASE_*` variables point to `listing-generator-31b39` in Vercel.
-3. **Multi-User MCP Support:** Enhance `api/mcp.js` to route requests by `?user=suresh` or `?user=rosie` or direct `?uid=`.
-4. **Mobile APK Deployment:** Install the freshly built APK on mobile devices to apply the latest SMS & push parsing rules.
+## 🚀 Upcoming Tasks & Next Steps
+1. **Update `MCP_USER_UID` in Vercel:** Change `MCP_USER_UID` in Vercel Environment Variables to `mlbLQkDo0Ef95hns8p81TkQdUK83` (so default without query param points to Suresh).
+2. **Claude Connector URLs:**
+   * For Suresh: `https://personal-finance-app-mauve.vercel.app/api/mcp?key=e6318d93-0d54-4230-b16a-500dd23129db` (or with `&user=suresh`)
+   * For Rosie: `https://personal-finance-app-mauve.vercel.app/api/mcp?key=e6318d93-0d54-4230-b16a-500dd23129db&user=rosie`
+3. **Mobile APK Deployment:** Install the freshly built APK on mobile devices to apply the latest SMS & push parsing rules.
+4. **Firebase Account Linking:** Implement `linkWithCredential` to seamlessly merge Google Auth and Email/Password accounts if needed.
 5. **Firebase Account Linking:** Implement `linkWithCredential` to seamlessly merge Google Auth and Email/Password accounts if needed.
 
 > [!TIP]

@@ -14,7 +14,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MCP_API_KEY  = process.env.MCP_API_KEY;
-const MCP_USER_UID = process.env.MCP_USER_UID;
+
+const DEFAULT_SURESH_UID = 'mlbLQkDo0Ef95hns8p81TkQdUK83';
+const DEFAULT_ROSIE_UID  = 'do139V31SkRXMSpkLIW1AroA9ZO2';
+
+function resolveTargetUid(req) {
+  const queryUid = (req?.query?.uid || '').trim();
+  if (queryUid) return queryUid;
+
+  const userParam = (req?.query?.user || '').trim().toLowerCase();
+  if (userParam === 'rosie') {
+    return process.env.ROSIE_USER_UID || DEFAULT_ROSIE_UID;
+  }
+  if (userParam === 'suresh' || userParam === 'default') {
+    return process.env.SURESH_USER_UID || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  }
+
+  return process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+}
 
 // ─── Dedicated MCP Firebase Admin (always uses listing-generator-31b39) ───────
 // Uses MCP_FIREBASE_* vars first, falls back to FIREBASE_* only if the
@@ -198,11 +215,12 @@ const DEFAULT_CATEGORIES = [
   { id: "11", name: "Entertainment",  type: "expense", color: "#14b8a6", icon: "Clapperboard",budget: 100 },
 ];
 
-async function getUserData() {
+async function getUserData(targetUid) {
   const db = await getMcpDb();
   if (!db) throw new Error('Firebase Admin not configured. Check MCP_FIREBASE_* env vars in Vercel.');
   
-  const userRef = db.collection('users').doc(MCP_USER_UID);
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const userRef = db.collection('users').doc(uid);
   const snap = await userRef.get();
   
   if (!snap.exists) {
@@ -236,8 +254,8 @@ async function getUserData() {
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 // ─── TOOL: get_balances ───────────────────────────────────────────────────────
-async function handleGetBalances() {
-  const data = await getUserData();
+async function handleGetBalances(targetUid) {
+  const data = await getUserData(targetUid);
   const { transactions = [], initialBankBalances = {}, initialCashBalance = 0,
           cashSeedDate, accountingStartDate, monthlyBudget = 0, subscription = 'free',
           profile = {} } = data;
@@ -322,8 +340,8 @@ async function handleGetBalances() {
 }
 
 // ─── TOOL: get_transactions ───────────────────────────────────────────────────
-async function handleGetTransactions(args = {}) {
-  const data = await getUserData();
+async function handleGetTransactions(args = {}, targetUid) {
+  const data = await getUserData(targetUid);
   const { transactions = [], categories = [] } = data;
   const { limit = 20, type, category, bank, search, from_date, to_date } = args;
 
@@ -378,8 +396,8 @@ async function handleGetTransactions(args = {}) {
 }
 
 // ─── TOOL: get_monthly_summary ────────────────────────────────────────────────
-async function handleGetMonthlySummary(args = {}) {
-  const data = await getUserData();
+async function handleGetMonthlySummary(args = {}, targetUid) {
+  const data = await getUserData(targetUid);
   const { transactions = [], categories = [], monthlyBudget = 0 } = data;
 
   const now = new Date();
@@ -442,7 +460,7 @@ async function handleGetMonthlySummary(args = {}) {
 }
 
 // ─── TOOL: add_transaction ────────────────────────────────────────────────────
-async function handleAddTransaction(args = {}) {
+async function handleAddTransaction(args = {}, targetUid) {
   const { type, amount, description, category_name, date, payment_mode } = args;
 
   if (!type || !amount || !description) {
@@ -455,7 +473,8 @@ async function handleAddTransaction(args = {}) {
     throw new Error('amount must be a positive number');
   }
 
-  const data = await getUserData();
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
   const { categories = [], transactions = [] } = data;
 
   // Match category
@@ -487,10 +506,10 @@ async function handleAddTransaction(args = {}) {
     createdAt: new Date().toISOString(),
   };
 
-  const db = await adminDb();
+  const db = await getMcpDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).set({
+  await db.collection('users').doc(uid).set({
     transactions: [...transactions, newTx],
   }, { merge: true });
 
@@ -512,8 +531,8 @@ async function handleAddTransaction(args = {}) {
 }
 
 // ─── TOOL: list_categories ────────────────────────────────────────────────────
-async function handleListCategories(args = {}) {
-  const data = await getUserData();
+async function handleListCategories(args = {}, targetUid) {
+  const data = await getUserData(targetUid);
   const { categories = [], transactions = [] } = data;
 
   const now = new Date();
@@ -562,7 +581,7 @@ async function handleListCategories(args = {}) {
 }
 
 // ─── TOOL: add_category ───────────────────────────────────────────────────────
-async function handleAddCategory(args = {}) {
+async function handleAddCategory(args = {}, targetUid) {
   const { name, type = 'expense', budget = 0, color, icon } = args;
   if (!name || !name.trim()) {
     throw new Error('Category name is required.');
@@ -571,7 +590,8 @@ async function handleAddCategory(args = {}) {
   const validTypes = ['income', 'expense', 'savings', 'debt'];
   const catType = validTypes.includes(type) ? type : 'expense';
 
-  const data = await getUserData();
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
   const { categories = [] } = data;
 
   // Check duplicate name
@@ -604,10 +624,10 @@ async function handleAddCategory(args = {}) {
     icon: icon || defaultIcons[catType] || 'Tag',
   };
 
-  const db = await adminDb();
+  const db = await getMcpDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).set({
+  await db.collection('users').doc(uid).set({
     categories: [...categories, newCat],
   }, { merge: true });
 
@@ -624,13 +644,14 @@ async function handleAddCategory(args = {}) {
 }
 
 // ─── TOOL: edit_category ──────────────────────────────────────────────────────
-async function handleEditCategory(args = {}) {
+async function handleEditCategory(args = {}, targetUid) {
   const { category, new_name, budget, color, icon } = args;
   if (!category) {
     throw new Error('category (name or ID) is required.');
   }
 
-  const data = await getUserData();
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
   const { categories = [] } = data;
 
   const targetIdx = categories.findIndex(c =>
@@ -655,10 +676,10 @@ async function handleEditCategory(args = {}) {
   const newCategories = [...categories];
   newCategories[targetIdx] = updated;
 
-  const db = await adminDb();
+  const db = await getMcpDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).set({
+  await db.collection('users').doc(uid).set({
     categories: newCategories,
   }, { merge: true });
 
@@ -676,13 +697,14 @@ async function handleEditCategory(args = {}) {
 }
 
 // ─── TOOL: delete_category ────────────────────────────────────────────────────
-async function handleDeleteCategory(args = {}) {
+async function handleDeleteCategory(args = {}, targetUid) {
   const { category } = args;
   if (!category) {
     throw new Error('category (name or ID) is required.');
   }
 
-  const data = await getUserData();
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
   const { categories = [], transactions = [] } = data;
 
   const target = categories.find(c =>
@@ -700,10 +722,10 @@ async function handleDeleteCategory(args = {}) {
 
   const remainingCategories = categories.filter(c => String(c.id) !== String(target.id));
 
-  const db = await adminDb();
+  const db = await getMcpDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).set({
+  await db.collection('users').doc(uid).set({
     categories: remainingCategories,
   }, { merge: true });
 
@@ -719,8 +741,8 @@ async function handleDeleteCategory(args = {}) {
 }
 
 // ─── TOOL: get_loans_and_recurring ───────────────────────────────────────────
-async function handleGetLoansAndRecurring() {
-  const data = await getUserData();
+async function handleGetLoansAndRecurring(targetUid) {
+  const data = await getUserData(targetUid);
   const { loans = [], recurring = [], categories = [] } = data;
 
   const catMap = {};
@@ -776,7 +798,7 @@ async function handleGetLoansAndRecurring() {
 }
 
 // ─── JSON-RPC DISPATCHER ─────────────────────────────────────────────────────
-async function handleJsonRpc(request) {
+async function handleJsonRpc(request, targetUid) {
   const { jsonrpc, method, params, id } = request || {};
 
   const ok  = (result)  => ({ jsonrpc: '2.0', id: id ?? null, result });
@@ -814,15 +836,15 @@ async function handleJsonRpc(request) {
         let text;
 
         switch (name) {
-          case 'get_balances':          text = await handleGetBalances(); break;
-          case 'get_transactions':      text = await handleGetTransactions(args); break;
-          case 'get_monthly_summary':   text = await handleGetMonthlySummary(args); break;
-          case 'add_transaction':       text = await handleAddTransaction(args); break;
-          case 'list_categories':       text = await handleListCategories(args); break;
-          case 'add_category':          text = await handleAddCategory(args); break;
-          case 'edit_category':         text = await handleEditCategory(args); break;
-          case 'delete_category':       text = await handleDeleteCategory(args); break;
-          case 'get_loans_and_recurring': text = await handleGetLoansAndRecurring(); break;
+          case 'get_balances':          text = await handleGetBalances(targetUid); break;
+          case 'get_transactions':      text = await handleGetTransactions(args, targetUid); break;
+          case 'get_monthly_summary':   text = await handleGetMonthlySummary(args, targetUid); break;
+          case 'add_transaction':       text = await handleAddTransaction(args, targetUid); break;
+          case 'list_categories':       text = await handleListCategories(args, targetUid); break;
+          case 'add_category':          text = await handleAddCategory(args, targetUid); break;
+          case 'edit_category':         text = await handleEditCategory(args, targetUid); break;
+          case 'delete_category':       text = await handleDeleteCategory(args, targetUid); break;
+          case 'get_loans_and_recurring': text = await handleGetLoansAndRecurring(targetUid); break;
           default:
             return err(-32601, `Unknown tool: ${name}`);
         }
@@ -850,8 +872,10 @@ export default async function handler(req, res) {
   if (!MCP_API_KEY) {
     return res.status(500).json({ error: 'MCP_API_KEY not configured on server.' });
   }
-  if (!MCP_USER_UID) {
-    return res.status(500).json({ error: 'MCP_USER_UID not configured on server.' });
+
+  const targetUid = resolveTargetUid(req);
+  if (!targetUid) {
+    return res.status(500).json({ error: 'User UID not configured or found.' });
   }
 
   const authHeader = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
@@ -886,7 +910,7 @@ export default async function handler(req, res) {
     const responses = [];
 
     for (const request of requests) {
-      const response = await handleJsonRpc(request);
+      const response = await handleJsonRpc(request, targetUid);
       if (response !== null) responses.push(response);
     }
 

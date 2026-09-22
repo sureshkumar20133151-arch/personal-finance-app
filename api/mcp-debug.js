@@ -22,7 +22,17 @@ export default async function handler(req, res) {
   const effectiveProjectId   = mcpProjectId   || legacyProjectId   || '(not set)';
   const effectiveClientEmail = mcpClientEmail || legacyClientEmail || '(not set)';
   const effectiveKey         = mcpPrivateKey  || legacyPrivateKey  || '';
-  const mcpUid               = process.env.MCP_USER_UID || '(not set)';
+  const DEFAULT_SURESH_UID = 'mlbLQkDo0Ef95hns8p81TkQdUK83';
+  const DEFAULT_ROSIE_UID  = 'do139V31SkRXMSpkLIW1AroA9ZO2';
+
+  const queryUid = (req.query?.uid || '').trim();
+  const userParam = (req.query?.user || '').trim().toLowerCase();
+  let mcpUid = queryUid;
+  if (!mcpUid) {
+    if (userParam === 'rosie') mcpUid = process.env.ROSIE_USER_UID || DEFAULT_ROSIE_UID;
+    else if (userParam === 'suresh' || userParam === 'default') mcpUid = process.env.SURESH_USER_UID || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+    else mcpUid = process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  }
   const expectedProjectId    = 'listing-generator-31b39';
 
   let firestoreStatus = 'Not tested';
