@@ -842,6 +842,22 @@ async function handleJsonRpc(request, targetUid) {
             logo: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
             icon_url: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
             logo_uri: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+            icons: [
+              {
+                src: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+                mimeType: 'image/png',
+                sizes: ['512x512']
+              },
+              {
+                src: 'https://personal-finance-app-mauve.vercel.app/favicon.svg',
+                mimeType: 'image/svg+xml'
+              },
+              {
+                src: 'https://personal-finance-app-mauve.vercel.app/favicon.ico',
+                mimeType: 'image/x-icon',
+                sizes: ['32x32']
+              }
+            ],
           },
         });
 
@@ -902,6 +918,22 @@ export default async function handler(req, res) {
       logo: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
       icon_url: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
       logo_uri: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+      icons: [
+        {
+          src: 'https://personal-finance-app-mauve.vercel.app/app-icon-512.png',
+          mimeType: 'image/png',
+          sizes: ['512x512']
+        },
+        {
+          src: 'https://personal-finance-app-mauve.vercel.app/favicon.svg',
+          mimeType: 'image/svg+xml'
+        },
+        {
+          src: 'https://personal-finance-app-mauve.vercel.app/favicon.ico',
+          mimeType: 'image/x-icon',
+          sizes: ['32x32']
+        }
+      ],
       tools: TOOLS.map(t => ({ name: t.name, description: t.description })),
       status: 'ok',
     });
