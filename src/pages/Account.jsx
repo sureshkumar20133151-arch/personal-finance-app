@@ -479,6 +479,7 @@ const Account = () => {
                                         </button>
                                     </div>
                                 )}
+                            </div>
                             <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
                             {currentUser?.uid && (
                                 <div className="flex items-center gap-1.5 justify-center sm:justify-start text-xs text-muted-foreground/70 font-mono">
