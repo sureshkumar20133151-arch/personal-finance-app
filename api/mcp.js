@@ -144,12 +144,52 @@ const TOOLS = [
 ];
 
 // ─── FIRESTORE HELPER ────────────────────────────────────────────────────────
+const DEFAULT_CATEGORIES = [
+  { id: "1",  name: "Salary",         type: "income",  color: "#10b981", icon: "Wallet",      budget: 0   },
+  { id: "2",  name: "Freelance",      type: "income",  color: "#3b82f6", icon: "Laptop",      budget: 0   },
+  { id: "3",  name: "Food",           type: "expense", color: "#f59e0b", icon: "Utensils",    budget: 500 },
+  { id: "4",  name: "Transport",      type: "expense", color: "#ef4444", icon: "Car",         budget: 200 },
+  { id: "5",  name: "Utilities",      type: "expense", color: "#6366f1", icon: "Zap",         budget: 150 },
+  { id: "6",  name: "Emergency Fund", type: "savings", color: "#06b6d4", icon: "ShieldCheck", budget: 0   },
+  { id: "7",  name: "Credit Card",    type: "debt",    color: "#f97316", icon: "CreditCard",  budget: 0   },
+  { id: "8",  name: "Clothes",        type: "expense", color: "#ec4899", icon: "ShoppingBag", budget: 100 },
+  { id: "9",  name: "Coffee",         type: "expense", color: "#8b5cf6", icon: "Coffee",      budget: 50  },
+  { id: "10", name: "Beauty",         type: "expense", color: "#f472b6", icon: "Sparkles",    budget: 0   },
+  { id: "11", name: "Entertainment",  type: "expense", color: "#14b8a6", icon: "Clapperboard",budget: 100 },
+];
+
 async function getUserData() {
   const db = await adminDb();
   if (!db) throw new Error('Firebase Admin not configured. Check FIREBASE_* env vars in Vercel.');
-  const snap = await db.collection('users').doc(MCP_USER_UID).get();
-  if (!snap.exists) throw new Error(`No user document found for UID: ${MCP_USER_UID}`);
-  return snap.data();
+  
+  const userRef = db.collection('users').doc(MCP_USER_UID);
+  const snap = await userRef.get();
+  
+  if (!snap.exists) {
+    // Auto-bootstrap default user document so new accounts or unseeded accounts work instantly!
+    const defaultData = {
+      categories: DEFAULT_CATEGORIES,
+      transactions: [],
+      subscription: "trial",
+      monthlyBudget: 50000,
+      initialBankBalances: {},
+      initialCashBalance: 0,
+      recurring: [],
+      loans: [],
+      profile: { profileComplete: true, categoriesSelected: true },
+      createdAt: new Date().toISOString(),
+    };
+    await userRef.set(defaultData, { merge: true });
+    return defaultData;
+  }
+  
+  const data = snap.data();
+  // Ensure categories exists
+  if (!data.categories || !Array.isArray(data.categories) || data.categories.length === 0) {
+    data.categories = DEFAULT_CATEGORIES;
+    await userRef.set({ categories: DEFAULT_CATEGORIES }, { merge: true }).catch(() => {});
+  }
+  return data;
 }
 
 // ─── CURRENCY FORMATTER ──────────────────────────────────────────────────────
@@ -410,9 +450,9 @@ async function handleAddTransaction(args = {}) {
   const db = await adminDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).update({
+  await db.collection('users').doc(MCP_USER_UID).set({
     transactions: [...transactions, newTx],
-  });
+  }, { merge: true });
 
   const catName = categories.find(c => String(c.id) === categoryId)?.name || 'Uncategorised';
 
@@ -527,9 +567,9 @@ async function handleAddCategory(args = {}) {
   const db = await adminDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).update({
+  await db.collection('users').doc(MCP_USER_UID).set({
     categories: [...categories, newCat],
-  });
+  }, { merge: true });
 
   return [
     `✅ CATEGORY CREATED SUCCESSFULLY`,
@@ -578,9 +618,9 @@ async function handleEditCategory(args = {}) {
   const db = await adminDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).update({
+  await db.collection('users').doc(MCP_USER_UID).set({
     categories: newCategories,
-  });
+  }, { merge: true });
 
   return [
     `✅ CATEGORY UPDATED SUCCESSFULLY`,
@@ -623,9 +663,9 @@ async function handleDeleteCategory(args = {}) {
   const db = await adminDb();
   if (!db) throw new Error('Firebase Admin not configured.');
 
-  await db.collection('users').doc(MCP_USER_UID).update({
+  await db.collection('users').doc(MCP_USER_UID).set({
     categories: remainingCategories,
-  });
+  }, { merge: true });
 
   return [
     `🗑️ CATEGORY DELETED SUCCESSFULLY`,
