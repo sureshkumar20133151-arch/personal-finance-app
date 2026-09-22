@@ -25,21 +25,24 @@ const Account = () => {
 
     // MCP Connector UI State
     const [copiedMcpUrl, setCopiedMcpUrl] = useState(false);
+    const [copiedMcpName, setCopiedMcpName] = useState(false);
     const [copiedPromptIdx, setCopiedPromptIdx] = useState(null);
     const [showAdvancedMcp, setShowAdvancedMcp] = useState(false);
 
+    const mcpConnectorName = 'Budget Tracker Pro';
     const mcpBaseUrl = (typeof window !== 'undefined' && (window.location.origin.includes('localhost') || window.location.origin.includes('capacitor')))
         ? 'https://personal-finance-app-mauve.vercel.app'
         : (typeof window !== 'undefined' ? window.location.origin : 'https://personal-finance-app-mauve.vercel.app');
     const mcpConnectorUrl = `${mcpBaseUrl}/api/mcp`;
 
-    const handleConnectToClaude = async () => {
+    const copyToClipboard = async (text) => {
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(mcpConnectorUrl);
+                await navigator.clipboard.writeText(text);
+                return true;
             } else {
                 const textArea = document.createElement("textarea");
-                textArea.value = mcpConnectorUrl;
+                textArea.value = text;
                 textArea.style.position = "fixed";
                 textArea.style.opacity = "0";
                 document.body.appendChild(textArea);
@@ -47,14 +50,35 @@ const Account = () => {
                 textArea.select();
                 document.execCommand("copy");
                 document.body.removeChild(textArea);
+                return true;
             }
         } catch (e) {
             console.warn("Clipboard copy fallback used:", e);
+            return false;
         }
+    };
+
+    const handleCopyName = async () => {
+        await copyToClipboard(mcpConnectorName);
+        setCopiedMcpName(true);
+        setTimeout(() => setCopiedMcpName(false), 2500);
+        showToast("Copied Name: 'Budget Tracker Pro'", "success");
+    };
+
+    const handleCopyUrl = async () => {
+        await copyToClipboard(mcpConnectorUrl);
         setCopiedMcpUrl(true);
-        setTimeout(() => setCopiedMcpUrl(false), 5000);
-        showToast("✨ URL Copied! Opening 'Add Custom Connector' in Claude — Just paste (Ctrl+V) and connect!", "success");
-        window.open("https://claude.ai/settings/connectors?modal=add-custom-connector", "_blank", "noopener,noreferrer");
+        setTimeout(() => setCopiedMcpUrl(false), 2500);
+        showToast("Copied Connector URL!", "success");
+    };
+
+    const handleConnectToClaude = async () => {
+        await copyToClipboard(mcpConnectorUrl);
+        setCopiedMcpUrl(true);
+        setTimeout(() => setCopiedMcpUrl(false), 6000);
+        showToast("✨ URL Copied! Opening Claude Connectors — Just paste (Ctrl+V)!", "success");
+        const claudeDeepLink = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=${encodeURIComponent(mcpConnectorName)}&name=${encodeURIComponent(mcpConnectorName)}&connectorUrl=${encodeURIComponent(mcpConnectorUrl)}&url=${encodeURIComponent(mcpConnectorUrl)}`;
+        window.open(claudeDeepLink, "_blank", "noopener,noreferrer");
     };
 
     const showToast = (message, type = 'success') => {
@@ -617,59 +641,97 @@ const Account = () => {
                                 <div className="mt-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <Check className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
                                     <div>
-                                        <p className="font-bold text-[12px] text-foreground">✨ URL Copied & Claude Modal Opened!</p>
-                                        <p className="text-muted-foreground mt-0.5">
-                                            In the opened Claude popup, simply paste into the <strong>Server URL</strong> field (<kbd className="px-1.5 py-0.5 bg-muted rounded border text-[11px] font-mono text-foreground">Ctrl+V</kbd>) and click <strong>Connect</strong>!
+                                        <p className="font-bold text-[12px] text-foreground">✨ URL Copied & Claude Connectors Opened!</p>
+                                        <p className="text-muted-foreground mt-0.5 leading-relaxed">
+                                            In Claude's popup:
+                                            <br />
+                                            • <strong>Name:</strong> Click <em>Copy</em> on 'Budget Tracker Pro' below (or type it).
+                                            <br />
+                                            • <strong>Server URL:</strong> Already in clipboard! Just press <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[11px] font-mono text-foreground">Ctrl+V</kbd> and click <strong>Connect</strong>!
                                         </p>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Primary MCP URL Copy Box */}
-                        <div className="space-y-1.5 mb-4">
-                            <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                                <span>Connector URL</span>
-                                <span className="text-[11px] text-muted-foreground font-normal">SSE / Streamable HTTP</span>
+                        {/* Dual 1-Click Copy: Name & URL */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
+                            {/* Connector Name Box */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                                    <span>Connector Name</span>
+                                    <span className="text-[10px] text-muted-foreground font-normal">Field 1</span>
+                                </div>
+                                <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-border">
+                                    <span className="text-xs font-semibold text-foreground truncate flex-1 px-1 select-all">
+                                        {mcpConnectorName}
+                                    </span>
+                                    <button
+                                        onClick={handleCopyName}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 text-xs font-semibold transition-all shrink-0 shadow-sm"
+                                        title="Copy App Name"
+                                    >
+                                        {copiedMcpName ? (
+                                            <>
+                                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                                <span className="text-emerald-500 font-bold">Copied</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="w-3.5 h-3.5" />
+                                                <span>Copy Name</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-border">
-                                <code className="text-xs font-mono text-foreground truncate flex-1 px-1 select-all">
-                                    {mcpConnectorUrl}
-                                </code>
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(mcpConnectorUrl);
-                                        setCopiedMcpUrl(true);
-                                        setTimeout(() => setCopiedMcpUrl(false), 2000);
-                                        showToast("MCP Connector URL copied!");
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all shrink-0 shadow-sm"
-                                >
-                                    {copiedMcpUrl ? (
-                                        <>
-                                            <Check className="w-3.5 h-3.5" />
-                                            <span>Copied</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy className="w-3.5 h-3.5" />
-                                            <span>Copy</span>
-                                        </>
-                                    )}
-                                </button>
+
+                            {/* Connector URL Box */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                                    <span>Server URL</span>
+                                    <span className="text-[10px] text-muted-foreground font-normal">Field 2</span>
+                                </div>
+                                <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-border">
+                                    <code className="text-xs font-mono text-foreground truncate flex-1 px-1 select-all">
+                                        {mcpConnectorUrl}
+                                    </code>
+                                    <button
+                                        onClick={handleCopyUrl}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold transition-all shrink-0 shadow-sm"
+                                        title="Copy Server URL"
+                                    >
+                                        {copiedMcpUrl ? (
+                                            <>
+                                                <Check className="w-3.5 h-3.5" />
+                                                <span>Copied</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="w-3.5 h-3.5" />
+                                                <span>Copy URL</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         {/* Quick Setup Instructions */}
                         <div className="bg-muted/40 rounded-xl p-3 border border-border/60 mb-4 space-y-1.5">
-                            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                                How to Connect in Claude:
-                            </h4>
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                    How to Connect (One-Time Setup):
+                                </h4>
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                    Permanent Setup
+                                </span>
+                            </div>
                             <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-                                <li>In Claude, go to <span className="font-semibold text-foreground">Settings &rarr; Connectors</span></li>
-                                <li>Add custom connector and paste the URL above</li>
-                                <li>Sign in with your Budget Tracker account via 1-click OAuth</li>
+                                <li>Click <strong>✦ Connect to Claude</strong> above (opens Claude Connectors)</li>
+                                <li>Paste URL into <strong>Server URL</strong> and copy Name into <strong>Name</strong></li>
+                                <li>Click <strong>Connect</strong> — Claude saves it permanently for all future chats!</li>
                             </ol>
                         </div>
 
