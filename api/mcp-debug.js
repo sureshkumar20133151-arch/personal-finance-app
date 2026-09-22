@@ -1,8 +1,6 @@
 // Temporary diagnostic endpoint — identifies which Firebase project the Admin SDK is using
 // GET https://personal-finance-app-mauve.vercel.app/api/mcp-debug?key=<MCP_API_KEY>
 
-import { adminDb } from './_lib/firebaseAdmin.js';
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -13,50 +11,70 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const projectId    = process.env.FIREBASE_PROJECT_ID    || '(not set)';
-  const clientEmail  = process.env.FIREBASE_CLIENT_EMAIL  || '(not set)';
-  const mcpProjectId = process.env.MCP_FIREBASE_PROJECT_ID || '(not set)';
-  const mcpUid       = process.env.MCP_USER_UID            || '(not set)';
-  const expectedProjectId = 'listing-generator-31b39';
+  const mcpProjectId   = process.env.MCP_FIREBASE_PROJECT_ID;
+  const mcpClientEmail = process.env.MCP_FIREBASE_CLIENT_EMAIL;
+  const mcpPrivateKey  = process.env.MCP_FIREBASE_PRIVATE_KEY;
+
+  const legacyProjectId   = process.env.FIREBASE_PROJECT_ID;
+  const legacyClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const legacyPrivateKey  = process.env.FIREBASE_PRIVATE_KEY;
+
+  const effectiveProjectId   = mcpProjectId   || legacyProjectId   || '(not set)';
+  const effectiveClientEmail = mcpClientEmail || legacyClientEmail || '(not set)';
+  const effectiveKey         = mcpPrivateKey  || legacyPrivateKey  || '';
+  const mcpUid               = process.env.MCP_USER_UID || '(not set)';
+  const expectedProjectId    = 'listing-generator-31b39';
 
   let firestoreStatus = 'Not tested';
   let docExists = null;
   let sampleTxCount = null;
 
-  try {
-    const db = await adminDb();
-    if (!db) {
-      firestoreStatus = 'adminDb() returned null — missing FIREBASE_* credentials in Vercel';
-    } else {
-      // Try to read the user document
+  if (!effectiveKey || effectiveProjectId === '(not set)') {
+    firestoreStatus = 'Missing credentials — set MCP_FIREBASE_PROJECT_ID, MCP_FIREBASE_CLIENT_EMAIL, MCP_FIREBASE_PRIVATE_KEY in Vercel';
+  } else {
+    try {
+      const { initializeApp, getApps, cert } = await import('firebase-admin/app');
+      const { getFirestore } = await import('firebase-admin/firestore');
+
+      const appName = 'mcp-debug-app';
+      const existing = getApps().find(a => a.name === appName);
+      const privateKey = effectiveKey.includes('\\n') ? effectiveKey.replace(/\\n/g, '\n') : effectiveKey;
+      const app = existing || initializeApp({
+        credential: cert({
+          projectId: effectiveProjectId,
+          clientEmail: effectiveClientEmail,
+          privateKey
+        })
+      }, appName);
+
+      const db = getFirestore(app);
       const snap = await db.collection('users').doc(mcpUid).get();
       docExists = snap.exists;
       if (snap.exists) {
         const data = snap.data();
         sampleTxCount = (data.transactions || []).length;
-        // Look for MCP-added transactions
         const mcpTxs = (data.transactions || []).filter(t => t.source === 'mcp');
-        firestoreStatus = `OK — doc exists, ${sampleTxCount} total transactions, ${mcpTxs.length} added via MCP`;
+        firestoreStatus = `OK — user document found! Total transactions: ${sampleTxCount}, MCP added: ${mcpTxs.length}`;
       } else {
-        firestoreStatus = `User doc NOT FOUND for UID: ${mcpUid}`;
+        firestoreStatus = `Connected to Firestore successfully, but user doc NOT FOUND for UID: ${mcpUid}. (Check UID in Account page)`;
       }
+    } catch (e) {
+      firestoreStatus = `Error connecting to Firestore: ${e.message}`;
     }
-  } catch (e) {
-    firestoreStatus = `Error: ${e.message}`;
   }
 
   return res.status(200).json({
     diagnosis: {
-      active_project_id: projectId,
+      active_project_id: effectiveProjectId,
       expected_project_id: expectedProjectId,
-      project_is_correct: projectId === expectedProjectId,
-      firebase_client_email: clientEmail.substring(0, 30) + '...',
-      mcp_specific_project: mcpProjectId,
+      project_is_correct: effectiveProjectId === expectedProjectId,
+      active_client_email: effectiveClientEmail.length > 10 ? effectiveClientEmail.substring(0, 30) + '...' : effectiveClientEmail,
+      used_mcp_specific_vars: Boolean(mcpProjectId),
       mcp_user_uid: mcpUid,
     },
     firestore_test: firestoreStatus,
-    fix_needed: projectId !== expectedProjectId
-      ? `⚠️ WRONG PROJECT! Admin SDK is using "${projectId}" but app data lives in "${expectedProjectId}". Add service account from listing-generator-31b39 to Vercel as MCP_FIREBASE_PROJECT_ID, MCP_FIREBASE_CLIENT_EMAIL, MCP_FIREBASE_PRIVATE_KEY.`
-      : `✅ Correct project. If doc is missing, MCP_USER_UID may be wrong.`,
+    fix_needed: effectiveProjectId !== expectedProjectId
+      ? `⚠️ WRONG PROJECT! Using "${effectiveProjectId}" instead of "${expectedProjectId}". Update MCP_FIREBASE_* variables in Vercel.`
+      : (!docExists ? `⚠️ Project is correct (${effectiveProjectId}), but UID "${mcpUid}" not found. Copy your active UID from app Account page and set as MCP_USER_UID in Vercel.` : `✅ Everything is properly configured and connected!`),
   });
 }
