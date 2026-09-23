@@ -4,6 +4,7 @@ import { Bot, X, Copy, Check, ExternalLink, ShieldCheck, Sparkles, CheckCircle2 
 const ClaudeConnectGuideModal = ({ isOpen, onClose, mcpConnectorUrl, mcpConnectorName = 'Budget Tracker Pro' }) => {
     const [copiedName, setCopiedName] = useState(false);
     const [copiedUrl, setCopiedUrl] = useState(false);
+    const [copiedClientId, setCopiedClientId] = useState(false);
 
     if (!isOpen) return null;
 
@@ -154,13 +155,19 @@ const ClaudeConnectGuideModal = ({ isOpen, onClose, mcpConnectorUrl, mcpConnecto
                     </div>
 
                     {/* Quick Note about Claude's Screen */}
-                    <div className="p-3 rounded-xl bg-muted/60 border border-border/70 text-xs space-y-1">
+                    <div className="p-3 rounded-xl bg-muted/60 border border-border/70 text-xs space-y-2">
                         <p className="font-bold text-foreground text-[11px] flex items-center gap-1.5">
-                            <span>💡 If Claude shows "OAuth client" options:</span>
+                            <span>💡 If Claude asks for "OAuth client ID":</span>
                         </p>
-                        <p className="text-muted-foreground text-[11px] leading-relaxed">
-                            Select <strong>"Use Claude's published identity"</strong> (or <strong>"Register automatically"</strong>). No Client ID is needed!
-                        </p>
+                        <div className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-lg bg-card border border-border">
+                            <span className="text-xs">Client ID: <strong className="font-mono text-primary">claude</strong></span>
+                            <button
+                                onClick={() => copyText('claude', setCopiedClientId)}
+                                className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 text-[11px] font-bold transition-all shadow-sm"
+                            >
+                                {copiedClientId ? "Copied!" : "Copy 'claude'"}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Big Action CTA Button */}

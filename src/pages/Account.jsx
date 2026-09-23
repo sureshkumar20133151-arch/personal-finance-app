@@ -729,6 +729,20 @@ const Account = () => {
                             </div>
                         </div>
 
+                        {/* Optional Client ID Chip */}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground p-2 px-3 rounded-xl bg-muted/40 border border-border/50 mb-4">
+                            <span>OAuth Client ID (if Claude asks): <strong className="font-mono text-foreground font-semibold">claude</strong></span>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText("claude");
+                                    showToast("Copied Client ID: 'claude'", "success");
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[11px] font-bold transition-colors shadow-sm"
+                            >
+                                Copy "claude"
+                            </button>
+                        </div>
+
                         {/* Quick Setup Instructions */}
                         <div className="bg-muted/40 rounded-xl p-3 border border-border/60 mb-4 space-y-1.5">
                             <div className="flex items-center justify-between">
