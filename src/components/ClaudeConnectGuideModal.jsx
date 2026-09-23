@@ -154,18 +154,45 @@ const ClaudeConnectGuideModal = ({ isOpen, onClose, mcpConnectorUrl, mcpConnecto
                         </div>
                     </div>
 
-                    {/* Quick Note about Claude's Screen */}
-                    <div className="p-3 rounded-xl bg-muted/60 border border-border/70 text-xs space-y-2">
-                        <p className="font-bold text-foreground text-[11px] flex items-center gap-1.5">
-                            <span>💡 If Claude asks for "OAuth client ID":</span>
+                    {/* Claude's Settings Guidance */}
+                    <div className="p-3 rounded-xl bg-muted/60 border border-border/70 text-xs space-y-2.5">
+                        <p className="font-bold text-foreground text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            <span>In Claude's Settings (Just 2 quick checks):</span>
                         </p>
-                        <div className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-lg bg-card border border-border">
-                            <span className="text-xs">Client ID: <strong className="font-mono text-primary">claude</strong></span>
+
+                        {/* 1. Authentication */}
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-border">
+                            <div className="flex flex-col">
+                                <span className="text-xs font-semibold text-foreground">Authentication</span>
+                                <span className="text-[10px] text-muted-foreground">Keep default (Already selected)</span>
+                            </div>
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                                ✓ Sign in now
+                            </span>
+                        </div>
+
+                        {/* 2. OAuth Client ID */}
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-border">
+                            <div className="flex flex-col">
+                                <span className="text-xs font-semibold text-foreground">OAuth Client ID</span>
+                                <span className="text-[10px] text-muted-foreground">If asked, type or copy:</span>
+                            </div>
                             <button
                                 onClick={() => copyText('claude', setCopiedClientId)}
-                                className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 text-[11px] font-bold transition-all shadow-sm"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 text-[11px] font-bold transition-all shadow-sm"
                             >
-                                {copiedClientId ? "Copied!" : "Copy 'claude'"}
+                                {copiedClientId ? (
+                                    <>
+                                        <Check className="w-3 h-3 text-emerald-500" />
+                                        <span className="text-emerald-500">Copied!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copy "claude"</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

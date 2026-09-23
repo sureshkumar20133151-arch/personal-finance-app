@@ -744,7 +744,7 @@ const Account = () => {
                         </div>
 
                         {/* Quick Setup Instructions */}
-                        <div className="bg-muted/40 rounded-xl p-3 border border-border/60 mb-4 space-y-1.5">
+                        <div className="bg-muted/40 rounded-xl p-3 border border-border/60 mb-4 space-y-2">
                             <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
                                     <Zap className="w-3.5 h-3.5 text-amber-500" />
@@ -754,9 +754,11 @@ const Account = () => {
                                     Permanent Setup
                                 </span>
                             </div>
-                            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                            <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside leading-relaxed">
                                 <li>Click <strong>✦ Connect to Claude</strong> above (opens Claude Connectors)</li>
-                                <li>Paste URL into <strong>Server URL</strong> and copy Name into <strong>Name</strong></li>
+                                <li>Fill <strong>Name</strong> & <strong>Server URL</strong> using copy buttons above</li>
+                                <li><strong>Authentication:</strong> Leave default as <strong>Sign in now</strong></li>
+                                <li><strong>OAuth Client ID:</strong> Use <strong>claude</strong> (if Claude asks)</li>
                                 <li>Click <strong>Connect</strong> — Claude saves it permanently for all future chats!</li>
                             </ol>
                         </div>
