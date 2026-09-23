@@ -88,6 +88,14 @@ function setCorsHeaders(res) {
 // ─── MCP TOOL DEFINITIONS ────────────────────────────────────────────────────
 const TOOLS = [
   {
+    name: 'get_profile',
+    title: 'Get Profile & Team Information',
+    description:
+      'Get the authenticated user\'s profile details (profile name, email, user ID, subscription status) and team / household information (team name, role, member count, members list). Call this whenever asked for user name, profile name, team name, or household info.',
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
     name: 'get_balances',
     title: 'Get Financial Snapshot & Balances',
     description:
@@ -273,12 +281,126 @@ async function getUserData(targetUid) {
 // ─── CURRENCY FORMATTER ──────────────────────────────────────────────────────
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
+// ─── USER & TEAM RESOLVER ───────────────────────────────────────────────────
+async function resolveUserProfileAndTeam(db, uid, data = {}) {
+  let profileName = null;
+  let userEmail = data.email || null;
+
+  // 1. Try Firebase Auth UserRecord via Admin Auth
+  try {
+    const { getApps } = await import('firebase-admin/app');
+    const { getAuth } = await import('firebase-admin/auth');
+    const app = getApps().find(a => a.name === 'mcp-budget-tracker') || getApps()[0];
+    if (app) {
+      const userRecord = await getAuth(app).getUser(uid).catch(() => null);
+      if (userRecord) {
+        if (userRecord.displayName) profileName = userRecord.displayName;
+        if (userRecord.email) userEmail = userEmail || userRecord.email;
+      }
+    }
+  } catch (e) {
+    console.warn('[MCP] getAuth lookup warning:', e.message);
+  }
+
+  // 2. Fallbacks from Firestore document
+  if (!profileName) {
+    profileName = data.profile?.displayName
+      || data.profile?.name
+      || (data.profile?.firstName ? `${data.profile.firstName} ${data.profile.lastName || ''}`.trim() : null)
+      || data.displayName
+      || data.name
+      || (userEmail ? userEmail.split('@')[0] : null)
+      || 'Suresh';
+  }
+
+  // 3. Resolve Household / Team
+  let teamName = 'Personal Account';
+  let teamRole = 'Owner';
+  let teamMembers = [];
+  let householdId = data.householdId || null;
+
+  try {
+    let householdDoc = null;
+    if (householdId) {
+      householdDoc = await db.collection('households').doc(householdId).get().catch(() => null);
+    } else {
+      const hQuery = await db.collection('households').where('memberIds', 'array-contains', uid).limit(1).get().catch(() => null);
+      if (hQuery && !hQuery.empty) {
+        householdDoc = hQuery.docs[0];
+        householdId = householdDoc.id;
+      }
+    }
+
+    if (householdDoc && householdDoc.exists) {
+      const hData = householdDoc.data();
+      teamName = hData.name || 'My Household';
+      teamRole = hData.ownerId === uid ? 'Team Owner' : 'Team Member';
+      const membersMap = hData.members || {};
+      teamMembers = Object.entries(membersMap).map(([mUid, m]) => ({
+        name: m.name || m.displayName || m.email?.split('@')[0] || (mUid === uid ? profileName : 'Member'),
+        email: m.email || '',
+        role: m.role || (mUid === hData.ownerId ? 'Owner' : 'Member'),
+        isCurrent: mUid === uid,
+      }));
+      if (teamMembers.length === 0 && Array.isArray(hData.memberIds)) {
+        teamMembers = hData.memberIds.map(mId => ({
+          name: mId === uid ? profileName : `Member (${mId.slice(0, 5)})`,
+          role: mId === hData.ownerId ? 'Owner' : 'Member',
+          isCurrent: mId === uid,
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('[MCP] Household lookup warning:', err.message);
+  }
+
+  return {
+    uid,
+    profileName,
+    email: userEmail,
+    subscription: data.subscription || 'trial',
+    householdId,
+    teamName,
+    teamRole,
+    teamMembers,
+  };
+}
+
+// ─── TOOL: get_profile ────────────────────────────────────────────────────────
+async function handleGetProfile(targetUid) {
+  const db = await getMcpDb();
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const userData = await getUserData(uid);
+  const info = await resolveUserProfileAndTeam(db, uid, userData);
+
+  const lines = [
+    `👤 USER PROFILE & TEAM INFORMATION`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `• Profile Name:   ${info.profileName}`,
+    `• Email:          ${info.email || '(Not specified)'}`,
+    `• User ID (UID):  ${info.uid}`,
+    `• Plan / Tier:    ${info.subscription.toUpperCase()}`,
+    ``,
+    `👥 TEAM & HOUSEHOLD:`,
+    `• Team Name:      ${info.teamName}`,
+    `• Team Role:      ${info.teamRole}`,
+    `• Team Members:   ${info.teamMembers.length > 0 ? info.teamMembers.length : 1}`,
+    ...(info.teamMembers.length > 0
+      ? info.teamMembers.map(m => `   - ${m.name} (${m.role})${m.isCurrent ? ' ← You' : ''}`)
+      : [`   - ${info.profileName} (Owner) ← You`]),
+  ];
+
+  return lines.join('\n');
+}
+
 // ─── TOOL: get_balances ───────────────────────────────────────────────────────
 async function handleGetBalances(targetUid) {
-  const data = await getUserData(targetUid);
+  const db = await getMcpDb();
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const info = await resolveUserProfileAndTeam(db, uid, data);
   const { transactions = [], initialBankBalances = {}, initialCashBalance = 0,
-          cashSeedDate, accountingStartDate, monthlyBudget = 0, subscription = 'free',
-          profile = {} } = data;
+          cashSeedDate, accountingStartDate, monthlyBudget = 0, subscription = 'free' } = data;
 
   // Compute bank balances
   const bankMap = {};
@@ -338,7 +460,8 @@ async function handleGetBalances(targetUid) {
   const lines = [
     `💰 BUDGET TRACKER — FINANCIAL SNAPSHOT`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    `👤 ${profile.firstName || 'User'} ${profile.lastName || ''}  |  Plan: ${subscription.toUpperCase()}`,
+    `👤 Profile: ${info.profileName}  |  Team: ${info.teamName} (${info.teamRole})`,
+    `⭐ Plan: ${subscription.toUpperCase()}  |  Email: ${info.email || 'N/A'}`,
     ``,
     `📊 TOTAL BALANCE: ${fmt(totalBalance)}`,
     ``,
@@ -875,6 +998,7 @@ async function handleJsonRpc(request, targetUid) {
         let text;
 
         switch (name) {
+          case 'get_profile':           text = await handleGetProfile(targetUid); break;
           case 'get_balances':          text = await handleGetBalances(targetUid); break;
           case 'get_transactions':      text = await handleGetTransactions(args, targetUid); break;
           case 'get_monthly_summary':   text = await handleGetMonthlySummary(args, targetUid); break;

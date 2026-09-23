@@ -22,6 +22,12 @@
   },
   "tools": [
     {
+      "name": "get_profile",
+      "title": "Get Profile & Team Information",
+      "description": "Get the user's profile name, email, user ID, subscription status, and team/household details.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false }
+    },
+    {
       "name": "get_balances",
       "title": "Get Financial Snapshot & Balances",
       "description": "Get real-time total balance, bank ledgers, cash wallet, and subscription status.",
