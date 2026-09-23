@@ -79,6 +79,7 @@ export default async function handler(req, res) {
         code,
         uid: user.uid,
         email: user.email,
+        name: user.name || '',
         clientId: clientId || 'claude-connector',
         redirectUri,
         codeChallenge: codeChallenge || '',
@@ -87,6 +88,30 @@ export default async function handler(req, res) {
         createdAt: now,
         expiresAt,
       });
+
+      // Automatically sync profile name and email to Firestore user document
+      try {
+        const userRef = db.collection('users').doc(user.uid);
+        const uSnap = await userRef.get().catch(() => null);
+        const existingData = (uSnap && uSnap.exists) ? uSnap.data() : {};
+        const profileUpdates = { email: user.email };
+        if (user.name) {
+          profileUpdates.displayName = user.name;
+          const currentProfile = existingData.profile || {};
+          if (!currentProfile.displayName && !currentProfile.firstName) {
+            const [first, ...rest] = user.name.split(' ');
+            profileUpdates.profile = {
+              ...currentProfile,
+              displayName: user.name,
+              firstName: first || user.name,
+              lastName: rest.join(' ') || '',
+            };
+          }
+        }
+        await userRef.set(profileUpdates, { merge: true }).catch(() => {});
+      } catch (profErr) {
+        console.warn('[OAuth] Could not sync user profile info:', profErr.message);
+      }
 
       // Construct redirect URL
       const targetUrl = new URL(redirectUri);

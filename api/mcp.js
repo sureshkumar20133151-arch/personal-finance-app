@@ -251,6 +251,7 @@ async function getUserData(targetUid) {
   const userRef = db.collection('users').doc(uid);
   const snap = await userRef.get();
   
+  let data;
   if (!snap.exists) {
     // Auto-bootstrap default user document so new accounts or unseeded accounts work instantly!
     const defaultData = {
@@ -266,10 +267,57 @@ async function getUserData(targetUid) {
       createdAt: new Date().toISOString(),
     };
     await userRef.set(defaultData, { merge: true });
-    return defaultData;
+    data = defaultData;
+  } else {
+    data = snap.data();
   }
-  
-  const data = snap.data();
+
+  // If user belongs to a household, pull shared fields from households/{householdId}
+  let householdId = data.householdId;
+  let householdDoc = null;
+  try {
+    if (householdId) {
+      householdDoc = await db.collection('households').doc(householdId).get().catch(() => null);
+    } else {
+      const hQuery = await db.collection('households').where('memberIds', 'array-contains', uid).limit(1).get().catch(() => null);
+      if (hQuery && !hQuery.empty) {
+        householdDoc = hQuery.docs[0];
+        householdId = householdDoc.id;
+        data.householdId = householdId;
+      }
+    }
+
+    if (householdDoc && householdDoc.exists) {
+      const hData = householdDoc.data();
+      if (Array.isArray(hData.transactions) && hData.transactions.length > 0) {
+        data.transactions = hData.transactions;
+      }
+      if (Array.isArray(hData.categories) && hData.categories.length > 0) {
+        data.categories = hData.categories;
+      }
+      if (hData.recurring && Array.isArray(hData.recurring) && hData.recurring.length > 0) {
+        data.recurring = hData.recurring;
+      }
+      if (hData.loans && Array.isArray(hData.loans) && hData.loans.length > 0) {
+        data.loans = hData.loans;
+      }
+      if (hData.monthlyBudget) data.monthlyBudget = hData.monthlyBudget;
+      if (hData.accountingStartDate) data.accountingStartDate = hData.accountingStartDate;
+
+      const memberEntry = hData.members?.[uid];
+      if (memberEntry) {
+        if (memberEntry.initialBankBalances && Object.keys(memberEntry.initialBankBalances).length > 0) {
+          data.initialBankBalances = { ...memberEntry.initialBankBalances, ...(data.initialBankBalances || {}) };
+        }
+        if (memberEntry.initialCashBalance !== undefined && !data.initialCashBalance) {
+          data.initialCashBalance = memberEntry.initialCashBalance;
+        }
+      }
+    }
+  } catch (hErr) {
+    console.warn('[MCP] Household merge warning in getUserData:', hErr.message);
+  }
+
   // Ensure categories exists
   if (!data.categories || !Array.isArray(data.categories) || data.categories.length === 0) {
     data.categories = DEFAULT_CATEGORIES;
@@ -409,14 +457,29 @@ async function resolveUserProfileAndTeam(db, uid, data = {}) {
   }
 
   // 2. Fallbacks from Firestore document
-  if (!profileName) {
+  if (!profileName || profileName.toLowerCase() === 'user') {
     profileName = data.profile?.displayName
       || data.profile?.name
       || (data.profile?.firstName ? `${data.profile.firstName} ${data.profile.lastName || ''}`.trim() : null)
       || data.displayName
-      || data.name
-      || (userEmail ? userEmail.split('@')[0] : null)
-      || 'Suresh';
+      || data.name;
+  }
+
+  // 3. Fallback from latest OAuth login if available
+  if (!profileName || profileName.toLowerCase() === 'user') {
+    try {
+      const codeQuery = await db.collection('oauth_codes').where('uid', '==', uid).limit(1).get().catch(() => null);
+      if (codeQuery && !codeQuery.empty) {
+        const cData = codeQuery.docs[0].data();
+        if (cData.name) profileName = cData.name;
+        if (cData.email) userEmail = userEmail || cData.email;
+      }
+    } catch (cErr) {}
+  }
+
+  // 4. Fallback to email username or Suresh
+  if (!profileName || profileName.toLowerCase() === 'user') {
+    profileName = (userEmail ? userEmail.split('@')[0] : null) || 'Suresh';
   }
 
   // 3. Resolve Household / Team
@@ -522,30 +585,71 @@ async function handleGetBalances(targetUid) {
   const { transactions = [], initialBankBalances = {}, initialCashBalance = 0,
           cashSeedDate, accountingStartDate, monthlyBudget = 0, subscription = 'free' } = data;
 
-  // Compute bank balances
+  // Compute bank balances (discovering from transactions + initial balances)
   const bankMap = {};
-  Object.entries(initialBankBalances).forEach(([key, seed]) => {
+
+  // 1. Populate from initialBankBalances
+  Object.entries(initialBankBalances || {}).forEach(([key, seed]) => {
     const [bankName, accountEnding] = key.split('_');
     bankMap[key] = {
       bankName, accountEnding,
       balance: parseFloat(seed.amount) || 0,
       seedDate: seed.date ? new Date(seed.date) : null,
+      hasSeed: true,
     };
   });
 
-  const effectiveStart = accountingStartDate ? new Date(accountingStartDate) : null;
-
+  // 2. Discover banks from transactions if not present
   transactions.forEach(t => {
     if (!t.bankName || !t.accountEnding) return;
     if (t.bankName === 'GPay/UPI' || t.bankName === 'PhonePe') return;
     const key = `${t.bankName}_${t.accountEnding}`;
+    if (!bankMap[key]) {
+      bankMap[key] = {
+        bankName: t.bankName,
+        accountEnding: t.accountEnding,
+        balance: 0,
+        seedDate: null,
+        hasSeed: false,
+      };
+    }
+  });
+
+  // 3. For each bank, check for availableBalance anchors or calculate ledger
+  const effectiveStart = accountingStartDate ? new Date(accountingStartDate) : null;
+
+  Object.keys(bankMap).forEach(key => {
     const entry = bankMap[key];
-    if (!entry) return;
-    const tDate = new Date(t.date);
-    if (effectiveStart && tDate < effectiveStart) return;
-    if (entry.seedDate && tDate < entry.seedDate) return;
-    if (t.type === 'income') entry.balance += (t.amount || 0);
-    else if (t.type === 'expense' || t.type === 'debt') entry.balance -= (t.amount || 0);
+    const accountTxs = transactions
+      .filter(t => `${t.bankName}_${t.accountEnding}` === key)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Check if there is an SMS availableBalance anchor
+    const withBalance = accountTxs.filter(t => t.availableBalance != null);
+    if (withBalance.length > 0 && !entry.hasSeed) {
+      const anchor = withBalance[0];
+      const anchorDate = new Date(anchor.date);
+      let bal = Number(anchor.availableBalance) || 0;
+      // Apply any strictly newer transactions after this anchor
+      accountTxs
+        .filter(t => new Date(t.date) > anchorDate)
+        .forEach(t => {
+          if (t.type === 'income') bal += (t.amount || 0);
+          else if (t.type === 'expense' || t.type === 'debt') bal -= (t.amount || 0);
+        });
+      entry.balance = bal;
+    } else {
+      // Replay transactions over seed or base 0
+      let bal = entry.balance;
+      accountTxs.reverse().forEach(t => {
+        const tDate = new Date(t.date);
+        if (effectiveStart && tDate < effectiveStart) return;
+        if (entry.seedDate && tDate <= entry.seedDate) return;
+        if (t.type === 'income') bal += (t.amount || 0);
+        else if (t.type === 'expense' || t.type === 'debt') bal -= (t.amount || 0);
+      });
+      entry.balance = bal;
+    }
   });
 
   // Compute cash balance
