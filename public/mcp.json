@@ -23,8 +23,8 @@
   "tools": [
     {
       "name": "get_profile",
-      "title": "Get Profile & Team Information",
-      "description": "Get the user's profile name, email, user ID, subscription status, and team/household details.",
+      "title": "Get Profile, Subscription Plan & Team Info",
+      "description": "Get the user's profile name, email, user ID, subscription plan (Free, Starter, Pro, trial days remaining, pricing, limits, features), and team/household details.",
       "annotations": { "readOnlyHint": true, "destructiveHint": false }
     },
     {

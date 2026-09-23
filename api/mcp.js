@@ -89,9 +89,9 @@ function setCorsHeaders(res) {
 const TOOLS = [
   {
     name: 'get_profile',
-    title: 'Get Profile & Team Information',
+    title: 'Get Profile, Subscription Plan & Team Info',
     description:
-      'Get the authenticated user\'s profile details (profile name, email, user ID, subscription status) and team / household information (team name, role, member count, members list). Call this whenever asked for user name, profile name, team name, or household info.',
+      'Get the authenticated user\'s profile details (profile name, email, user ID), subscription plan details (Free, Starter, Pro, trial days remaining, pricing, member limits, transaction limits, and unlocked features), and team / household information (team name, role, member count, members list). Call this whenever asked for user name, profile name, team name, subscription plan, plan tier, or household info.',
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
@@ -281,6 +281,112 @@ async function getUserData(targetUid) {
 // ─── CURRENCY FORMATTER ──────────────────────────────────────────────────────
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
+// ─── SUBSCRIPTION & PLAN DETAILS HELPER ──────────────────────────────────────
+function getPlanDetails(subscription = 'free', trialEndDate = null) {
+  const sub = String(subscription || 'free').toLowerCase();
+
+  let remainingDays = null;
+  if (sub === 'trial' && trialEndDate) {
+    const end = new Date(trialEndDate);
+    const now = new Date();
+    remainingDays = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+  }
+
+  if (sub === 'starter') {
+    return {
+      tier: 'starter',
+      name: 'Starter Plan',
+      price: '₹9 / month',
+      status: 'Active (Subscribed)',
+      isPro: false,
+      memberLimit: 2,
+      memberLimitDesc: '2 Members (Owner + 1 Invited partner)',
+      txLimit: 'Unlimited',
+      features: [
+        'Unlimited monthly transactions',
+        '2 Members (Owner + 1 Invited partner)',
+        'Multiple Banks & Cash Wallet tracking',
+        'Statement PDF & CSV auto-import',
+        'CSV / Excel export',
+        'Category budgets & alerts',
+      ],
+      description: 'Starter Plan (₹9/mo) — 2 members max, unlimited transactions, bank statement PDF & CSV import.',
+    };
+  }
+
+  if (sub === 'trial') {
+    const daysText = remainingDays !== null ? `${remainingDays} days remaining` : '90 days free trial active';
+    return {
+      tier: 'trial',
+      name: 'Pro Plan (90-Day Free Trial)',
+      price: '₹0 (Regular ₹100 / month)',
+      status: `Active Free Trial (${daysText})`,
+      remainingDays: remainingDays !== null ? remainingDays : 90,
+      isPro: true,
+      memberLimit: 4,
+      memberLimitDesc: '4 Members (Family / Household sharing)',
+      txLimit: 'Unlimited',
+      features: [
+        'Unlimited monthly transactions',
+        '4 Members (Full Team / Family sharing)',
+        'Multiple Banks & Cash Wallet tracking',
+        'Statement PDF & CSV auto-import',
+        'CSV / Excel export',
+        'Category budgets & alerts',
+        'Loans, Debts & EMI Tracker',
+        'Advanced Charts & Spending Trends',
+        'Priority Cloud Sync',
+      ],
+      description: `Pro Plan (90-Day Free Trial, ${daysText}) — 4 members max, unlimited transactions, loans/EMI tracker, advanced analytics.`,
+    };
+  }
+
+  if (sub === 'monthly' || sub === 'yearly' || sub === 'lifetime' || sub === 'pro') {
+    const pricing = sub === 'yearly' ? '₹999 / year' : sub === 'lifetime' ? 'Lifetime Access' : '₹100 / month';
+    return {
+      tier: sub,
+      name: 'Pro Plan',
+      price: pricing,
+      status: 'Active (Subscribed)',
+      isPro: true,
+      memberLimit: 4,
+      memberLimitDesc: '4 Members (Family / Household sharing)',
+      txLimit: 'Unlimited',
+      features: [
+        'Unlimited monthly transactions',
+        '4 Members (Full Team / Family sharing)',
+        'Multiple Banks & Cash Wallet tracking',
+        'Statement PDF & CSV auto-import',
+        'CSV / Excel export',
+        'Category budgets & alerts',
+        'Loans, Debts & EMI Tracker',
+        'Advanced Charts & Spending Trends',
+        'Priority Cloud Sync',
+      ],
+      description: `Pro Plan (${pricing}) — 4 members max, unlimited transactions, loans/EMI tracker, advanced analytics.`,
+    };
+  }
+
+  // Default: Free Plan
+  return {
+    tier: 'free',
+    name: 'Free Plan',
+    price: '₹0 / month',
+    status: 'Active (Free Tier)',
+    isPro: false,
+    memberLimit: 1,
+    memberLimitDesc: '1 Member Max (Owner only, no team/family sharing)',
+    txLimit: '50 transactions / month',
+    features: [
+      'Up to 50 transactions per month',
+      '1 Member Max (Owner only)',
+      'Manual transaction entry',
+      'Basic category tracking & budgeting',
+    ],
+    description: 'Free Plan (₹0/mo) — 1 member max, 50 transactions per month, basic manual tracking.',
+  };
+}
+
 // ─── USER & TEAM RESOLVER ───────────────────────────────────────────────────
 async function resolveUserProfileAndTeam(db, uid, data = {}) {
   let profileName = null;
@@ -354,11 +460,15 @@ async function resolveUserProfileAndTeam(db, uid, data = {}) {
     console.warn('[MCP] Household lookup warning:', err.message);
   }
 
+  const plan = getPlanDetails(data.subscription, data.trialEndDate);
+
   return {
     uid,
     profileName,
     email: userEmail,
     subscription: data.subscription || 'trial',
+    trialEndDate: data.trialEndDate || null,
+    plan,
     householdId,
     teamName,
     teamRole,
@@ -372,19 +482,29 @@ async function handleGetProfile(targetUid) {
   const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
   const userData = await getUserData(uid);
   const info = await resolveUserProfileAndTeam(db, uid, userData);
+  const p = info.plan;
 
   const lines = [
-    `👤 USER PROFILE & TEAM INFORMATION`,
+    `👤 USER PROFILE & ACCOUNT INFORMATION`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     `• Profile Name:   ${info.profileName}`,
     `• Email:          ${info.email || '(Not specified)'}`,
     `• User ID (UID):  ${info.uid}`,
-    `• Plan / Tier:    ${info.subscription.toUpperCase()}`,
+    ``,
+    `⭐ SUBSCRIPTION PLAN & TIER:`,
+    `• Plan Name:      ${p.name}`,
+    `• Tier Key:       ${p.tier.toUpperCase()}`,
+    `• Status:         ${p.status}`,
+    `• Price:          ${p.price}`,
+    `• Member Limit:   ${p.memberLimitDesc}`,
+    `• Txn Limit:      ${p.txLimit}`,
+    `• Included Features:`,
+    ...p.features.map(f => `   ✓ ${f}`),
     ``,
     `👥 TEAM & HOUSEHOLD:`,
     `• Team Name:      ${info.teamName}`,
     `• Team Role:      ${info.teamRole}`,
-    `• Team Members:   ${info.teamMembers.length > 0 ? info.teamMembers.length : 1}`,
+    `• Current Members:${info.teamMembers.length > 0 ? ` ${info.teamMembers.length} / ${p.memberLimit} allowed` : ` 1 / ${p.memberLimit} allowed`}`,
     ...(info.teamMembers.length > 0
       ? info.teamMembers.map(m => `   - ${m.name} (${m.role})${m.isCurrent ? ' ← You' : ''}`)
       : [`   - ${info.profileName} (Owner) ← You`]),
@@ -461,7 +581,7 @@ async function handleGetBalances(targetUid) {
     `💰 BUDGET TRACKER — FINANCIAL SNAPSHOT`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     `👤 Profile: ${info.profileName}  |  Team: ${info.teamName} (${info.teamRole})`,
-    `⭐ Plan: ${subscription.toUpperCase()}  |  Email: ${info.email || 'N/A'}`,
+    `⭐ Plan: ${info.plan.name} (${info.plan.status})  |  Email: ${info.email || 'N/A'}`,
     ``,
     `📊 TOTAL BALANCE: ${fmt(totalBalance)}`,
     ``,
