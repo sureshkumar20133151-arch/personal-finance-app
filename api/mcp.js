@@ -17,7 +17,7 @@ import { verifyAccessToken } from './_lib/oauthTokens.js';
 
 const MCP_API_KEY  = process.env.MCP_API_KEY;
 
-const DEFAULT_SURESH_UID = 'mlbLQkDo0Ef95hns8p81TkQdUK83';
+const DEFAULT_SURESH_UID = 'mlbLQkDo0Ef95hns8p8iTkQdUK83';
 const DEFAULT_ROSIE_UID  = 'do139V31SkRXMSpkLIW1AroA9ZO2';
 
 function resolveTargetUid(req) {
@@ -870,6 +870,9 @@ async function handleAddTransaction(args = {}, targetUid) {
     categoryId,
     paymentMode: payment_mode || 'other',
     source: 'mcp',
+    createdBy: 'Claude',
+    updatedBy: 'Claude',
+    updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
 
@@ -879,6 +882,14 @@ async function handleAddTransaction(args = {}, targetUid) {
   await db.collection('users').doc(uid).set({
     transactions: [...transactions, newTx],
   }, { merge: true });
+
+  if (data.householdId) {
+    const hDoc = await db.collection('households').doc(data.householdId).get().catch(() => null);
+    const existingHTxs = (hDoc && hDoc.exists && hDoc.data()?.transactions) || transactions || [];
+    await db.collection('households').doc(data.householdId).set({
+      transactions: [...existingHTxs, newTx],
+    }, { merge: true }).catch(e => console.warn('[MCP] Household save warning:', e.message));
+  }
 
   const catName = categories.find(c => String(c.id) === categoryId)?.name || 'Uncategorised';
 

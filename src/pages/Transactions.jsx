@@ -1,12 +1,17 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown, PiggyBank, CreditCard, Download, MessageSquare, RefreshCw, Share2 } from 'lucide-react';
+import {
+    Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown,
+    PiggyBank, CreditCard, Download, MessageSquare, RefreshCw, Share2,
+    MessageCircle, CheckCircle, CheckSquare, Square, Home, User, Users,
+    Send, Smile, Calendar, Check
+} from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { parseStatement } from '../lib/StatementParser';
-import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
 import { triggerHapticNotification } from '../lib/haptics';
@@ -21,8 +26,10 @@ const Transactions = () => {
         importData,
         deleteTransaction,
         updateTransaction,
+        addTransactionComment,
         addRecurringTransaction,
         deleteRecurringTransaction,
+        toggleBillPaid,
         isSmsUnlocked,
         isPro,
         subscription,
@@ -38,9 +45,22 @@ const Transactions = () => {
         householdId,
         householdMembers,
         addTransferTransaction,
+        currentActorName,
+        profile,
     } = useFinanceData();
     const { currentUser } = useAuth();
     const currentUserUid = currentUser?.uid;
+
+    const defaultActor = useMemo(() => {
+        if (currentActorName) return currentActorName;
+        const uid = currentUser?.uid;
+        if (uid === 'mlbLQkDo0Ef95hns8p81TkQdUK83' || uid === 'mlbLQkDo0Ef95hns8p8iTkQdUK83') return 'Suresh';
+        if (uid === 'do139V31SkRXMSpkLIW1AroA9ZO2') return 'Rosy';
+        const name = profile?.firstName || currentUser?.displayName || '';
+        if (name.toLowerCase().includes('ros')) return 'Rosy';
+        if (name.toLowerCase().includes('sur')) return 'Suresh';
+        return 'Suresh';
+    }, [currentActorName, currentUser, profile]);
 
     // Form State
     const [amount, setAmount] = useState('');
@@ -48,6 +68,20 @@ const Transactions = () => {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState('expense');
     const [categoryId, setCategoryId] = useState('');
+    const [updatedBy, setUpdatedBy] = useState('Suresh');
+
+    // Feature 1: Scope State ('ours' = Joint, 'mine' = Personal, 'partner' = Partner's personal)
+    const [scope, setScope] = useState('ours');
+    const [scopeFilter, setScopeFilter] = useState('all'); // 'all' | 'ours' | 'mine'
+
+    // Feature 3: Comments State
+    const [activeCommentTxId, setActiveCommentTxId] = useState(null);
+    const [commentText, setCommentText] = useState('');
+    const [commentEmoji, setCommentEmoji] = useState('');
+
+    // Feature 6: Bill Assignment & Due Day
+    const [assignedTo, setAssignedTo] = useState('Both');
+    const [dueDay, setDueDay] = useState(5);
 
     const [loanId, setLoanId] = useState(''); // New State for linking repayment
     const [isRecurring, setIsRecurring] = useState(false);
@@ -55,6 +89,14 @@ const Transactions = () => {
     // Editing State
     const [editingTx, setEditingTx] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
+
+    // Sync updatedBy with defaultActor if not actively editing
+    useEffect(() => {
+        if (!editingTx && defaultActor) {
+            setUpdatedBy(defaultActor);
+            setScope(householdId ? 'ours' : 'mine');
+        }
+    }, [defaultActor, editingTx, householdId]);
 
     // Household "Share" transfer state
     const [shareWithUid, setShareWithUid] = useState('');
@@ -137,6 +179,10 @@ const Transactions = () => {
         setPaymentMode('upi');
         setShareWithUid('');
         setShowShareOptions(false);
+        setUpdatedBy(defaultActor || 'Suresh');
+        setScope(householdId ? 'ours' : 'mine');
+        setAssignedTo('Both');
+        setDueDay(5);
     };
 
     // Derived Logic
@@ -154,12 +200,17 @@ const Transactions = () => {
     const filteredTransactions = useMemo(() => {
         return transactions.filter(t => {
             const matchesType = filterType === 'all' || t.type === filterType;
+            const matchesScope = scopeFilter === 'all'
+                || (scopeFilter === 'ours' && (t.scope === 'ours' || !t.scope))
+                || (scopeFilter === 'mine' && (t.scope === 'mine' || t.scope === 'partner'));
             const desc = t.description || '';
             const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-            return matchesType && matchesSearch;
+                (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (t.updatedBy || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (t.comments || []).some(cm => (cm.text || '').toLowerCase().includes(searchQuery.toLowerCase()));
+            return matchesType && matchesScope && matchesSearch;
         }).sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [transactions, filterType, searchQuery, categories]);
+    }, [transactions, filterType, scopeFilter, searchQuery, categories]);
 
     // Handlers
     const handleSubmit = (e) => {
@@ -175,6 +226,9 @@ const Transactions = () => {
             categoryId,
             ...(type === 'debt' && loanId ? { loanId, repaymentType } : {}),
             paymentMode: paymentMode,
+            updatedBy: updatedBy || defaultActor || 'Suresh',
+            ...(!editingTx ? { createdBy: updatedBy || defaultActor || 'Suresh' } : {}),
+            scope: scope || (householdId ? 'ours' : 'mine'),
         };
 
         if (editingTx) {
@@ -188,6 +242,9 @@ const Transactions = () => {
                     frequency: recurringFreq,
                     interval: recurringFreq === 'custom' ? (parseInt(recurringInterval) || 1) : 1,
                     ...(recurringFreq === 'weekly' && recurringDay ? { weeklyDay: recurringDay } : {}),
+                    dueDay: parseInt(dueDay) || 5,
+                    assignedTo: assignedTo || 'Both',
+                    paidMonths: [],
                     tenure: recurringTenure ? parseInt(recurringTenure) : null,
                     processedCount: 0,
                     lastProcessedDate: new Date().toISOString()
@@ -212,6 +269,9 @@ const Transactions = () => {
                         frequency: recurringFreq,
                         interval: recurringFreq === 'custom' ? (parseInt(recurringInterval) || 1) : 1,
                         ...(recurringFreq === 'weekly' && recurringDay ? { weeklyDay: recurringDay } : {}),
+                        dueDay: parseInt(dueDay) || 5,
+                        assignedTo: assignedTo || 'Both',
+                        paidMonths: [],
                         tenure: recurringTenure ? parseInt(recurringTenure) : null,
                         processedCount: 0,
                         lastProcessedDate: new Date().toISOString()
@@ -256,6 +316,8 @@ const Transactions = () => {
         setType(tx.type || 'expense');
         setCategoryId(tx.categoryId || '');
         setPaymentMode(tx.paymentMode || 'upi');
+        setUpdatedBy(tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : defaultActor || 'Suresh'));
+        setScope(tx.scope || 'ours');
         if (tx.loanId) setLoanId(tx.loanId);
         if (tx.repaymentType) setRepaymentType(tx.repaymentType);
         
@@ -806,6 +868,76 @@ const Transactions = () => {
                                 </div>
                             </div>
 
+                            {/* Updated By / Added By Selector (Suresh / Rosy / Claude) */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium">
+                                        {editingTx ? 'Updated By' : 'Recorded By'}
+                                    </label>
+                                    <span className="text-[10px] text-muted-foreground">Select author</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/50 rounded-lg">
+                                    {[
+                                        { id: 'Suresh', label: 'Suresh', emoji: '👤' },
+                                        { id: 'Rosy',   label: 'Rosy',   emoji: '🌸' },
+                                        { id: 'Claude', label: 'Claude', emoji: '🤖' },
+                                    ].map(actor => (
+                                        <button
+                                            key={actor.id}
+                                            type="button"
+                                            onClick={() => setUpdatedBy(actor.id)}
+                                            className={cn(
+                                                "flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-semibold transition-all",
+                                                updatedBy === actor.id
+                                                    ? actor.id === 'Suresh'
+                                                        ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-600/30"
+                                                        : actor.id === 'Rosy'
+                                                        ? "bg-rose-600 text-white shadow-sm ring-1 ring-rose-600/30"
+                                                        : "bg-amber-600 text-white shadow-sm ring-1 ring-amber-600/30"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                                            )}
+                                        >
+                                            <span className="text-xs">{actor.emoji}</span>
+                                            <span>{actor.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Feature 1: Mine / Yours / Ours (Expense Scope) */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium">Expense Scope</label>
+                                    <span className="text-[10px] text-muted-foreground">Personal vs Joint</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/50 rounded-lg">
+                                    {[
+                                        { id: 'ours',    label: 'Ours (Joint)',    emoji: '🏠' },
+                                        { id: 'mine',    label: 'Mine (Personal)', emoji: '👤' },
+                                        { id: 'partner', label: 'Partner',         emoji: '🌸' },
+                                    ].map(item => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => setScope(item.id)}
+                                            className={cn(
+                                                "flex items-center justify-center gap-1.5 py-1.5 px-1.5 rounded-md text-xs font-semibold transition-all truncate",
+                                                scope === item.id
+                                                    ? item.id === 'ours'
+                                                        ? "bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600/30"
+                                                        : item.id === 'mine'
+                                                        ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-600/30"
+                                                        : "bg-rose-600 text-white shadow-sm ring-1 ring-rose-600/30"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                                            )}
+                                        >
+                                            <span className="text-xs">{item.emoji}</span>
+                                            <span className="truncate">{item.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             {(type === 'expense' || type === 'savings') && (
                                 <div className="flex items-center gap-2 pt-1">
                                     <input
@@ -889,6 +1021,43 @@ const Transactions = () => {
                                                 {recurringFreq === 'weekly' ? 'Wks' :
                                                     recurringFreq === 'custom' ? 'Times' : 'Mos'}
                                             </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Feature 6: Bill Assignment & Due Day */}
+                                    <div className="pt-2 border-t border-border/50 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Bill Assigned To</label>
+                                            <div className="flex gap-1">
+                                                {['Both', 'Suresh', 'Rosy'].map(name => (
+                                                    <button
+                                                        key={name}
+                                                        type="button"
+                                                        onClick={() => setAssignedTo(name)}
+                                                        className={cn(
+                                                            "px-2 py-0.5 rounded text-[10px] font-semibold border transition-all",
+                                                            assignedTo === name
+                                                                ? "bg-primary text-primary-foreground border-primary"
+                                                                : "border-border text-muted-foreground hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        {name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="dueDay" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Due Day of Month</label>
+                                            <input
+                                                id="dueDay"
+                                                name="dueDay"
+                                                type="number"
+                                                min="1"
+                                                max="31"
+                                                value={dueDay}
+                                                onChange={(e) => setDueDay(Number(e.target.value))}
+                                                className="w-16 text-xs bg-background border border-input rounded-md px-2 py-1 text-center font-bold h-7"
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -998,13 +1167,40 @@ const Transactions = () => {
                             </div>
 
                             {viewMode === 'transactions' && (
-                                <div className="flex bg-muted/70 p-1 rounded-xl overflow-x-auto scrollbar-none w-full sm:w-auto">
-                                    <button onClick={() => setFilterType('all')} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All</button>
-                                    {typeConfig.map(t => (
-                                        <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-2.5 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                                            <span>{t.label}</span>
+                                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                                    {/* Scope Pills */}
+                                    <div className="flex bg-muted/70 p-0.5 rounded-lg shrink-0">
+                                        <button
+                                            onClick={() => setScopeFilter('all')}
+                                            className={cn("px-2 py-0.5 rounded text-[11px] font-semibold transition-all", scopeFilter === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                        >
+                                            All
                                         </button>
-                                    ))}
+                                        <button
+                                            onClick={() => setScopeFilter('ours')}
+                                            className={cn("px-2 py-0.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1", scopeFilter === 'ours' ? "bg-emerald-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                        >
+                                            <span>🏠</span>
+                                            <span>Ours</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setScopeFilter('mine')}
+                                            className={cn("px-2 py-0.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1", scopeFilter === 'mine' ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                        >
+                                            <span>👤</span>
+                                            <span>Mine</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Type Pills */}
+                                    <div className="flex bg-muted/70 p-0.5 rounded-lg overflow-x-auto scrollbar-none">
+                                        <button onClick={() => setFilterType('all')} className={cn("px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all whitespace-nowrap", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All Types</button>
+                                        {typeConfig.map(t => (
+                                            <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all whitespace-nowrap", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                                                <span>{t.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1016,12 +1212,15 @@ const Transactions = () => {
                                 recurring.length === 0 ? (
                                     <div className="p-12 text-center text-muted-foreground">
                                         <PiggyBank className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                        <p>No recurring transactions set up yet.</p>
-                                        <p className="text-xs mt-2">Add a transaction and check "Recurring".</p>
+                                        <p>No recurring bills or fixed expenses set up yet.</p>
+                                        <p className="text-xs mt-2">Add a transaction and check "Recurring" to assign bills to Suresh or Rosy!</p>
                                     </div>
                                 ) : (
                                     recurring.map(rule => {
                                         const typeInfo = typeConfig.find(t => t.id === rule.type) || typeConfig[1];
+                                        const currentMonthStr = new Date().toISOString().slice(0, 7);
+                                        const isPaidThisMonth = (rule.paidMonths || []).includes(currentMonthStr);
+
                                         return (
                                             <div key={rule.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-muted/50 transition-all group">
                                                 <div className="flex items-center gap-3 min-w-0">
@@ -1035,7 +1234,24 @@ const Transactions = () => {
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5 flex-wrap">
                                                             <p className="font-semibold text-xs sm:text-sm truncate">{rule.description || getCategoryName(rule.categoryId)}</p>
-                                                            <span className="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-wider">Fixed</span>
+                                                            <span className="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-wider">Bill</span>
+                                                            {rule.assignedTo && (
+                                                                <span className={cn(
+                                                                    "px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider border",
+                                                                    rule.assignedTo === 'Rosy'
+                                                                        ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                                                                        : rule.assignedTo === 'Suresh'
+                                                                        ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                                                        : "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                                                                )}>
+                                                                    {rule.assignedTo === 'Rosy' ? '🌸 Rosy' : rule.assignedTo === 'Suresh' ? '👤 Suresh' : '🤝 Both'}
+                                                                </span>
+                                                            )}
+                                                            {rule.dueDay && (
+                                                                <span className="px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-semibold border border-amber-500/20">
+                                                                    Due {rule.dueDay}th
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground flex-wrap mt-0.5">
                                                             <span>
@@ -1053,6 +1269,29 @@ const Transactions = () => {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleBillPaid(rule.id, currentMonthStr)}
+                                                        className={cn(
+                                                            "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border shadow-2xs",
+                                                            isPaidThisMonth
+                                                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                                                : "bg-muted text-muted-foreground hover:text-foreground border-border"
+                                                        )}
+                                                        title="Toggle paid status for current month"
+                                                    >
+                                                        {isPaidThisMonth ? (
+                                                            <>
+                                                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                                <span>Paid {rule.lastPaidBy ? `by ${rule.lastPaidBy}` : '✓'}</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Square className="w-3.5 h-3.5" />
+                                                                <span>Mark Paid</span>
+                                                            </>
+                                                        )}
+                                                    </button>
                                                     <span className={cn("font-bold text-xs sm:text-sm", typeInfo.color)}>
                                                         {formatMoney(rule.amount)} / mo
                                                     </span>
@@ -1067,54 +1306,198 @@ const Transactions = () => {
                             ) : (
                                 filteredTransactions.map(tx => {
                                     const typeInfo = typeConfig.find(t => t.id === tx.type) || typeConfig[1];
-                                    return (
+                                    const hasComments = Array.isArray(tx.comments) && tx.comments.length > 0;
+                                    const isCommentOpen = activeCommentTxId === tx.id;
 
-                                        <div key={tx.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-muted/50 transition-all group">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 text-lg sm:text-xl shadow-sm", typeInfo.bg)}>
-                                                    {(() => {
-                                                        const cat = categories.find(c => c.id === tx.categoryId);
-                                                        if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
-                                                        return <typeInfo.icon className={cn("w-4 h-4 sm:w-5 sm:h-5", typeInfo.color)} />;
-                                                    })()}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="font-semibold text-xs sm:text-sm truncate">{tx.description || getCategoryName(tx.categoryId)}</p>
-                                                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground flex-wrap mt-0.5">
-                                                        <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
-                                                        <span>•</span>
-                                                        <span className="flex items-center gap-1">
-                                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
-                                                            {getCategoryName(tx.categoryId)}
-                                                        </span>
-                                                        {tx.paymentMode && (
-                                                            <span className={cn(
-                                                                "px-1.5 py-0.2 rounded-full text-[8.5px] font-bold uppercase tracking-wider",
-                                                                tx.paymentMode === 'upi'        && "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-                                                                tx.paymentMode === 'cash'       && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                                                                tx.paymentMode === 'card'       && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                                                                tx.paymentMode === 'netbanking' && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-                                                            )}>
-                                                                {tx.paymentMode === 'netbanking' ? 'Net Banking' : tx.paymentMode.toUpperCase()}
+                                    return (
+                                        <div key={tx.id} className="p-3 sm:p-4 hover:bg-muted/50 transition-all group divide-y divide-border/30">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 text-lg sm:text-xl shadow-sm", typeInfo.bg)}>
+                                                        {(() => {
+                                                            const cat = categories.find(c => c.id === tx.categoryId);
+                                                            if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
+                                                            return <typeInfo.icon className={cn("w-4 h-4 sm:w-5 sm:h-5", typeInfo.color)} />;
+                                                        })()}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="font-semibold text-xs sm:text-sm truncate">{tx.description || getCategoryName(tx.categoryId)}</p>
+                                                        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground flex-wrap mt-0.5">
+                                                            <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
+                                                            <span>•</span>
+                                                            <span className="flex items-center gap-1">
+                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
+                                                                {getCategoryName(tx.categoryId)}
                                                             </span>
-                                                        )}
+                                                            {tx.paymentMode && (
+                                                                <span className={cn(
+                                                                    "px-1.5 py-0.2 rounded-full text-[8.5px] font-bold uppercase tracking-wider",
+                                                                    tx.paymentMode === 'upi'        && "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                                                                    tx.paymentMode === 'cash'       && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                                                                    tx.paymentMode === 'card'       && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                                                                    tx.paymentMode === 'netbanking' && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                                                                )}>
+                                                                    {tx.paymentMode === 'netbanking' ? 'Net Banking' : tx.paymentMode.toUpperCase()}
+                                                                </span>
+                                                            )}
+                                                            {/* Updated By Badge */}
+                                                            {(() => {
+                                                                const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : null);
+                                                                if (!actor) return null;
+                                                                const isSuresh = actor.toLowerCase().includes('sur');
+                                                                const isRosy = actor.toLowerCase().includes('ros');
+                                                                const isClaude = actor.toLowerCase().includes('claude') || tx.source === 'mcp';
+                                                                const label = isClaude ? 'Claude' : isRosy ? 'Rosy' : isSuresh ? 'Suresh' : actor;
+
+                                                                return (
+                                                                    <span
+                                                                        title={`Updated by ${label}`}
+                                                                        className={cn(
+                                                                            "inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold border shadow-2xs",
+                                                                            isSuresh && "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+                                                                            isRosy   && "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
+                                                                            isClaude && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+                                                                            !isSuresh && !isRosy && !isClaude && "bg-primary/10 text-primary border-primary/20"
+                                                                        )}
+                                                                    >
+                                                                        <span className="text-[9px]">{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
+                                                                        <span>Updated by {label}</span>
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                            {/* Feature 1: Scope Badge */}
+                                                            {tx.scope && (
+                                                                <span className={cn(
+                                                                    "inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold border",
+                                                                    tx.scope === 'ours'
+                                                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                                                        : tx.scope === 'partner'
+                                                                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                                                        : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+                                                                )}>
+                                                                    <span>{tx.scope === 'ours' ? '🏠' : tx.scope === 'partner' ? '🌸' : '👤'}</span>
+                                                                    <span>{tx.scope === 'ours' ? 'Ours' : tx.scope === 'partner' ? 'Partner' : 'Mine'}</span>
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                                                    <span className={cn("font-bold text-xs sm:text-sm", typeInfo.color)}>
+                                                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        {/* Feature 3: Comment Button */}
+                                                        <button
+                                                            onClick={() => setActiveCommentTxId(isCommentOpen ? null : tx.id)}
+                                                            className={cn(
+                                                                "p-1.5 rounded-lg transition-colors relative",
+                                                                hasComments
+                                                                    ? "text-primary hover:bg-primary/10 bg-primary/10"
+                                                                    : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                            )}
+                                                            title="Comments & Questions"
+                                                        >
+                                                            <MessageCircle className="w-3.5 h-3.5" />
+                                                            {hasComments && (
+                                                                <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-[14px] rounded-full bg-primary text-primary-foreground text-[8.5px] font-black flex items-center justify-center leading-none">
+                                                                    {tx.comments.length}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                        <button onClick={() => handleEditClick(tx)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit Transaction">
+                                                            <Edit2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button onClick={() => deleteTransaction(tx.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete Transaction">
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                                                <span className={cn("font-bold text-xs sm:text-sm", typeInfo.color)}>
-                                                    {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
-                                                </span>
-                                                <div className="flex items-center gap-1">
-                                                    <button onClick={() => handleEditClick(tx)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit Transaction">
-                                                        <Edit2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button onClick={() => deleteTransaction(tx.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete Transaction">
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
+                                            {/* Feature 3: Expandable Comment Thread Drawer */}
+                                            {isCommentOpen && (
+                                                <div className="mt-2.5 pt-2.5 space-y-2 bg-muted/30 p-3 rounded-xl border border-border/40 animate-in slide-in-from-top-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                                                            <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                                                            Comments & Questions ({tx.comments?.length || 0})
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setActiveCommentTxId(null)}
+                                                            className="p-1 rounded-full text-muted-foreground hover:bg-muted text-xs"
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                                        {(!tx.comments || tx.comments.length === 0) ? (
+                                                            <p className="text-xs text-muted-foreground italic py-1">No comments yet. Ask a question or leave a note!</p>
+                                                        ) : (
+                                                            tx.comments.map(c => (
+                                                                <div key={c.id} className="p-2 rounded-lg bg-card border border-border/60 text-xs space-y-0.5 shadow-2xs">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="font-bold flex items-center gap-1">
+                                                                            {c.author === 'Rosy' ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
+                                                                            {c.emoji && <span className="text-sm ml-1">{c.emoji}</span>}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-muted-foreground">
+                                                                            {format(new Date(c.createdAt), 'MMM dd, h:mm a')}
+                                                                        </span>
+                                                                    </div>
+                                                                    {c.text && <p className="text-foreground leading-relaxed pl-1">{c.text}</p>}
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            e.preventDefault();
+                                                            if (!commentText.trim() && !commentEmoji) return;
+                                                            addTransactionComment(tx.id, commentText, commentEmoji);
+                                                            setCommentText('');
+                                                            setCommentEmoji('');
+                                                        }}
+                                                        className="space-y-1.5 pt-1 border-t border-border/40"
+                                                    >
+                                                        <div className="flex gap-1.5">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Ask or note (e.g. What was this for?)..."
+                                                                value={commentText}
+                                                                onChange={(e) => setCommentText(e.target.value)}
+                                                                className="flex-1 px-3 py-1.5 rounded-lg border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-inner"
+                                                            />
+                                                            <button
+                                                                type="submit"
+                                                                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition-all shrink-0"
+                                                            >
+                                                                <Send className="w-3 h-3" />
+                                                                <span>Send</span>
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                            <span className="text-[10px] font-medium">Quick reaction:</span>
+                                                            {['👍', '❤️', '❓', '🛒', '⚡', '🎉'].map(emoji => (
+                                                                <button
+                                                                    key={emoji}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        addTransactionComment(tx.id, '', emoji);
+                                                                    }}
+                                                                    className="hover:scale-125 transition-transform p-0.5 text-sm"
+                                                                    title={`React with ${emoji}`}
+                                                                >
+                                                                    {emoji}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </form>
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
                                     );
                                 })

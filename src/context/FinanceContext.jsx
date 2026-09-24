@@ -1134,11 +1134,34 @@ export function FinanceProvider({ children }) {
 
   const transactionLimitReached = !isPro && monthlyTransactionCount >= FREE_PLAN_MONTHLY_TX_LIMIT;
 
+  // Identify default actor name (Suresh / Rosy / user's name)
+  const currentActorName = useMemo(() => {
+    const uid = currentUser?.uid;
+    if (uid === 'mlbLQkDo0Ef95hns8p81TkQdUK83' || uid === 'mlbLQkDo0Ef95hns8p8iTkQdUK83') return 'Suresh';
+    if (uid === 'do139V31SkRXMSpkLIW1AroA9ZO2') return 'Rosy';
+    const first = state.profile?.firstName?.trim();
+    if (first) {
+      if (first.toLowerCase().includes('sur')) return 'Suresh';
+      if (first.toLowerCase().includes('ros')) return 'Rosy';
+      return first;
+    }
+    const display = currentUser?.displayName?.trim();
+    if (display) {
+      if (display.toLowerCase().includes('sur')) return 'Suresh';
+      if (display.toLowerCase().includes('ros')) return 'Rosy';
+      return display.split(' ')[0];
+    }
+    return 'Suresh';
+  }, [currentUser, state.profile?.firstName]);
+
   // ─── CRUD ────────────────────────────────────────────────────────────────
   const addTransaction = useCallback((tx) => {
     if (transactionLimitReached) {
       return { success: false, reason: "limit_reached", limit: FREE_PLAN_MONTHLY_TX_LIMIT };
     }
+    const actor = tx.updatedBy || tx.createdBy || currentActorName;
+    const nowIso = new Date().toISOString();
+    const defaultScope = state.householdId ? 'ours' : 'mine';
     const next = {
       ...state,
       transactions: [
@@ -1146,35 +1169,50 @@ export function FinanceProvider({ children }) {
         {
           ...tx,
           id: uuidv4(),
-          date: tx.date || new Date().toISOString(),
+          date: tx.date || nowIso,
           // Whose personal balance this affects. Always the creator, even
           // inside a household (shared visibility, separate balances).
           ownerId: tx.ownerId || currentUser?.uid || null,
+          createdBy: tx.createdBy || actor,
+          updatedBy: actor,
+          updatedAt: tx.updatedAt || nowIso,
+          scope: tx.scope || defaultScope,
+          comments: tx.comments || [],
         },
       ],
     };
     saveDebounced(next);
     return { success: true, transactionId: next.transactions[next.transactions.length - 1].id };
-  }, [state, saveDebounced, transactionLimitReached, currentUser]);
+  }, [state, saveDebounced, transactionLimitReached, currentUser, currentActorName]);
 
   const addTransactions = useCallback((txList) => {
     if (transactionLimitReached) {
       return { success: false, reason: "limit_reached", limit: FREE_PLAN_MONTHLY_TX_LIMIT };
     }
+    const nowIso = new Date().toISOString();
+    const defaultScope = state.householdId ? 'ours' : 'mine';
     const next = {
       ...state,
       transactions: [
         ...state.transactions,
-        ...txList.map(tx => ({
-          ...tx,
-          id: uuidv4(),
-          date: tx.date || new Date().toISOString(),
-          ownerId: tx.ownerId || currentUser?.uid || null,
-        })),
+        ...txList.map(tx => {
+          const actor = tx.updatedBy || tx.createdBy || currentActorName;
+          return {
+            ...tx,
+            id: uuidv4(),
+            date: tx.date || nowIso,
+            ownerId: tx.ownerId || currentUser?.uid || null,
+            createdBy: tx.createdBy || actor,
+            updatedBy: actor,
+            updatedAt: tx.updatedAt || nowIso,
+            scope: tx.scope || defaultScope,
+            comments: tx.comments || [],
+          };
+        }),
       ],
     };
     saveImmediate(next);
-  }, [state, saveImmediate, currentUser]);
+  }, [state, saveImmediate, currentUser, transactionLimitReached, currentActorName]);
 
   const addTransferTransaction = useCallback((txData, toMemberUid) => {
     if (!state.householdId) return { success: false, reason: "not_in_household" };
@@ -1185,27 +1223,69 @@ export function FinanceProvider({ children }) {
     const date = txData.date || new Date().toISOString();
     const toName = state.householdMembers?.[toMemberUid]?.name || "member";
     const myName = state.profile?.firstName || "Me";
+    const actor = txData.updatedBy || txData.createdBy || currentActorName;
 
     const myTx = {
       ...txData, id: uuidv4(), date, type: "expense",
       ownerId: currentUser?.uid, transferGroupId, transferWith: toMemberUid,
       description: txData.description || `Sent to ${toName}`,
+      createdBy: actor, updatedBy: actor, updatedAt: date,
+      scope: 'ours', comments: [],
     };
     const theirTx = {
       ...txData, id: uuidv4(), date, type: "income",
       ownerId: toMemberUid, transferGroupId, transferWith: currentUser?.uid,
       description: txData.description || `Received from ${myName}`,
+      createdBy: actor, updatedBy: actor, updatedAt: date,
+      scope: 'ours', comments: [],
     };
 
     const next = { ...state, transactions: [...state.transactions, myTx, theirTx] };
     saveImmediate(next);
     return { success: true };
-  }, [state, saveImmediate, currentUser, transactionLimitReached]);
+  }, [state, saveImmediate, currentUser, transactionLimitReached, currentActorName]);
 
   const updateTransaction = useCallback((id, updates) => {
-    const next = { ...state, transactions: state.transactions.map(t => t.id === id ? { ...t, ...updates } : t) };
+    const actor = updates.updatedBy || currentActorName;
+    const nowIso = new Date().toISOString();
+    const next = {
+      ...state,
+      transactions: state.transactions.map(t =>
+        t.id === id
+          ? {
+              ...t,
+              ...updates,
+              updatedBy: actor,
+              updatedAt: nowIso,
+            }
+          : t
+      ),
+    };
     saveDebounced(next);
-  }, [state, saveDebounced]);
+  }, [state, saveDebounced, currentActorName]);
+
+  const addTransactionComment = useCallback((txId, text, emoji = '') => {
+    if (!text && !emoji) return;
+    const author = currentActorName || 'Suresh';
+    const commentObj = {
+      id: uuidv4(),
+      text: (text || '').trim(),
+      emoji: emoji || '',
+      author,
+      authorUid: currentUser?.uid || null,
+      createdAt: new Date().toISOString(),
+    };
+    const next = {
+      ...state,
+      transactions: (state.transactions || []).map(t =>
+        t.id === txId
+          ? { ...t, comments: [...(t.comments || []), commentObj] }
+          : t
+      ),
+    };
+    saveImmediate(next);
+    return commentObj;
+  }, [state, saveImmediate, currentActorName, currentUser]);
 
   const deleteTransaction = useCallback((id) => {
     const next = { ...state, transactions: state.transactions.filter(t => t.id !== id) };
@@ -1412,8 +1492,44 @@ export function FinanceProvider({ children }) {
   const updateStartingBalances = (bankBalances, cash, cashDate) =>
     saveImmediate({ ...state, initialBankBalances: bankBalances || {}, initialCashBalance: parseFloat(cash) || 0, cashSeedDate: cashDate || null });
 
-  const addRecurring    = (r)  => saveImmediate({ ...state, recurring: [...(state.recurring || []), { ...r, id: uuidv4(), active: true }] });
+  const addRecurring    = (r)  => saveImmediate({
+    ...state,
+    recurring: [
+      ...(state.recurring || []),
+      {
+        ...r,
+        id: uuidv4(),
+        active: true,
+        assignedTo: r.assignedTo || 'Both',
+        paidMonths: r.paidMonths || [],
+        dueDay: r.dueDay || r.weeklyDay || 1,
+      },
+    ],
+  });
+  const updateRecurring = (id, updates) => saveImmediate({
+    ...state,
+    recurring: (state.recurring || []).map(r => r.id === id ? { ...r, ...updates } : r),
+  });
   const deleteRecurring = (id) => saveImmediate({ ...state, recurring: (state.recurring || []).filter(r => r.id !== id) });
+
+  const toggleBillPaid = useCallback((recurringId, targetMonthStr) => {
+    const month = targetMonthStr || new Date().toISOString().slice(0, 7);
+    const nextRecurring = (state.recurring || []).map(r => {
+      if (r.id !== recurringId) return r;
+      const currentPaid = Array.isArray(r.paidMonths) ? r.paidMonths : [];
+      const isPaid = currentPaid.includes(month);
+      const paidMonths = isPaid
+        ? currentPaid.filter(m => m !== month)
+        : [...currentPaid, month];
+      return {
+        ...r,
+        paidMonths,
+        lastPaidBy: isPaid ? (r.lastPaidBy || null) : currentActorName,
+        lastPaidAt: isPaid ? (r.lastPaidAt || null) : new Date().toISOString(),
+      };
+    });
+    saveImmediate({ ...state, recurring: nextRecurring });
+  }, [state, saveImmediate, currentActorName]);
   const addLoan         = (l)  => saveImmediate({ ...state, loans: [...(state.loans || []), { ...l, id: uuidv4() }] });
   const deleteLoan      = (id) => saveImmediate({ ...state, loans: (state.loans || []).filter(l => l.id !== id) });
 
@@ -1578,6 +1694,7 @@ export function FinanceProvider({ children }) {
     bankAccountBalances,
 
     // Household (team sharing)
+    currentActorName,
     householdId:            state.householdId || null,
     householdMeta:          state.householdMeta || null,
     householdMembers:       state.householdMembers || {},
@@ -1598,10 +1715,13 @@ export function FinanceProvider({ children }) {
     addCategory, deleteCategory, updateCategory,
     addTransaction, addTransactions,
     updateTransaction, deleteTransaction,
+    addTransactionComment,
     updateCurrency, updateTheme, updateSubscription,
     updateBudget, updateSalaryDate, updateAccountingStartDate, updateStartingBalances,
     addRecurringTransaction:    addRecurring,
+    updateRecurringTransaction: updateRecurring,
     deleteRecurringTransaction: deleteRecurring,
+    toggleBillPaid,
     addLoan, deleteLoan,
     clearData,
   };

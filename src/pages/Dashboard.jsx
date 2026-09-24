@@ -5,7 +5,8 @@ import { format, subMonths, addMonths, isSameMonth } from 'date-fns';
 import {
   ArrowLeft, ArrowRight, TrendingUp, TrendingDown,
   PiggyBank, CreditCard, Calendar, Share2,
-  IndianRupee, Activity, Target, Zap, RefreshCw
+  IndianRupee, Activity, Target, Zap, RefreshCw,
+  Users, Scale, Heart
 } from 'lucide-react';
 import AnalyticsWidget from '../components/AnalyticsWidget';
 import { cn } from '../lib/utils';
@@ -129,7 +130,8 @@ const Dashboard = () => {
     loans = [], recurring = [], salaryDate, monthlyBudget,
     rescanTransactions,
     bankBalance, cashBalance, totalBalance, bankAccountBalances,
-    isSmsUnlocked, isPro
+    isSmsUnlocked, isPro,
+    householdId, currentActorName
   } = useFinanceData();
 
   const netBalance = totalBalance;
@@ -561,6 +563,132 @@ const Dashboard = () => {
       `\n_Tracked with BudgetTracker_ 🇮🇳`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   }, [currentDate, income, expense, savings, debt, netBalance, expenseData, formatMoney, monthlyNet]);
+
+  // ── Household Spend Analysis (Feature 7) ──────────────────────────────────
+  const householdSpend = useMemo(() => {
+    const expenses = monthlyTx.filter(t => t.type === 'expense');
+    const totalExp = expenses.reduce((s, t) => s + (t.amount || 0), 0);
+
+    let sureshTotal = 0;
+    let sureshJoint = 0;
+    let sureshPersonal = 0;
+    let sureshCount = 0;
+
+    let rosyTotal = 0;
+    let rosyJoint = 0;
+    let rosyPersonal = 0;
+    let rosyCount = 0;
+
+    let claudeTotal = 0;
+    let claudeCount = 0;
+
+    let jointTotal = 0;
+    let personalTotal = 0;
+
+    expenses.forEach(t => {
+      const amt = Number(t.amount) || 0;
+      const creator = (t.createdBy || '').toLowerCase();
+      const updator = (t.updatedBy || '').toLowerCase();
+      const scope = t.scope || 'ours';
+
+      const isRosy = creator.includes('rosy') || updator.includes('rosy') || creator === 'do139v31skrxmspkli1ar0a9zo2';
+      const isClaude = creator.includes('claude') || updator.includes('claude');
+
+      if (isRosy) {
+        rosyTotal += amt;
+        rosyCount++;
+        if (scope === 'ours') rosyJoint += amt;
+        else rosyPersonal += amt;
+      } else if (isClaude) {
+        claudeTotal += amt;
+        claudeCount++;
+      } else {
+        sureshTotal += amt;
+        sureshCount++;
+        if (scope === 'ours') sureshJoint += amt;
+        else sureshPersonal += amt;
+      }
+
+      if (scope === 'mine' || scope === 'partner') {
+        personalTotal += amt;
+      } else {
+        jointTotal += amt;
+      }
+    });
+
+    const sureshPct = totalExp > 0 ? Math.round((sureshTotal / totalExp) * 100) : 0;
+    const rosyPct   = totalExp > 0 ? Math.round((rosyTotal / totalExp) * 100) : 0;
+    const claudePct = totalExp > 0 ? Math.round((claudeTotal / totalExp) * 100) : 0;
+    const jointPct  = totalExp > 0 ? Math.round((jointTotal / totalExp) * 100) : 0;
+    const personalPct = totalExp > 0 ? Math.round((personalTotal / totalExp) * 100) : 0;
+
+    const diff = Math.abs(sureshTotal - rosyTotal);
+    const higherSpender = sureshTotal >= rosyTotal ? 'Suresh' : 'Rosy';
+    const lowerSpender = sureshTotal >= rosyTotal ? 'Rosy' : 'Suresh';
+
+    const jointDiff = Math.abs(sureshJoint - rosyJoint);
+    const jointHigher = sureshJoint >= rosyJoint ? 'Suresh' : 'Rosy';
+    const jointLower = sureshJoint >= rosyJoint ? 'Rosy' : 'Suresh';
+    const settlementAmt = Math.round(jointDiff / 2);
+
+    return {
+      totalExp,
+      sureshTotal,
+      sureshJoint,
+      sureshPersonal,
+      sureshCount,
+      sureshPct,
+      rosyTotal,
+      rosyJoint,
+      rosyPersonal,
+      rosyCount,
+      rosyPct,
+      claudeTotal,
+      claudeCount,
+      claudePct,
+      jointTotal,
+      jointPct,
+      personalTotal,
+      personalPct,
+      diff,
+      higherSpender,
+      lowerSpender,
+      jointDiff,
+      jointHigher,
+      jointLower,
+      settlementAmt,
+      txCount: expenses.length,
+      hasRosyOrTeam: rosyTotal > 0 || claudeTotal > 0 || Boolean(householdId),
+    };
+  }, [monthlyTx, householdId]);
+
+  const handleHouseholdShare = useCallback(() => {
+    const monthName = format(currentDate, 'MMMM yyyy');
+    const { totalExp, sureshTotal, sureshPct, rosyTotal, rosyPct, claudeTotal, claudePct, jointTotal, personalTotal, diff, higherSpender, settlementAmt, jointHigher, jointLower } = householdSpend;
+
+    let msg = `🏠 *FinTrack Household Report — ${monthName}*\n\n`;
+    msg += `💳 *Total Household Spend:* ${formatMoney(totalExp)}\n\n`;
+    msg += `👤 *Suresh:* ${formatMoney(sureshTotal)} (${sureshPct}%)\n`;
+    msg += `🌸 *Rosy:* ${formatMoney(rosyTotal)} (${rosyPct}%)\n`;
+    if (claudeTotal > 0) {
+      msg += `🤖 *Claude MCP:* ${formatMoney(claudeTotal)} (${claudePct}%)\n`;
+    }
+    msg += `\n🏠 *Joint (Ours):* ${formatMoney(jointTotal)}\n`;
+    msg += `👤 *Personal (Mine):* ${formatMoney(personalTotal)}\n\n`;
+
+    if (sureshTotal > 0 && rosyTotal > 0) {
+      if (diff === 0) {
+        msg += `⚖️ *Split Status:* Perfectly balanced 50/50 contribution!\n`;
+      } else {
+        msg += `⚖️ *Overall:* ${higherSpender} contributed ${formatMoney(diff)} more this month.\n`;
+        if (settlementAmt > 0) {
+          msg += `🤝 *Joint 50/50 Settlement:* ${jointLower} can transfer ${formatMoney(settlementAmt)} to ${jointHigher}.\n`;
+        }
+      }
+    }
+    msg += `\n_Generated by FinTrack Budget Tracker_ 💑`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  }, [currentDate, householdSpend, formatMoney]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto">
@@ -1051,6 +1179,205 @@ const Dashboard = () => {
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── MONTHLY HOUSEHOLD REPORT CARD (Feature 7) ── */}
+          <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm overflow-hidden relative">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 via-primary/20 to-rose-500/20 border border-primary/20 flex items-center justify-center text-xl shadow-inner">
+                  💑
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base sm:text-lg text-foreground">Monthly Household Report Card</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
+                      Team Spend
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      👤 {currentActorName || 'Suresh'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Who spent what • Suresh vs Rosy • Joint vs Personal split
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleHouseholdShare}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95"
+                  title="Share Household Report on WhatsApp"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share Report</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Visual Contribution Bar */}
+            <div className="mt-5 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-medium text-muted-foreground">Monthly Contribution Ratio</span>
+                <span className="font-bold text-foreground">
+                  Total Spent: {formatMoney(householdSpend.totalExp)}
+                </span>
+              </div>
+
+              {householdSpend.totalExp > 0 ? (
+                <div className="h-4 bg-muted/60 rounded-full overflow-hidden flex shadow-inner p-0.5 gap-0.5">
+                  {householdSpend.sureshTotal > 0 && (
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full transition-all duration-700 relative group"
+                      style={{ width: `${Math.max(householdSpend.sureshPct, 4)}%` }}
+                      title={`Suresh: ${formatMoney(householdSpend.sureshTotal)} (${householdSpend.sureshPct}%)`}
+                    />
+                  )}
+                  {householdSpend.rosyTotal > 0 && (
+                    <div
+                      className="h-full bg-gradient-to-r from-rose-500 to-pink-500 rounded-full transition-all duration-700 relative group"
+                      style={{ width: `${Math.max(householdSpend.rosyPct, 4)}%` }}
+                      title={`Rosy: ${formatMoney(householdSpend.rosyTotal)} (${householdSpend.rosyPct}%)`}
+                    />
+                  )}
+                  {householdSpend.claudeTotal > 0 && (
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-700 relative group"
+                      style={{ width: `${Math.max(householdSpend.claudePct, 4)}%` }}
+                      title={`Claude MCP: ${formatMoney(householdSpend.claudeTotal)} (${householdSpend.claudePct}%)`}
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="h-4 bg-muted/40 rounded-full flex items-center justify-center text-[10px] text-muted-foreground font-medium">
+                  No expense transactions recorded this month
+                </div>
+              )}
+
+              {/* Legend with avatars & percentages */}
+              <div className="flex items-center justify-between text-xs pt-1 flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                  <span>👤 Suresh: {householdSpend.sureshPct}% ({formatMoney(householdSpend.sureshTotal)})</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                  <span>🌸 Rosy: {householdSpend.rosyPct}% ({formatMoney(householdSpend.rosyTotal)})</span>
+                </div>
+                {householdSpend.claudeTotal > 0 && (
+                  <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
+                    <span>🤖 Claude MCP: {householdSpend.claudePct}% ({formatMoney(householdSpend.claudeTotal)})</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Member Comparison Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mt-5">
+              {/* Suresh Card */}
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-2 relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
+                      👤
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Suresh</p>
+                      <p className="text-[10px] text-muted-foreground">{householdSpend.sureshCount} transactions</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                    {householdSpend.sureshPct}%
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-foreground">{formatMoney(householdSpend.sureshTotal)}</p>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-1 border-t border-border/40">
+                  <span>🏠 Joint: <strong className="text-foreground">{formatMoney(householdSpend.sureshJoint)}</strong></span>
+                  <span>•</span>
+                  <span>👤 Personal: <strong className="text-foreground">{formatMoney(householdSpend.sureshPersonal)}</strong></span>
+                </div>
+              </div>
+
+              {/* Rosy Card */}
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 space-y-2 relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-sm">
+                      🌸
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Rosy</p>
+                      <p className="text-[10px] text-muted-foreground">{householdSpend.rosyCount} transactions</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400">
+                    {householdSpend.rosyPct}%
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-foreground">{formatMoney(householdSpend.rosyTotal)}</p>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-1 border-t border-border/40">
+                  <span>🏠 Joint: <strong className="text-foreground">{formatMoney(householdSpend.rosyJoint)}</strong></span>
+                  <span>•</span>
+                  <span>👤 Personal: <strong className="text-foreground">{formatMoney(householdSpend.rosyPersonal)}</strong></span>
+                </div>
+              </div>
+
+              {/* Joint vs Personal Split Box */}
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2 sm:col-span-2 lg:col-span-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5 text-primary" />
+                      Scope Breakdown
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-medium">Mine vs Ours</span>
+                  </div>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground flex items-center gap-1">🏠 Joint (Ours):</span>
+                      <span className="font-bold text-foreground">{formatMoney(householdSpend.jointTotal)} <span className="text-[10px] text-muted-foreground font-normal">({householdSpend.jointPct}%)</span></span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground flex items-center gap-1">👤 Personal (Mine):</span>
+                      <span className="font-bold text-foreground">{formatMoney(householdSpend.personalTotal)} <span className="text-[10px] text-muted-foreground font-normal">({householdSpend.personalPct}%)</span></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Settlement Note */}
+                <div className="pt-2 border-t border-border/40 text-[11px]">
+                  {householdSpend.totalExp === 0 ? (
+                    <span className="text-muted-foreground">Start recording expenses to see split insights.</span>
+                  ) : householdSpend.sureshTotal > 0 && householdSpend.rosyTotal > 0 ? (
+                    householdSpend.diff === 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        🎉 Both contributed equally (50 / 50)!
+                      </span>
+                    ) : (
+                      <div className="text-muted-foreground">
+                        <span className="font-medium text-foreground">{householdSpend.higherSpender}</span> contributed <strong className="text-foreground">{formatMoney(householdSpend.diff)}</strong> more.
+                        {householdSpend.settlementAmt > 0 && (
+                          <p className="text-[10px] text-primary font-semibold mt-0.5">
+                            🤝 50/50 Joint Settlement: {householdSpend.jointLower} sends {formatMoney(householdSpend.settlementAmt)} to {householdSpend.jointHigher}.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Only {householdSpend.higherSpender} has logged expenses this month so far.
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
