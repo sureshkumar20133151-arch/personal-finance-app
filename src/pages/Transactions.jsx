@@ -1,12 +1,12 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFinanceData } from '../hooks/useFinanceData';
 import {
     Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown,
     PiggyBank, CreditCard, Download, MessageSquare, RefreshCw, Share2,
     MessageCircle, CheckCircle, CheckSquare, Square, Home, User, Users,
-    Send, Smile, Calendar, Check
+    Send, Smile, Calendar, Check, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -16,6 +16,129 @@ import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
 import { triggerHapticNotification } from '../lib/haptics';
 import { useAuth } from '../context/AuthContext';
+
+const SORT_OPTIONS = [
+    { value: 'date-desc', label: 'Newest First', icon: '📅' },
+    { value: 'date-asc', label: 'Oldest First', icon: '📅' },
+    { value: 'amount-desc', label: 'Amount: High to Low', icon: '💰' },
+    { value: 'amount-asc', label: 'Amount: Low to High', icon: '💵' },
+    { value: 'category-asc', label: 'Category (A to Z)', icon: '🏷️' },
+    { value: 'person-asc', label: 'Person Who Spent', icon: '👤' },
+];
+
+const SCOPE_OPTIONS = [
+    { value: 'all', label: 'Expense For: All', icon: '👥' },
+    { group: 'Household Scope' },
+    { value: 'ours', label: 'Home (Joint)', icon: '🏠' },
+    { value: 'mine', label: 'Suresh (Personal)', icon: '👤' },
+    { value: 'partner', label: 'Rosy (Personal)', icon: '🌸' },
+    { group: 'Person Who Spent' },
+    { value: 'paid:Suresh', label: 'Spent by Suresh', icon: '👤' },
+    { value: 'paid:Rosy', label: 'Spent by Rosy', icon: '🌸' },
+];
+
+const CustomSelect = ({
+    value,
+    onChange,
+    options,
+    icon: TriggerIcon,
+    align = 'left',
+    placeholder = 'Select...',
+    className = '',
+    menuWidth = 'w-56',
+    triggerWidth = 'w-full',
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) {
+            document.addEventListener('mousedown', handleOutsideClick);
+            document.addEventListener('touchstart', handleOutsideClick);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+        };
+    }, [isOpen]);
+
+    const selectedOption = options.find(o => !o.group && o.value === value);
+
+    return (
+        <div ref={containerRef} className={cn("relative", triggerWidth)}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn(
+                    "w-full h-9 px-2.5 sm:px-3 text-xs font-semibold bg-muted/60 hover:bg-muted border border-border/50 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-xl text-foreground flex items-center justify-between gap-1.5 transition-all cursor-pointer shadow-xs",
+                    isOpen && "border-primary/60 ring-2 ring-primary/20 bg-muted",
+                    className
+                )}
+            >
+                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                    {TriggerIcon && <TriggerIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                    {selectedOption?.icon && <span className="text-xs shrink-0">{selectedOption.icon}</span>}
+                    <span className="truncate font-semibold">{selectedOption?.label || placeholder}</span>
+                </div>
+                <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
+            </button>
+
+            {isOpen && (
+                <div
+                    className={cn(
+                        "absolute top-full mt-1.5 z-50 max-h-64 overflow-y-auto bg-card/95 backdrop-blur-xl border border-border/80 shadow-2xl rounded-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 scrollbar-none",
+                        menuWidth,
+                        align === 'right' ? "right-0" : "left-0"
+                    )}
+                >
+                    <div className="space-y-0.5">
+                        {options.map((item, idx) => {
+                            if (item.group) {
+                                return (
+                                    <div
+                                        key={`grp-${idx}`}
+                                        className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 px-2.5 pt-2 pb-1 border-t border-border/30 first:border-t-0 first:pt-1 select-none"
+                                    >
+                                        {item.group}
+                                    </div>
+                                );
+                            }
+
+                            const isSelected = item.value === value;
+                            return (
+                                <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(item.value);
+                                        setIsOpen(false);
+                                    }}
+                                    className={cn(
+                                        "w-full px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center justify-between gap-2 transition-all cursor-pointer text-left",
+                                        isSelected
+                                            ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                                            : "text-foreground hover:bg-muted hover:text-foreground"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2 min-w-0 truncate">
+                                        {item.icon && <span className="text-xs shrink-0">{item.icon}</span>}
+                                        <span className="truncate">{item.label}</span>
+                                    </div>
+                                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Transactions = () => {
     const {
@@ -89,6 +212,12 @@ const Transactions = () => {
     // Editing State
     const [editingTx, setEditingTx] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
+    const quickAddAmountRef = useRef(null);
+
+    const handleAddTransactionClick = () => {
+        resetForm();
+        setShowAddForm(true);
+    };
 
     // Sync updatedBy with defaultActor if not actively editing
     useEffect(() => {
@@ -115,10 +244,27 @@ const Transactions = () => {
 
     // List View State
     const [viewMode, setViewMode] = useState('transactions'); // 'transactions' or 'recurring'
+    const [displayMode, setDisplayMode] = useState('table'); // 'table' (Excel Sheet) or 'cards'
 
     // Filter State
     const [filterType, setFilterType] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7)); // e.g. '2026-09'
+    const [sortBy, setSortBy] = useState('date-desc'); // 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
+
+    const handlePrevMonth = () => {
+        const cur = selectedMonth || new Date().toISOString().slice(0, 7);
+        const [y, m] = cur.split('-').map(Number);
+        const prev = new Date(y, m - 2, 1);
+        setSelectedMonth(format(prev, 'yyyy-MM'));
+    };
+
+    const handleNextMonth = () => {
+        const cur = selectedMonth || new Date().toISOString().slice(0, 7);
+        const [y, m] = cur.split('-').map(Number);
+        const next = new Date(y, m, 1);
+        setSelectedMonth(format(next, 'yyyy-MM'));
+    };
 
     const [recurringFreq, setRecurringFreq] = useState('monthly');
     const [recurringInterval, setRecurringInterval] = useState(28);
@@ -197,20 +343,61 @@ const Transactions = () => {
         return categories.filter(c => c.type === type);
     }, [categories, type]);
 
+    const categoryOptions = useMemo(() => [
+        { value: 'all', label: 'Category: All', icon: '🏷️' },
+        { group: 'Types' },
+        { value: 'expense', label: 'Expense', icon: '🔴' },
+        { value: 'income', label: 'Income', icon: '🟢' },
+        { value: 'savings', label: 'Savings', icon: '🔵' },
+        { value: 'debt', label: 'Debt', icon: '🟠' },
+        ...(categories && categories.length > 0 ? [
+            { group: 'Specific Categories' },
+            ...categories.map(c => ({
+                value: `cat:${c.id}`,
+                label: c.name,
+                icon: c.icon || '🏷️',
+            }))
+        ] : [])
+    ], [categories]);
+
     const filteredTransactions = useMemo(() => {
         return transactions.filter(t => {
-            const matchesType = filterType === 'all' || t.type === filterType;
+            const matchesMonth = !selectedMonth || (t.date && t.date.startsWith(selectedMonth));
+            const matchesType = filterType === 'all'
+                || (filterType.startsWith('cat:') ? t.categoryId === filterType.replace('cat:', '') : t.type === filterType);
             const matchesScope = scopeFilter === 'all'
                 || (scopeFilter === 'ours' && (t.scope === 'ours' || !t.scope))
-                || (scopeFilter === 'mine' && (t.scope === 'mine' || t.scope === 'partner'));
+                || (scopeFilter === 'mine' && t.scope === 'mine')
+                || (scopeFilter === 'partner' && t.scope === 'partner')
+                || (scopeFilter === 'paid:Suresh' && (t.updatedBy === 'Suresh' || t.createdBy === 'Suresh'))
+                || (scopeFilter === 'paid:Rosy' && (t.updatedBy === 'Rosy' || t.createdBy === 'Rosy'));
             const desc = t.description || '';
             const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (t.updatedBy || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (t.comments || []).some(cm => (cm.text || '').toLowerCase().includes(searchQuery.toLowerCase()));
-            return matchesType && matchesScope && matchesSearch;
-        }).sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [transactions, filterType, scopeFilter, searchQuery, categories]);
+            return matchesMonth && matchesType && matchesScope && matchesSearch;
+        }).sort((a, b) => {
+            if (sortBy === 'date-asc') return new Date(a.date) - new Date(b.date);
+            if (sortBy === 'amount-desc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+            if (sortBy === 'amount-asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+            if (sortBy === 'category-asc') {
+                const catA = categories.find(c => c.id === a.categoryId)?.name || a.type || '';
+                const catB = categories.find(c => c.id === b.categoryId)?.name || b.type || '';
+                const cmp = catA.localeCompare(catB);
+                if (cmp !== 0) return cmp;
+                return new Date(b.date) - new Date(a.date);
+            }
+            if (sortBy === 'person-asc') {
+                const personA = a.updatedBy || a.createdBy || 'Suresh';
+                const personB = b.updatedBy || b.createdBy || 'Suresh';
+                const cmp = personA.localeCompare(personB);
+                if (cmp !== 0) return cmp;
+                return new Date(b.date) - new Date(a.date);
+            }
+            return new Date(b.date) - new Date(a.date);
+        });
+    }, [transactions, selectedMonth, filterType, scopeFilter, searchQuery, categories, sortBy]);
 
     // Handlers
     const handleSubmit = (e) => {
@@ -282,6 +469,7 @@ const Transactions = () => {
 
         triggerHapticNotification('SUCCESS');
         resetForm();
+        setShowAddForm(false);
     };
 
     const handleEditClick = (tx) => {
@@ -482,55 +670,40 @@ const Transactions = () => {
     // Render Reusable Form Inputs for Add & Edit
     const renderFormInputs = (isEdit = false) => (
         <>
-            <div className="space-y-1" role="radiogroup" aria-labelledby={isEdit ? "edit-type-label" : "type-label"}>
-                <span id={isEdit ? "edit-type-label" : "type-label"} className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    Type
-                </span>
-                <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
-                    {typeConfig.map(t => (
-                        <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => { setType(t.id); setCategoryId(''); setIsRecurring(false); }}
-                            className={cn(
-                                "flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-md text-[10px] font-semibold transition-all cursor-pointer",
-                                type === t.id
-                                    ? "bg-background text-foreground shadow-xs ring-1 ring-black/5 dark:ring-white/10"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                            )}
-                            title={t.label}
-                        >
-                            <t.icon className={cn("w-3.5 h-3.5", type === t.id ? t.color : "")} />
-                            <span className="leading-none text-center">{t.label}</span>
-                        </button>
-                    ))}
+            {/* Row 1: Type & Category Dropdowns */}
+            <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                    <label htmlFor={isEdit ? "edit-type" : "type"} className="text-xs font-semibold text-muted-foreground">
+                        Type
+                    </label>
+                    <select
+                        id={isEdit ? "edit-type" : "type"}
+                        value={type}
+                        onChange={(e) => { setType(e.target.value); setCategoryId(''); setIsRecurring(false); }}
+                        className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                    >
+                        <option value="expense">📉 Expense</option>
+                        <option value="income">📈 Income</option>
+                        <option value="savings">🐷 Savings</option>
+                        <option value="debt">💳 Debt Repayment</option>
+                    </select>
                 </div>
-            </div>
 
-            <div className="space-y-1">
-                <label htmlFor={isEdit ? "edit-category" : "category"} className="text-xs font-medium">Category</label>
-                {type === 'debt' ? (
-                    <div className="space-y-2">
-                        {/* 1. Sub-Type Selector */}
-                        <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
-                            <button
-                                type="button"
-                                onClick={() => { setDebtType('immediate'); setLoanId(''); setAmount(''); }}
-                                className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight cursor-pointer", debtType === 'immediate' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
-                            >
-                                Immediate
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setDebtType('personal'); setLoanId(''); setAmount(''); }}
-                                className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight cursor-pointer", debtType === 'personal' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
-                            >
-                                Debt
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setDebtType('emi');
+                <div className="space-y-1">
+                    <label htmlFor={isEdit ? "edit-category" : "category"} className="text-xs font-semibold text-muted-foreground">
+                        Category
+                    </label>
+                    {type === 'debt' ? (
+                        <select
+                            id={isEdit ? "edit-debt-type" : "debt-type"}
+                            value={debtType}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setDebtType(val);
+                                if (val === 'immediate' || val === 'personal') {
+                                    setLoanId('');
+                                    setAmount('');
+                                } else if (val === 'emi') {
                                     const emiLoans = loans.filter(l => l.type === 'emi');
                                     if (emiLoans.length === 1) {
                                         const loan = emiLoans[0];
@@ -541,87 +714,20 @@ const Transactions = () => {
                                         setLoanId('');
                                         setAmount('');
                                     }
-                                }}
-                                className={cn("text-[10px] font-medium py-1.5 px-1 rounded-md transition-all leading-tight cursor-pointer", debtType === 'emi' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
-                            >
-                                EMI
-                            </button>
-                        </div>
-
-                        {debtType === 'immediate' && (
-                            <div className="p-2 bg-muted/30 rounded-md border border-dashed border-border text-[10px] text-muted-foreground">
-                                One-off repayments not tracked in Loans.
-                            </div>
-                        )}
-
-                        {debtType === 'personal' && (
-                            <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                                <select
-                                    id={isEdit ? "edit-loan-account" : "loan-account"}
-                                    value={loanId}
-                                    onChange={(e) => {
-                                        setLoanId(e.target.value);
-                                        setAmount('');
-                                    }}
-                                    className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
-                                >
-                                    <option value="">Select Account</option>
-                                    {loans.filter(l => l.type === 'debt').map(l => (
-                                        <option key={l.id} value={l.id}>{l.name}</option>
-                                    ))}
-                                </select>
-                                {loanId && (
-                                    <div className="flex gap-2 p-1 bg-muted rounded-lg">
-                                        <button
-                                            type="button"
-                                            onClick={() => setRepaymentType('principal')}
-                                            className={cn("flex-1 text-[10px] font-medium py-1 rounded-md transition-all cursor-pointer", repaymentType === 'principal' ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
-                                        >
-                                            Principal
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRepaymentType('interest')}
-                                            className={cn("flex-1 text-[10px] font-medium py-1 rounded-md transition-all cursor-pointer", repaymentType === 'interest' ? "bg-background shadow text-orange-600" : "text-muted-foreground hover:text-foreground")}
-                                        >
-                                            Interest
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {debtType === 'emi' && (
-                            <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                                <select
-                                    id={isEdit ? "edit-emi-loan" : "emi-loan"}
-                                    value={loanId}
-                                    onChange={(e) => {
-                                        const selectedId = e.target.value;
-                                        setLoanId(selectedId);
-                                        const loan = loans.find(l => l.id === selectedId);
-                                        if (loan) {
-                                            setAmount(loan.monthlyAmount.toString());
-                                            setDescription(`EMI for ${loan.name}`);
-                                        }
-                                    }}
-                                    className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
-                                >
-                                    <option value="">Select EMI Loan</option>
-                                    {loans.filter(l => l.type === 'emi').map(l => (
-                                        <option key={l.id} value={l.id}>{l.name} ({formatMoney(l.monthlyAmount)}/mo)</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="relative">
+                                }
+                            }}
+                            className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                        >
+                            <option value="immediate">Immediate Repayment</option>
+                            <option value="personal">Personal Debt Account</option>
+                            <option value="emi">EMI Loan Account</option>
+                        </select>
+                    ) : (
                         <select
                             id={isEdit ? "edit-category" : "category"}
                             value={categoryId}
                             onChange={(e) => setCategoryId(e.target.value)}
-                            className="w-full h-9 bg-background border border-input rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+                            className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                             required={type !== 'debt'}
                         >
                             <option value="" disabled>Select Category</option>
@@ -629,17 +735,76 @@ const Transactions = () => {
                                 <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                         </select>
-                    </div>
-                )}
-                {type !== 'debt' && availableCategories.length === 0 && (
-                    <p className="text-[10px] text-destructive">No categories found for {type}.</p>
-                )}
+                    )}
+                </div>
             </div>
 
-            {/* Amount & Date */}
+            {/* If Debt type requires account selection */}
+            {type === 'debt' && debtType === 'personal' && (
+                <div className="space-y-2 p-2 bg-muted/40 rounded-xl border border-border/60 animate-in fade-in">
+                    <select
+                        id={isEdit ? "edit-loan-account" : "loan-account"}
+                        value={loanId}
+                        onChange={(e) => {
+                            setLoanId(e.target.value);
+                            setAmount('');
+                        }}
+                        className="w-full h-9 bg-background border border-input rounded-lg px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+                    >
+                        <option value="">Select Debt Account</option>
+                        {loans.filter(l => l.type === 'debt').map(l => (
+                            <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                    </select>
+                    {loanId && (
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setRepaymentType('principal')}
+                                className={cn("flex-1 text-[11px] font-semibold py-1 rounded-md transition-all cursor-pointer", repaymentType === 'principal' ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+                            >
+                                Principal
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRepaymentType('interest')}
+                                className={cn("flex-1 text-[11px] font-semibold py-1 rounded-md transition-all cursor-pointer", repaymentType === 'interest' ? "bg-background shadow text-orange-600" : "text-muted-foreground hover:text-foreground")}
+                            >
+                                Interest
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {type === 'debt' && debtType === 'emi' && (
+                <div className="space-y-2 p-2 bg-muted/40 rounded-xl border border-border/60 animate-in fade-in">
+                    <select
+                        id={isEdit ? "edit-emi-loan" : "emi-loan"}
+                        value={loanId}
+                        onChange={(e) => {
+                            const selectedId = e.target.value;
+                            setLoanId(selectedId);
+                            const loan = loans.find(l => l.id === selectedId);
+                            if (loan) {
+                                setAmount(loan.monthlyAmount.toString());
+                                setDescription(`EMI for ${loan.name}`);
+                            }
+                        }}
+                        className="w-full h-9 bg-background border border-input rounded-lg px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+                    >
+                        <option value="">Select EMI Loan</option>
+                        {loans.filter(l => l.type === 'emi').map(l => (
+                            <option key={l.id} value={l.id}>{l.name} ({formatMoney(l.monthlyAmount)}/mo)</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {/* Row 2: Amount & Date */}
             <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                    <label htmlFor={isEdit ? "edit-amount" : "amount"} className="text-xs font-medium">Amount</label>
+                    <label htmlFor={isEdit ? "edit-amount" : "amount"} className="text-xs font-semibold text-muted-foreground">Amount (₹)</label>
                     <input
                         id={isEdit ? "edit-amount" : "amount"}
                         type="number"
@@ -647,144 +812,86 @@ const Transactions = () => {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="0.00"
-                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs font-bold"
+                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs"
                         required
                     />
                 </div>
                 <div className="space-y-1">
-                    <label htmlFor={isEdit ? "edit-date" : "date"} className="text-xs font-medium">Date</label>
+                    <label htmlFor={isEdit ? "edit-date" : "date"} className="text-xs font-semibold text-muted-foreground">Date</label>
                     <input
                         id={isEdit ? "edit-date" : "date"}
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs"
+                        className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs cursor-pointer"
                         required
                     />
                 </div>
             </div>
 
-            {/* Description */}
+            {/* Row 3: Description */}
             <div className="space-y-1">
-                <label htmlFor={isEdit ? "edit-description" : "description"} className="text-xs font-medium">Description</label>
+                <label htmlFor={isEdit ? "edit-description" : "description"} className="text-xs font-semibold text-muted-foreground">Description / Notes</label>
                 <input
                     id={isEdit ? "edit-description" : "description"}
                     type="text"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="e.g. Petrol, Groceries, Dinner"
-                    className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs"
+                    className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs"
                 />
             </div>
 
-            {/* Payment Mode */}
-            <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Payment Mode</label>
-                <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 rounded-lg">
-                    {[
-                        { id: 'upi',        label: 'UPI',         emoji: '📱' },
-                        { id: 'cash',       label: 'Cash',        emoji: '💵' },
-                        { id: 'card',       label: 'Card',        emoji: '💳' },
-                        { id: 'netbanking', label: 'Net Bank',    emoji: '🏦' },
-                    ].map(mode => (
-                        <button
-                            key={mode.id}
-                            type="button"
-                            onClick={() => setPaymentMode(mode.id)}
-                            className={cn(
-                                "flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-md text-[10px] font-medium transition-all cursor-pointer",
-                                paymentMode === mode.id
-                                    ? "bg-background text-foreground shadow-xs ring-1 ring-primary/40 font-bold"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                            )}
-                        >
-                            <span className="text-sm">{mode.emoji}</span>
-                            <span className="leading-tight text-center">{mode.label}</span>
-                        </button>
-                    ))}
+            {/* Row 4: Payment Mode & Paid By Dropdowns */}
+            <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                    <label htmlFor={isEdit ? "edit-payment-mode" : "payment-mode"} className="text-xs font-semibold text-muted-foreground">
+                        Payment Mode
+                    </label>
+                    <select
+                        id={isEdit ? "edit-payment-mode" : "payment-mode"}
+                        value={paymentMode}
+                        onChange={(e) => setPaymentMode(e.target.value)}
+                        className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                    >
+                        <option value="upi">📱 UPI</option>
+                        <option value="cash">💵 Cash</option>
+                        <option value="card">💳 Card</option>
+                        <option value="netbanking">🏦 Net Banking</option>
+                    </select>
+                </div>
+
+                <div className="space-y-1">
+                    <label htmlFor={isEdit ? "edit-updated-by" : "updated-by"} className="text-xs font-semibold text-muted-foreground">
+                        {isEdit ? 'Updated By' : 'Paid By'}
+                    </label>
+                    <select
+                        id={isEdit ? "edit-updated-by" : "updated-by"}
+                        value={updatedBy}
+                        onChange={(e) => setUpdatedBy(e.target.value)}
+                        className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                    >
+                        <option value="Suresh">👤 Suresh</option>
+                        <option value="Rosy">🌸 Rosy</option>
+                    </select>
                 </div>
             </div>
 
-            {/* Compact Household Settings Box (Attribution & Scope) */}
-            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-2.5">
-                <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
-                        👥 Household Settings
-                    </span>
-                    <span className="text-[9.5px] text-muted-foreground">Team attribution</span>
-                </div>
-
-                {/* Recorded By / Author */}
-                <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            {isEdit ? 'Updated By' : 'Recorded By'}
-                        </label>
-                        <span className="text-[9.5px] text-primary font-medium">{updatedBy}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                        {[
-                            { id: 'Suresh', label: 'Suresh', emoji: '👤' },
-                            { id: 'Rosy',   label: 'Rosy',   emoji: '🌸' },
-                            { id: 'Claude', label: 'Claude', emoji: '🤖' },
-                        ].map(actor => (
-                            <button
-                                key={actor.id}
-                                type="button"
-                                onClick={() => setUpdatedBy(actor.id)}
-                                className={cn(
-                                    "flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                                    updatedBy === actor.id
-                                        ? actor.id === 'Suresh'
-                                            ? "bg-blue-600 text-white shadow-xs"
-                                            : actor.id === 'Rosy'
-                                            ? "bg-rose-600 text-white shadow-xs"
-                                            : "bg-amber-600 text-white shadow-xs"
-                                        : "bg-background/70 text-muted-foreground hover:text-foreground hover:bg-background border border-border/40"
-                                )}
-                            >
-                                <span className="text-xs">{actor.emoji}</span>
-                                <span className="truncate">{actor.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Expense Scope */}
-                <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Expense Scope
-                        </label>
-                        <span className="text-[9.5px] text-muted-foreground capitalize">{scope}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                        {[
-                            { id: 'ours',    label: 'Ours (Joint)',    emoji: '🏠' },
-                            { id: 'mine',    label: 'Mine',            emoji: '👤' },
-                            { id: 'partner', label: 'Partner',         emoji: '🌸' },
-                        ].map(item => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setScope(item.id)}
-                                className={cn(
-                                    "flex items-center justify-center gap-1 py-1 px-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                                    scope === item.id
-                                        ? item.id === 'ours'
-                                            ? "bg-emerald-600 text-white shadow-xs"
-                                            : item.id === 'mine'
-                                            ? "bg-indigo-600 text-white shadow-xs"
-                                            : "bg-rose-600 text-white shadow-xs"
-                                        : "bg-background/70 text-muted-foreground hover:text-foreground hover:bg-background border border-border/40"
-                                )}
-                            >
-                                <span className="text-xs">{item.emoji}</span>
-                                <span className="truncate text-[11px]">{item.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            {/* Row 5: Expense Scope Dropdown */}
+            <div className="space-y-1">
+                <label htmlFor={isEdit ? "edit-scope" : "scope"} className="text-xs font-semibold text-muted-foreground">
+                    Expense Scope
+                </label>
+                <select
+                    id={isEdit ? "edit-scope" : "scope"}
+                    value={scope}
+                    onChange={(e) => setScope(e.target.value)}
+                    className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                >
+                    <option value="ours">🏠 Home Expenses (Family / Veedu)</option>
+                    <option value="mine">👤 Suresh Personal (Petrol / Snacks)</option>
+                    <option value="partner">🌸 Rosy Personal</option>
+                </select>
             </div>
 
             {/* Share with Member (Add mode only) */}
@@ -896,23 +1003,15 @@ const Transactions = () => {
                     <div className="pt-2 border-t border-border/50 space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Bill Assigned To</label>
-                            <div className="flex gap-1">
-                                {['Both', 'Suresh', 'Rosy'].map(name => (
-                                    <button
-                                        key={name}
-                                        type="button"
-                                        onClick={() => setAssignedTo(name)}
-                                        className={cn(
-                                            "px-2 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer",
-                                            assignedTo === name
-                                                ? "bg-primary text-primary-foreground border-primary"
-                                                : "border-border text-muted-foreground hover:bg-muted"
-                                        )}
-                                    >
-                                        {name}
-                                    </button>
-                                ))}
-                            </div>
+                            <select
+                                value={assignedTo}
+                                onChange={(e) => setAssignedTo(e.target.value)}
+                                className="h-7 text-xs bg-background border border-input rounded-md px-2 focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+                            >
+                                <option value="Both">👥 Both</option>
+                                <option value="Suresh">👤 Suresh</option>
+                                <option value="Rosy">🌸 Rosy</option>
+                            </select>
                         </div>
                         <div className="flex items-center justify-between">
                             <label htmlFor="dueDay" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Due Day of Month</label>
@@ -932,8 +1031,292 @@ const Transactions = () => {
         </>
     );
 
+    const renderMonthSelector = () => (
+        <div className="flex items-center gap-1.5 shrink-0">
+            {/* Month Calendar Selector */}
+            <div className="flex items-center bg-card border border-border/80 rounded-xl p-0.5 shadow-2xs">
+                <button
+                    type="button"
+                    onClick={handlePrevMonth}
+                    className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title="Previous Month"
+                >
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+
+                <label className="relative flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 sm:py-1.5 hover:bg-muted/70 rounded-lg cursor-pointer transition-colors" title="Click to choose month">
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold text-foreground select-none whitespace-nowrap">
+                        {selectedMonth ? format(new Date(selectedMonth + '-01T00:00:00'), 'MMM yyyy') : 'All Months'}
+                    </span>
+                    <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    />
+                </label>
+
+                <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title="Next Month"
+                >
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+            </div>
+
+            {selectedMonth ? (
+                <button
+                    type="button"
+                    onClick={() => setSelectedMonth('')}
+                    className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold rounded-xl border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
+                    title="Show transactions from all months"
+                >
+                    All
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => setSelectedMonth(new Date().toISOString().slice(0, 7))}
+                    className="px-2 sm:px-2.5 py-1.5 sm:py-2 text-[11px] sm:text-xs font-semibold rounded-xl border bg-primary/10 hover:bg-primary/20 text-primary border-primary/20 transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
+                    title="Jump to current month"
+                >
+                    This Month
+                </button>
+            )}
+        </div>
+    );
+
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
+        <div className="space-y-8 animate-in fade-in duration-500 max-w-6xl mx-auto">
+            {/* Dedicated Centered Add Transaction Modal */}
+            {showAddForm && (
+                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div 
+                        className="fixed inset-0 cursor-default" 
+                        onClick={() => {
+                            setShowAddForm(false);
+                            resetForm();
+                        }}
+                    />
+                    <div className="relative z-10 w-full max-w-lg md:max-w-5xl lg:max-w-7xl bg-card rounded-2xl sm:rounded-3xl border border-primary/40 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/20 shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base sm:text-lg font-bold">Add Transaction</h2>
+                                    <p className="text-[11px] text-muted-foreground">Record a new expense, income, or savings entry</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowAddForm(false);
+                                    resetForm();
+                                }}
+                                className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                title="Close"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 pr-3.5 space-y-3">
+                            {transactionLimitReached && (
+                                <div className="mb-3 p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs rounded-md flex items-start gap-2 border border-amber-500/20">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <p>Free plan limit reached — {monthlyTransactionCount}/{FREE_PLAN_MONTHLY_TX_LIMIT} transactions used this month. Upgrade to Starter for unlimited entries.</p>
+                                </div>
+                            )}
+
+                            {uploadError && (
+                                <div className="mb-3 p-2 bg-destructive/10 text-destructive text-xs rounded-md flex items-start gap-2">
+                                    <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                                    <p>{uploadError}</p>
+                                </div>
+                            )}
+
+                            <form id="tx-form" onSubmit={handleSubmit} className="space-y-4 pb-2">
+                                {/* Desktop Horizontal Section - Matching Screenshot Exactly */}
+                                <div className="hidden md:block space-y-2">
+                                    <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 select-none">
+                                        <div className="col-span-2">Date</div>
+                                        <div className="col-span-1">Type</div>
+                                        <div className="col-span-2">Category</div>
+                                        <div className="col-span-3">Description</div>
+                                        <div className="col-span-1">Payment</div>
+                                        <div className="col-span-1">Updated By</div>
+                                        <div className="col-span-1">Scope</div>
+                                        <div className="col-span-1 text-right pr-1">Amount (₹)</div>
+                                    </div>
+                                    <div className="grid grid-cols-12 gap-2 items-center bg-muted/20 p-2.5 rounded-xl border border-border/60">
+                                        {/* Date */}
+                                        <div className="col-span-2">
+                                            <input
+                                                type="date"
+                                                value={date}
+                                                onChange={(e) => setDate(e.target.value)}
+                                                className="w-full h-9 px-2 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+                                                required
+                                            />
+                                        </div>
+
+                                        {/* Type */}
+                                        <div className="col-span-1">
+                                            <select
+                                                value={type}
+                                                onChange={(e) => {
+                                                    setType(e.target.value);
+                                                    setCategoryId('');
+                                                }}
+                                                className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
+                                            >
+                                                <option value="expense">📉 Expense</option>
+                                                <option value="income">📈 Income</option>
+                                                <option value="savings">🐷 Savings</option>
+                                                <option value="debt">💳 Debt</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Category */}
+                                        <div className="col-span-2">
+                                            {type === 'debt' ? (
+                                                <select
+                                                    value={debtType}
+                                                    onChange={(e) => setDebtType(e.target.value)}
+                                                    className="w-full h-9 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+                                                >
+                                                    <option value="personal">🤝 Personal</option>
+                                                    <option value="emi">🏦 Bank EMI</option>
+                                                    <option value="immediate">⚡ Quick Pay</option>
+                                                </select>
+                                            ) : (
+                                                <select
+                                                    value={categoryId}
+                                                    onChange={(e) => setCategoryId(e.target.value)}
+                                                    className="w-full h-9 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+                                                    required={type !== 'debt'}
+                                                >
+                                                    <option value="">Select Category...</option>
+                                                    {availableCategories.map(c => (
+                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
+
+                                        {/* Description */}
+                                        <div className="col-span-3">
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Petrol, Groceries..."
+                                                value={description}
+                                                onChange={(e) => setDescription(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSubmit(e);
+                                                }}
+                                                className="w-full h-9 px-2.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary"
+                                            />
+                                        </div>
+
+                                        {/* Payment */}
+                                        <div className="col-span-1">
+                                            <select
+                                                value={paymentMode}
+                                                onChange={(e) => setPaymentMode(e.target.value)}
+                                                className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+                                            >
+                                                <option value="upi">📱 UPI</option>
+                                                <option value="cash">💵 Cash</option>
+                                                <option value="card">💳 Card</option>
+                                                <option value="netbanking">🏦 NetBank</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Updated By */}
+                                        <div className="col-span-1">
+                                            <select
+                                                value={updatedBy || defaultActor || 'Suresh'}
+                                                onChange={(e) => setUpdatedBy(e.target.value)}
+                                                className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
+                                            >
+                                                <option value="Suresh">👤 Suresh</option>
+                                                <option value="Rosy">🌸 Rosy</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Scope */}
+                                        <div className="col-span-1">
+                                            <select
+                                                value={scope}
+                                                onChange={(e) => setScope(e.target.value)}
+                                                className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+                                            >
+                                                <option value="ours">🏠 Home</option>
+                                                <option value="mine">👤 Suresh</option>
+                                                <option value="partner">🌸 Rosy</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Amount */}
+                                        <div className="col-span-1">
+                                            <div className="relative">
+                                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono">₹</span>
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="0.00"
+                                                    value={amount}
+                                                    onChange={(e) => setAmount(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') handleSubmit(e);
+                                                    }}
+                                                    className="w-full h-9 pl-4 pr-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-mono font-bold text-right"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Mobile Phones: Vertical Stacked Form */}
+                                <div className="md:hidden">
+                                    {renderFormInputs(false)}
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex items-center justify-end gap-2.5 px-5 py-3 border-t border-border bg-muted/20 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowAddForm(false);
+                                    resetForm();
+                                }}
+                                className="px-4 py-2 rounded-xl text-sm font-semibold border border-input hover:bg-muted text-foreground transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                form="tx-form"
+                                className="px-5 py-2 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span>Add Transaction</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Dedicated Centered Edit Transaction Modal */}
             {editingTx && (
                 <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
@@ -1001,175 +1384,141 @@ const Transactions = () => {
                 </div>
             )}
 
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Transactions</h1>
-                    <p className="text-muted-foreground">Record and manage your financial activities.</p>
-                </div>
-                <button
-                    onClick={() => {
-                        resetForm();
-                        setShowAddForm(true);
-                    }}
-                    className="lg:hidden flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all cursor-pointer shadow-sm shadow-emerald-500/10 shrink-0"
-                    title="Add a transaction manually"
-                >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Transaction</span>
-                </button>
-            </header>
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center justify-between gap-3 w-full sm:w-auto">
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Transactions</h1>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 hidden sm:block">Record and manage your household financial activities.</p>
+                    </div>
 
-            <div className="grid gap-8 lg:grid-cols-3">
-                {/* Form Section - Pop-up Modal on Mobile, Sticky Inline Card on Desktop */}
-                <div className={cn(
-                    "fixed inset-0 z-50 bg-background/80 backdrop-blur-md p-2 sm:p-4 flex justify-center items-start sm:items-center py-3 sm:py-6 pb-24 sm:pb-6 transition-all duration-200",
-                    "lg:relative lg:inset-auto lg:z-0 lg:flex-none lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:block lg:col-span-1",
-                    showAddForm ? "block" : "hidden lg:block"
-                )}>
-                    <div 
-                        className="fixed inset-0 cursor-default lg:hidden" 
-                        onClick={() => {
-                            setShowAddForm(false);
-                            resetForm();
-                        }}
-                    />
-                    <div className={cn(
-                        "rounded-2xl sm:rounded-3xl border border-border bg-card shadow-2xl w-full max-w-full sm:max-w-xl lg:max-w-md relative z-10 transition-all",
-                        "flex flex-col max-h-[92vh] sm:max-h-[85vh]",
-                        "lg:shadow-sm lg:sticky lg:top-8 lg:max-h-[calc(100vh-4rem)] border-border"
-                    )}>
-                        {/* Sticky Header - always visible while scrolling */}
-                        <div className="flex items-center justify-between px-3.5 sm:px-5 lg:px-6 pt-3.5 sm:pt-5 lg:pt-6 pb-2 sm:pb-3 shrink-0">
-                            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                                <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                                <span>Add Transaction</span>
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowAddForm(false);
-                                    resetForm();
-                                }}
-                                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer lg:hidden"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        {/* Scrollable Body - header/footer stay fixed while this scrolls */}
-                        <div className="flex-1 overflow-y-auto px-3.5 sm:px-5 lg:px-6 pr-2">
-
-                            {/* Drag & Drop Zone - Compact Version */}
-                            <div
-                                className={cn(
-                                    "mb-2.5 border border-dashed rounded-xl p-2 sm:p-2.5 text-center transition-all cursor-pointer",
-                                    isDragging
-                                        ? "border-primary bg-primary/5"
-                                        : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
-                                )}
-                                onDragEnter={handleDragEnter}
-                                onDragLeave={handleDragLeave}
-                                onDragOver={handleDragOver}
-                                onDrop={handleDrop}
-                                onClick={() => document.getElementById('file-upload-input').click()}
-                            >
-                                <input
-                                    id="file-upload-input"
-                                    type="file"
-                                    accept=".csv,.pdf,.xlsx,.xls,.docx,.doc,.txt"
-                                    onChange={(e) => { processFile(e.target.files[0]); e.target.value = null; }}
-                                    className="hidden"
-                                    disabled={isParsing}
-                                />
-                                <div className="flex items-center justify-center gap-2">
-                                    {isParsing ? (
-                                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                        <Upload className={cn("w-4 h-4", isDragging ? "text-primary" : "text-muted-foreground")} />
-                                    )}
-                                    <span className={cn("text-xs font-medium", isDragging ? "text-primary" : "text-muted-foreground")}>
-                                        {isParsing ? 'Parsing...' : 'Upload Statement (Drag or Click)'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {transactionLimitReached && (
-                                <div className="mb-3 p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs rounded-md flex items-start gap-2 border border-amber-500/20">
-                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                    <p>Free plan limit reached — {monthlyTransactionCount}/{FREE_PLAN_MONTHLY_TX_LIMIT} transactions used this month. Upgrade to Starter for unlimited entries.</p>
-                                </div>
-                            )}
-
-                            {uploadError && (
-                                <div className="mb-3 p-2 bg-destructive/10 text-destructive text-xs rounded-md flex items-start gap-2">
-                                    <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                    <p>{uploadError}</p>
-                                </div>
-                            )}
-
-                            <form id="tx-form" onSubmit={handleSubmit} className="space-y-3 pb-24">
-                                {renderFormInputs(false)}
-                            </form>
-                        </div>
-
-                        {/* Sticky Footer - Add always reachable, never obscured */}
-                        <div className="flex gap-2 px-3.5 sm:px-5 lg:px-6 py-3 border-t border-border/40 shrink-0 bg-card rounded-b-2xl sm:rounded-b-3xl">
-                            {showAddForm && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        resetForm();
-                                        setShowAddForm(false);
-                                    }}
-                                    className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold border border-input hover:bg-muted h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer text-foreground lg:hidden"
-                                >
-                                    Cancel
-                                </button>
-                            )}
-                            <button
-                                type="submit"
-                                form="tx-form"
-                                className="flex-1 inline-flex items-center justify-center rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 gap-2 shadow-sm cursor-pointer whitespace-nowrap"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Add Transaction</span>
-                            </button>
-                        </div>
+                    {/* On Mobile: Month Selector on top right (directly under profile avatar in navbar) */}
+                    <div className="sm:hidden">
+                        {renderMonthSelector()}
                     </div>
                 </div>
 
-                {/* List Section */}
-                <div className="lg:col-span-2 space-y-6">
+                <p className="text-xs text-muted-foreground -mt-1 sm:hidden">Record and manage your household financial activities.</p>
+
+                {/* Actions Row */}
+                <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 w-full sm:w-auto">
+                    {/* On Desktop: Month Selector */}
+                    <div className="hidden sm:block">
+                        {renderMonthSelector()}
+                    </div>
+
+                    <input
+                        id="file-upload-input"
+                        type="file"
+                        accept=".csv,.pdf,.xlsx,.xls,.docx,.doc,.txt"
+                        onChange={(e) => { processFile(e.target.files[0]); e.target.value = null; }}
+                        className="hidden"
+                        disabled={isParsing}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => document.getElementById('file-upload-input')?.click()}
+                        onDragEnter={handleDragEnter}
+                        onDragLeave={handleDragLeave}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        disabled={isParsing}
+                        className={cn(
+                            "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer shadow-xs",
+                            isDragging
+                                ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
+                                : "bg-card hover:bg-muted text-foreground border-border hover:border-primary/40",
+                            isParsing && "opacity-60 cursor-not-allowed"
+                        )}
+                        title="Upload Statement (PDF, CSV, Excel - Click or Drag & Drop)"
+                    >
+                        {isParsing ? (
+                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <Upload className="w-4 h-4 text-primary shrink-0" />
+                        )}
+                        <span>{isParsing ? 'Parsing...' : 'Upload Statement'}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleAddTransactionClick}
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shadow-md shadow-primary/20 shrink-0 whitespace-nowrap"
+                        title="Add a new transaction"
+                    >
+                        <Plus className="w-4 h-4 shrink-0" />
+                        <span>Add Transaction</span>
+                    </button>
+                </div>
+            </header>
+
+            {uploadError && (
+                <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl flex items-center justify-between gap-3 border border-destructive/20 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-destructive" />
+                        <p className="text-xs sm:text-sm font-medium">{uploadError}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setUploadError('')}
+                        className="text-xs font-semibold px-2 py-1 rounded-lg hover:bg-destructive/10 text-destructive shrink-0 cursor-pointer"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
+
+            {/* Main Content - Full Width Spreadsheet & Activity Register */}
+            <div className="space-y-6 w-full">
                     <div className="flex flex-col gap-3 bg-card p-3 sm:p-4 rounded-2xl border shadow-sm">
                         {/* Search & Actions Row */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+                        <div className="flex items-center justify-between gap-2.5 w-full">
                             <div className="relative flex-1 min-w-0">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <input
                                     id="search-transactions"
                                     name="searchTransactions"
                                     type="text"
-                                    placeholder={viewMode === 'transactions' ? "Search transactions..." : "Search fixed expenses..."}
+                                    placeholder="Search transactions..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                    className="w-full pl-9 pr-4 py-2 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5 shrink-0">
-                                <button
-                                    onClick={handleExportData}
-                                    className="flex items-center gap-1.5 px-3 py-2 border rounded-xl hover:bg-muted text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
-                                    title="Export all transactions to CSV"
-                                >
-                                    <Download className="w-3.5 h-3.5 text-muted-foreground" />
-                                    <span>Export CSV</span>
-                                </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {/* Excel Sheet vs Cards View Toggle (Desktop) */}
+                                <div className="hidden md:flex bg-muted/80 p-0.5 rounded-xl border border-border/50 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => setDisplayMode('table')}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                                            displayMode === 'table' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                        title="Excel Sheet View"
+                                    >
+                                        <span>📊</span>
+                                        <span>Sheet</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDisplayMode('cards')}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                                            displayMode === 'cards' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                        title="Cards View"
+                                    >
+                                        <span>📱</span>
+                                        <span>Cards</span>
+                                    </button>
+                                </div>
+
                                 {isSmsUnlocked && (
                                     <button
                                         onClick={handleSyncSms}
                                         disabled={refreshing}
-                                        className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-sm disabled:opacity-50"
+                                        className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
                                         title="Auto-sync SMS receipts"
                                     >
                                         <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
@@ -1179,70 +1528,76 @@ const Transactions = () => {
                                 {isSmsUnlocked && (
                                     <button
                                         onClick={() => setShowSMSScan(true)}
-                                        className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-sm"
+                                        className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-xs"
                                         title="Scan SMS Inbox for receipts"
                                     >
                                         <MessageSquare className="w-3.5 h-3.5" />
                                         <span>Scan SMS</span>
                                     </button>
                                 )}
+
+                                {/* Sort By Filter Dropdown */}
+                                <CustomSelect
+                                    value={sortBy}
+                                    onChange={setSortBy}
+                                    options={SORT_OPTIONS}
+                                    icon={ArrowUpDown}
+                                    align="right"
+                                    menuWidth="w-52"
+                                    triggerWidth="w-auto shrink-0"
+                                    className="min-w-[125px] sm:min-w-[155px]"
+                                />
                             </div>
                         </div>
 
-                        {/* View Mode & Category Filter Pills */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-border/40 w-full min-w-0">
-                            <div className="flex bg-muted/70 p-1 rounded-xl shrink-0 self-start sm:self-auto">
-                                <button
-                                    onClick={() => setViewMode('transactions')}
-                                    className={cn("px-3 py-1 rounded-lg text-xs font-semibold transition-all", viewMode === 'transactions' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                                >
-                                    History
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('recurring')}
-                                    className={cn("px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1", viewMode === 'recurring' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                                >
-                                    Fixed / Recurring
-                                </button>
+                        {/* Filters Row: Expense For & Category Dropdowns */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2.5 border-t border-border/40 w-full min-w-0">
+                            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto">
+                                {/* Dropdown 1: Expense For (Scope & Person) */}
+                                <div className="relative flex-1 sm:w-56 min-w-0">
+                                    <CustomSelect
+                                        value={scopeFilter}
+                                        onChange={setScopeFilter}
+                                        options={SCOPE_OPTIONS}
+                                        icon={Users}
+                                        align="left"
+                                        menuWidth="w-56"
+                                    />
+                                </div>
+
+                                {/* Dropdown 2: Category (Type & Categories) */}
+                                <div className="relative flex-1 sm:w-56 min-w-0">
+                                    <CustomSelect
+                                        value={filterType}
+                                        onChange={setFilterType}
+                                        options={categoryOptions}
+                                        icon={Filter}
+                                        align="right"
+                                        menuWidth="w-56"
+                                    />
+                                </div>
+
+                                {/* Clear Filters (if active) */}
+                                {(scopeFilter !== 'all' || filterType !== 'all') && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setScopeFilter('all'); setFilterType('all'); }}
+                                        className="col-span-2 sm:col-span-1 h-9 px-3 rounded-xl border border-dashed border-border/60 hover:border-destructive/40 text-muted-foreground hover:text-destructive text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                        title="Reset filters"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        <span>Reset</span>
+                                    </button>
+                                )}
                             </div>
 
-                            {viewMode === 'transactions' && (
-                                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-                                    {/* Scope Pills */}
-                                    <div className="flex bg-muted/70 p-0.5 rounded-lg shrink-0">
-                                        <button
-                                            onClick={() => setScopeFilter('all')}
-                                            className={cn("px-2 py-0.5 rounded text-[11px] font-semibold transition-all", scopeFilter === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                                        >
-                                            All
-                                        </button>
-                                        <button
-                                            onClick={() => setScopeFilter('ours')}
-                                            className={cn("px-2 py-0.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1", scopeFilter === 'ours' ? "bg-emerald-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                                        >
-                                            <span>🏠</span>
-                                            <span>Ours</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setScopeFilter('mine')}
-                                            className={cn("px-2 py-0.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1", scopeFilter === 'mine' ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                                        >
-                                            <span>👤</span>
-                                            <span>Mine</span>
-                                        </button>
-                                    </div>
-
-                                    {/* Type Pills */}
-                                    <div className="flex bg-muted/70 p-0.5 rounded-lg overflow-x-auto scrollbar-none">
-                                        <button onClick={() => setFilterType('all')} className={cn("px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all whitespace-nowrap", filterType === 'all' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>All Types</button>
-                                        {typeConfig.map(t => (
-                                            <button key={t.id} onClick={() => setFilterType(t.id)} className={cn("px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all whitespace-nowrap", filterType === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                                                <span>{t.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Active filter count / summary badge on desktop */}
+                            <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                                <span>Showing:</span>
+                                <span className="font-semibold text-foreground">
+                                    {filteredTransactions.length} {filteredTransactions.length === 1 ? 'transaction' : 'transactions'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -1344,214 +1699,656 @@ const Transactions = () => {
                                     })
                                 )
                             ) : (
-                                filteredTransactions.map(tx => {
-                                    const typeInfo = typeConfig.find(t => t.id === tx.type) || typeConfig[1];
-                                    const hasComments = Array.isArray(tx.comments) && tx.comments.length > 0;
-                                    const isCommentOpen = activeCommentTxId === tx.id;
+                                <>
+                                    {/* Desktop: Excel Sheet Table View (hidden on mobile, shown on desktop when displayMode === 'table') */}
+                                    <div className={cn("hidden md:block overflow-x-auto scrollbar-thin", displayMode === 'cards' && "md:hidden")}>
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead>
+                                                <tr className="bg-muted/70 border-b border-border/80 text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+                                                    <th className="py-2.5 px-3 whitespace-nowrap">Date</th>
+                                                    <th className="py-2.5 px-2 whitespace-nowrap">Type</th>
+                                                    <th className="py-2.5 px-2.5 whitespace-nowrap">Category</th>
+                                                    <th className="py-2.5 px-3 min-w-[140px]">Description</th>
+                                                    <th className="py-2.5 px-2 whitespace-nowrap">Payment</th>
+                                                    <th className="py-2.5 px-2 whitespace-nowrap">Updated By</th>
+                                                    <th className="py-2.5 px-2 whitespace-nowrap">Scope</th>
+                                                    <th className="py-2.5 px-2.5 whitespace-nowrap text-right">Amount</th>
+                                                    <th className="py-2.5 px-3 whitespace-nowrap text-center">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border/30 font-sans">
+                                                {/* Desktop / Web App: Horizontal Excel Quick Entry Row (Identical to petrol entry row) */}
+                                                {viewMode === 'transactions' && (
+                                                    <tr className="bg-primary/5 hover:bg-primary/10 border-b-2 border-primary/30 transition-colors focus-within:bg-primary/15 group">
+                                                        {/* Date */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            <input
+                                                                type="date"
+                                                                value={date}
+                                                                onChange={(e) => setDate(e.target.value)}
+                                                                className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium w-[105px]"
+                                                            />
+                                                        </td>
 
-                                    return (
-                                        <div key={tx.id} className="p-3 sm:p-4 hover:bg-muted/50 transition-all group divide-y divide-border/30">
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 text-lg sm:text-xl shadow-sm", typeInfo.bg)}>
-                                                        {(() => {
-                                                            const cat = categories.find(c => c.id === tx.categoryId);
-                                                            if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
-                                                            return <typeInfo.icon className={cn("w-4 h-4 sm:w-5 sm:h-5", typeInfo.color)} />;
-                                                        })()}
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="font-semibold text-xs sm:text-sm truncate">{tx.description || getCategoryName(tx.categoryId)}</p>
-                                                        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground flex-wrap mt-0.5">
-                                                            <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
-                                                            <span>•</span>
-                                                            <span className="flex items-center gap-1">
-                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
-                                                                {getCategoryName(tx.categoryId)}
-                                                            </span>
-                                                            {tx.paymentMode && (
-                                                                <span className={cn(
-                                                                    "px-1.5 py-0.2 rounded-full text-[8.5px] font-bold uppercase tracking-wider",
-                                                                    tx.paymentMode === 'upi'        && "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-                                                                    tx.paymentMode === 'cash'       && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                                                                    tx.paymentMode === 'card'       && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                                                                    tx.paymentMode === 'netbanking' && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-                                                                )}>
-                                                                    {tx.paymentMode === 'netbanking' ? 'Net Banking' : tx.paymentMode.toUpperCase()}
-                                                                </span>
+                                                        {/* Type */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            <select
+                                                                value={type}
+                                                                onChange={(e) => {
+                                                                    setType(e.target.value);
+                                                                    setCategoryId('');
+                                                                }}
+                                                                className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer min-w-[90px]"
+                                                            >
+                                                                <option value="expense">📉 Expense</option>
+                                                                <option value="income">📈 Income</option>
+                                                                <option value="savings">🐷 Savings</option>
+                                                                <option value="debt">💳 Debt</option>
+                                                            </select>
+                                                        </td>
+
+                                                        {/* Category */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            {type === 'debt' ? (
+                                                                <select
+                                                                    value={debtType}
+                                                                    onChange={(e) => setDebtType(e.target.value)}
+                                                                    className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer w-[110px]"
+                                                                >
+                                                                    <option value="personal">🤝 Personal</option>
+                                                                    <option value="emi">🏦 Bank EMI</option>
+                                                                    <option value="immediate">⚡ Quick Pay</option>
+                                                                </select>
+                                                            ) : (
+                                                                <select
+                                                                    value={categoryId}
+                                                                    onChange={(e) => setCategoryId(e.target.value)}
+                                                                    className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer w-[110px]"
+                                                                >
+                                                                    <option value="">Select Category...</option>
+                                                                    {availableCategories.map(c => (
+                                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                                    ))}
+                                                                </select>
                                                             )}
-                                                            {/* Updated By Badge */}
-                                                            {(() => {
-                                                                const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : null);
-                                                                if (!actor) return null;
-                                                                const isSuresh = actor.toLowerCase().includes('sur');
-                                                                const isRosy = actor.toLowerCase().includes('ros');
-                                                                const isClaude = actor.toLowerCase().includes('claude') || tx.source === 'mcp';
-                                                                const label = isClaude ? 'Claude' : isRosy ? 'Rosy' : isSuresh ? 'Suresh' : actor;
+                                                        </td>
 
-                                                                return (
-                                                                    <span
-                                                                        title={`Updated by ${label}`}
-                                                                        className={cn(
-                                                                            "inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold border shadow-2xs",
-                                                                            isSuresh && "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
-                                                                            isRosy   && "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
-                                                                            isClaude && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
-                                                                            !isSuresh && !isRosy && !isClaude && "bg-primary/10 text-primary border-primary/20"
-                                                                        )}
-                                                                    >
-                                                                        <span className="text-[9px]">{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
-                                                                        <span>Updated by {label}</span>
-                                                                    </span>
-                                                                );
-                                                            })()}
-                                                            {/* Feature 1: Scope Badge */}
-                                                            {tx.scope && (
-                                                                <span className={cn(
-                                                                    "inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold border",
-                                                                    tx.scope === 'ours'
-                                                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                                                                        : tx.scope === 'partner'
-                                                                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
-                                                                        : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
-                                                                )}>
-                                                                    <span>{tx.scope === 'ours' ? '🏠' : tx.scope === 'partner' ? '🌸' : '👤'}</span>
-                                                                    <span>{tx.scope === 'ours' ? 'Ours' : tx.scope === 'partner' ? 'Partner' : 'Mine'}</span>
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                                                    <span className={cn("font-bold text-xs sm:text-sm", typeInfo.color)}>
-                                                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
-                                                    </span>
-                                                    <div className="flex items-center gap-1">
-                                                        {/* Feature 3: Comment Button */}
-                                                        <button
-                                                            onClick={() => setActiveCommentTxId(isCommentOpen ? null : tx.id)}
-                                                            className={cn(
-                                                                "p-1.5 rounded-lg transition-colors relative",
-                                                                hasComments
-                                                                    ? "text-primary hover:bg-primary/10 bg-primary/10"
-                                                                    : "text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                                            )}
-                                                            title="Comments & Questions"
-                                                        >
-                                                            <MessageCircle className="w-3.5 h-3.5" />
-                                                            {hasComments && (
-                                                                <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-[14px] rounded-full bg-primary text-primary-foreground text-[8.5px] font-black flex items-center justify-center leading-none">
-                                                                    {tx.comments.length}
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                        <button onClick={() => handleEditClick(tx)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit Transaction">
-                                                            <Edit2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button onClick={() => deleteTransaction(tx.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Delete Transaction">
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Feature 3: Expandable Comment Thread Drawer */}
-                                            {isCommentOpen && (
-                                                <div className="mt-2.5 pt-2.5 space-y-2 bg-muted/30 p-3 rounded-xl border border-border/40 animate-in slide-in-from-top-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                                                            <MessageCircle className="w-3.5 h-3.5 text-primary" />
-                                                            Comments & Questions ({tx.comments?.length || 0})
-                                                        </span>
-                                                        <button
-                                                            onClick={() => setActiveCommentTxId(null)}
-                                                            className="p-1 rounded-full text-muted-foreground hover:bg-muted text-xs"
-                                                        >
-                                                            <X className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                                                        {(!tx.comments || tx.comments.length === 0) ? (
-                                                            <p className="text-xs text-muted-foreground italic py-1">No comments yet. Ask a question or leave a note!</p>
-                                                        ) : (
-                                                            tx.comments.map(c => (
-                                                                <div key={c.id} className="p-2 rounded-lg bg-card border border-border/60 text-xs space-y-0.5 shadow-2xs">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="font-bold flex items-center gap-1">
-                                                                            {c.author === 'Rosy' ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
-                                                                            {c.emoji && <span className="text-sm ml-1">{c.emoji}</span>}
-                                                                        </span>
-                                                                        <span className="text-[10px] text-muted-foreground">
-                                                                            {format(new Date(c.createdAt), 'MMM dd, h:mm a')}
-                                                                        </span>
-                                                                    </div>
-                                                                    {c.text && <p className="text-foreground leading-relaxed pl-1">{c.text}</p>}
-                                                                </div>
-                                                            ))
-                                                        )}
-                                                    </div>
-
-                                                    <form
-                                                        onSubmit={(e) => {
-                                                            e.preventDefault();
-                                                            if (!commentText.trim() && !commentEmoji) return;
-                                                            addTransactionComment(tx.id, commentText, commentEmoji);
-                                                            setCommentText('');
-                                                            setCommentEmoji('');
-                                                        }}
-                                                        className="space-y-1.5 pt-1 border-t border-border/40"
-                                                    >
-                                                        <div className="flex gap-1.5">
+                                                        {/* Description */}
+                                                        <td className="py-2 px-2">
                                                             <input
                                                                 type="text"
-                                                                placeholder="Ask or note (e.g. What was this for?)..."
-                                                                value={commentText}
-                                                                onChange={(e) => setCommentText(e.target.value)}
-                                                                className="flex-1 px-3 py-1.5 rounded-lg border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-inner"
+                                                                placeholder="e.g. Petrol, Groceries..."
+                                                                value={description}
+                                                                onChange={(e) => setDescription(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') handleSubmit(e);
+                                                                }}
+                                                                className="h-8 px-2.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary w-full min-w-[130px]"
                                                             />
-                                                            <button
-                                                                type="submit"
-                                                                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition-all shrink-0"
+                                                        </td>
+
+                                                        {/* Payment */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            <select
+                                                                value={paymentMode}
+                                                                onChange={(e) => setPaymentMode(e.target.value)}
+                                                                className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer w-[82px]"
                                                             >
-                                                                <Send className="w-3 h-3" />
-                                                                <span>Send</span>
+                                                                <option value="upi">📱 UPI</option>
+                                                                <option value="cash">💵 Cash</option>
+                                                                <option value="card">💳 Card</option>
+                                                                <option value="netbanking">🏦 NetBank</option>
+                                                            </select>
+                                                        </td>
+
+                                                        {/* Updated By */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            <select
+                                                                value={updatedBy || defaultActor || 'Suresh'}
+                                                                onChange={(e) => setUpdatedBy(e.target.value)}
+                                                                className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer w-[88px]"
+                                                            >
+                                                                <option value="Suresh">👤 Suresh</option>
+                                                                <option value="Rosy">🌸 Rosy</option>
+                                                            </select>
+                                                        </td>
+
+                                                        {/* Scope */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            <select
+                                                                value={scope}
+                                                                onChange={(e) => setScope(e.target.value)}
+                                                                className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer w-[82px]"
+                                                            >
+                                                                <option value="ours">🏠 Home</option>
+                                                                <option value="mine">👤 Suresh</option>
+                                                                <option value="partner">🌸 Rosy</option>
+                                                            </select>
+                                                        </td>
+
+                                                        {/* Amount */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap text-right">
+                                                            <div className="relative inline-block w-[80px]">
+                                                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono">₹</span>
+                                                                <input
+                                                                    ref={quickAddAmountRef}
+                                                                    type="number"
+                                                                    step="any"
+                                                                    placeholder="0.00"
+                                                                    value={amount}
+                                                                    onChange={(e) => setAmount(e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') handleSubmit(e);
+                                                                    }}
+                                                                    className="h-8 pl-4 pr-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-mono font-bold text-right w-full"
+                                                                />
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Actions */}
+                                                        <td className="py-2 px-2 whitespace-nowrap text-center">
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleSubmit}
+                                                                    disabled={!amount || (type !== 'debt' && !categoryId)}
+                                                                    className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all cursor-pointer whitespace-nowrap"
+                                                                    title="Add Entry to Sheet (or press Enter)"
+                                                                >
+                                                                    <Plus className="w-3.5 h-3.5" />
+                                                                    <span>Add</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => document.getElementById('file-upload-input').click()}
+                                                                    className="h-8 p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                                                    title="Upload Statement (CSV/PDF)"
+                                                                >
+                                                                    <Upload className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+
+                                                {filteredTransactions.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                                                            <Filter className="w-10 h-10 mx-auto mb-2 opacity-25" />
+                                                            <p className="font-medium text-xs">No transactions match your current filters.</p>
+                                                            <p className="text-[11px] opacity-75 mt-0.5">Use the row above to quickly record a new entry!</p>
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    filteredTransactions.map((tx, idx) => {
+                                                        const typeInfo = typeConfig.find(t => t.id === tx.type) || typeConfig[1];
+                                                        const hasComments = Array.isArray(tx.comments) && tx.comments.length > 0;
+                                                        const isCommentOpen = activeCommentTxId === tx.id;
+                                                        const isEven = idx % 2 === 0;
+
+                                                        const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : null);
+                                                        const isSuresh = actor ? actor.toLowerCase().includes('sur') : true;
+                                                        const isRosy = actor ? actor.toLowerCase().includes('ros') : false;
+                                                        const isClaude = actor ? (actor.toLowerCase().includes('claude') || tx.source === 'mcp') : false;
+                                                        const actorLabel = isClaude ? 'Claude' : isRosy ? 'Rosy' : isSuresh ? 'Suresh' : (actor || 'Suresh');
+
+                                                        return (
+                                                            <React.Fragment key={tx.id}>
+                                                                <tr className={cn(
+                                                                    "hover:bg-primary/5 transition-colors group text-xs",
+                                                                    isEven ? "bg-background" : "bg-muted/15"
+                                                                )}>
+                                                                    {/* Date */}
+                                                                    <td className="py-2.5 px-3 whitespace-nowrap font-medium text-foreground text-xs">
+                                                                        {format(new Date(tx.date), 'dd MMM yyyy')}
+                                                                    </td>
+
+                                                                    {/* Type */}
+                                                                    <td className="py-2.5 px-2.5 whitespace-nowrap">
+                                                                        <span className={cn(
+                                                                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold",
+                                                                            typeInfo.bg, typeInfo.color
+                                                                        )}>
+                                                                            <typeInfo.icon className="w-3 h-3" />
+                                                                            <span>{typeInfo.label}</span>
+                                                                        </span>
+                                                                    </td>
+
+                                                                    {/* Category */}
+                                                                    <td className="py-2.5 px-3 whitespace-nowrap font-medium">
+                                                                        <span className="inline-flex items-center gap-1.5">
+                                                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
+                                                                            <span className="truncate max-w-[120px]">{getCategoryName(tx.categoryId)}</span>
+                                                                        </span>
+                                                                    </td>
+
+                                                                    {/* Description */}
+                                                                    <td className="py-2.5 px-3 text-foreground font-medium truncate max-w-[200px]" title={tx.description}>
+                                                                        {tx.description || '-'}
+                                                                    </td>
+
+                                                                    {/* Payment Mode */}
+                                                                    <td className="py-2.5 px-2.5 whitespace-nowrap">
+                                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground text-[10px] font-medium border border-border/40">
+                                                                            <span>{tx.paymentMode === 'cash' ? '💵' : tx.paymentMode === 'card' ? '💳' : tx.paymentMode === 'netbanking' ? '🏦' : '📱'}</span>
+                                                                            <span className="capitalize">{tx.paymentMode || 'UPI'}</span>
+                                                                        </span>
+                                                                    </td>
+
+                                                                    {/* Paid By */}
+                                                                    <td className="py-2.5 px-2.5 whitespace-nowrap">
+                                                                        <span className={cn(
+                                                                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border",
+                                                                            isRosy
+                                                                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                                                                : isClaude
+                                                                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                                                                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                                                                        )}>
+                                                                            <span>{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
+                                                                            <span>{actorLabel}</span>
+                                                                        </span>
+                                                                    </td>
+
+                                                                    {/* Scope */}
+                                                                    <td className="py-2.5 px-2.5 whitespace-nowrap">
+                                                                        <span className={cn(
+                                                                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border",
+                                                                            tx.scope === 'mine'
+                                                                                ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+                                                                                : tx.scope === 'partner'
+                                                                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                                                                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                                                        )}>
+                                                                            <span>{tx.scope === 'mine' ? '👤' : tx.scope === 'partner' ? '🌸' : '🏠'}</span>
+                                                                            <span>{tx.scope === 'mine' ? 'Suresh' : tx.scope === 'partner' ? 'Rosy' : 'Home'}</span>
+                                                                        </span>
+                                                                    </td>
+
+                                                                    {/* Amount */}
+                                                                    <td className={cn(
+                                                                        "py-2.5 px-3 text-right font-bold tabular-nums whitespace-nowrap text-xs sm:text-sm font-mono",
+                                                                        typeInfo.color
+                                                                    )}>
+                                                                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
+                                                                    </td>
+
+                                                                    {/* Actions */}
+                                                                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                                                        <div className="inline-flex items-center gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setActiveCommentTxId(isCommentOpen ? null : tx.id)}
+                                                                                className={cn(
+                                                                                    "p-1 rounded-lg transition-colors relative cursor-pointer",
+                                                                                    hasComments
+                                                                                        ? "text-primary hover:bg-primary/10 bg-primary/10"
+                                                                                        : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                                                )}
+                                                                                title="Comments & Questions"
+                                                                            >
+                                                                                <MessageCircle className="w-3.5 h-3.5" />
+                                                                                {hasComments && (
+                                                                                    <span className="absolute -top-1 -right-1 px-1 min-w-[13px] h-[13px] rounded-full bg-primary text-primary-foreground text-[8px] font-black flex items-center justify-center leading-none">
+                                                                                        {tx.comments.length}
+                                                                                    </span>
+                                                                                )}
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleEditClick(tx)}
+                                                                                className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                                                                                title="Edit Transaction"
+                                                                            >
+                                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => deleteTransaction(tx.id)}
+                                                                                className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                                                                                title="Delete Transaction"
+                                                                            >
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+
+                                                                {/* Inline Comment Thread Drawer */}
+                                                                {isCommentOpen && (
+                                                                    <tr className="bg-muted/30">
+                                                                        <td colSpan={9} className="p-3">
+                                                                            <div className="max-w-xl mx-auto space-y-2 bg-card p-3 rounded-xl border border-border/60 shadow-xs animate-in slide-in-from-top-1">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                                                                                        <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                                                                                        Comments & Questions ({tx.comments?.length || 0})
+                                                                                    </span>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setActiveCommentTxId(null)}
+                                                                                        className="p-1 rounded-full text-muted-foreground hover:bg-muted text-xs cursor-pointer"
+                                                                                    >
+                                                                                        <X className="w-3.5 h-3.5" />
+                                                                                    </button>
+                                                                                </div>
+
+                                                                                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                                                                    {(!tx.comments || tx.comments.length === 0) ? (
+                                                                                        <p className="text-xs text-muted-foreground italic py-1">No comments yet. Ask a question or leave a note!</p>
+                                                                                    ) : (
+                                                                                        tx.comments.map(c => (
+                                                                                            <div key={c.id} className="p-2 rounded-lg bg-muted/40 border border-border/50 text-xs space-y-0.5">
+                                                                                                <div className="flex items-center justify-between">
+                                                                                                    <span className="font-bold flex items-center gap-1">
+                                                                                                        {c.author === 'Rosy' ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
+                                                                                                        {c.emoji && <span className="text-sm ml-1">{c.emoji}</span>}
+                                                                                                    </span>
+                                                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                                                        {format(new Date(c.createdAt), 'MMM dd, h:mm a')}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                {c.text && <p className="text-foreground leading-relaxed pl-1">{c.text}</p>}
+                                                                                            </div>
+                                                                                        ))
+                                                                                    )}
+                                                                                </div>
+
+                                                                                <form
+                                                                                    onSubmit={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        if (!commentText.trim() && !commentEmoji) return;
+                                                                                        addTransactionComment(tx.id, commentText, commentEmoji);
+                                                                                        setCommentText('');
+                                                                                        setCommentEmoji('');
+                                                                                    }}
+                                                                                    className="space-y-1.5 pt-1 border-t border-border/40"
+                                                                                >
+                                                                                    <div className="flex gap-1.5">
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder="Ask or note (e.g. What was this for?)..."
+                                                                                            value={commentText}
+                                                                                            onChange={(e) => setCommentText(e.target.value)}
+                                                                                            className="flex-1 px-3 py-1.5 rounded-lg border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-inner"
+                                                                                        />
+                                                                                        <button
+                                                                                            type="submit"
+                                                                                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition-all shrink-0 cursor-pointer"
+                                                                                        >
+                                                                                            <Send className="w-3 h-3" />
+                                                                                            <span>Send</span>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                                        <span className="text-[10px] font-medium">Quick reaction:</span>
+                                                                                        {['👍', '❤️', '❓', '🛒', '⚡', '🎉'].map(emoji => (
+                                                                                            <button
+                                                                                                key={emoji}
+                                                                                                type="button"
+                                                                                                onClick={() => {
+                                                                                                    addTransactionComment(tx.id, '', emoji);
+                                                                                                }}
+                                                                                                className="hover:scale-125 transition-transform p-0.5 text-sm cursor-pointer"
+                                                                                                title={`React with ${emoji}`}
+                                                                                            >
+                                                                                                {emoji}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </form>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </React.Fragment>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile: ALWAYS Card View | Desktop: shown when displayMode === 'cards' */}
+                                    <div className={cn("divide-y divide-border/20", displayMode === 'table' ? "md:hidden" : "md:block")}>
+                                        {filteredTransactions.length === 0 ? (
+                                        <div className="p-12 text-center text-muted-foreground">
+                                            <Filter className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                            <p>No transactions found.</p>
+                                        </div>
+                                    ) : (
+                                        filteredTransactions.map(tx => {
+                                            const typeInfo = typeConfig.find(t => t.id === tx.type) || typeConfig[1];
+                                            const hasComments = Array.isArray(tx.comments) && tx.comments.length > 0;
+                                            const isCommentOpen = activeCommentTxId === tx.id;
+
+                                            return (
+                                                <div key={tx.id} className="p-3 sm:p-4 hover:bg-muted/40 transition-all border-b border-border/30 last:border-b-0">
+                                                    {/* Row 1: Left icon + Title + Compact Meta Badges */}
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Category Icon */}
+                                                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm", typeInfo.bg)}>
+                                                            {(() => {
+                                                                const cat = categories.find(c => c.id === tx.categoryId);
+                                                                if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
+                                                                return <typeInfo.icon className={cn("w-5 h-5", typeInfo.color)} />;
+                                                            })()}
+                                                        </div>
+
+                                                        {/* Title + Meta Row */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-semibold text-sm text-foreground truncate leading-tight">
+                                                                {tx.description || getCategoryName(tx.categoryId)}
+                                                            </p>
+                                                            <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-muted-foreground">
+                                                                {/* Date */}
+                                                                <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
+                                                                <span className="text-muted-foreground/40 text-[10px]">•</span>
+
+                                                                {/* Category Dot + Name */}
+                                                                <span className="flex items-center gap-1">
+                                                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
+                                                                    <span>{getCategoryName(tx.categoryId)}</span>
+                                                                </span>
+
+                                                                {/* Payment Mode Badge (UPI, Cash, etc) */}
+                                                                {tx.paymentMode && (
+                                                                    <span className={cn(
+                                                                        "px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider",
+                                                                        tx.paymentMode === 'upi'        && "bg-purple-500/15 text-purple-400 border border-purple-500/30",
+                                                                        tx.paymentMode === 'cash'       && "bg-green-500/15 text-green-400 border border-green-500/30",
+                                                                        tx.paymentMode === 'card'       && "bg-blue-500/15 text-blue-400 border border-blue-500/30",
+                                                                        tx.paymentMode === 'netbanking' && "bg-orange-500/15 text-orange-400 border border-orange-500/30",
+                                                                    )}>
+                                                                        {tx.paymentMode === 'netbanking' ? 'NetBank' : tx.paymentMode.toUpperCase()}
+                                                                    </span>
+                                                                )}
+
+                                                                {/* Updated By Badge (Suresh / Rosy) */}
+                                                                {(() => {
+                                                                    const actor = tx.updatedBy || tx.paidBy || tx.createdBy || 'Suresh';
+                                                                    const isRosy = actor.toLowerCase().includes('ros');
+                                                                    const label = isRosy ? 'Rosy' : 'Suresh';
+                                                                    return (
+                                                                        <span
+                                                                            title={`Updated by ${label}`}
+                                                                            className={cn(
+                                                                                "inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border",
+                                                                                isRosy
+                                                                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                                                                    : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                                                                            )}
+                                                                        >
+                                                                            <span>{isRosy ? '🌸' : '👤'}</span>
+                                                                            <span>{label}</span>
+                                                                        </span>
+                                                                    );
+                                                                })()}
+
+                                                                {/* Scope Badge (Home / Suresh / Rosy) */}
+                                                                {(() => {
+                                                                    const scope = tx.scope || 'ours';
+                                                                    return (
+                                                                        <span className={cn(
+                                                                            "inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border",
+                                                                            scope === 'ours'
+                                                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                                                                : scope === 'partner'
+                                                                                ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                                                                : "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
+                                                                        )}>
+                                                                            <span>{scope === 'ours' ? '🏠' : scope === 'partner' ? '🌸' : '👤'}</span>
+                                                                            <span>{scope === 'ours' ? 'Home' : scope === 'partner' ? 'Rosy' : 'Suresh'}</span>
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Row 2: Amount (LEFT) + Actions (RIGHT) - Exactly matching reference screenshot */}
+                                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/20">
+                                                        <span className={cn("font-bold text-sm font-mono tracking-tight", typeInfo.color)}>
+                                                            {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
+                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => setActiveCommentTxId(isCommentOpen ? null : tx.id)}
+                                                                className={cn(
+                                                                    "p-1.5 rounded-lg transition-colors relative cursor-pointer",
+                                                                    hasComments ? "text-primary hover:bg-primary/10 bg-primary/10" : "text-muted-foreground/60 hover:text-primary hover:bg-primary/10"
+                                                                )}
+                                                                title="Comments & Questions"
+                                                            >
+                                                                <MessageCircle className="w-3.5 h-3.5" />
+                                                                {hasComments && (
+                                                                    <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-[14px] rounded-full bg-primary text-primary-foreground text-[8.5px] font-black flex items-center justify-center leading-none">
+                                                                        {tx.comments.length}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleEditClick(tx)}
+                                                                className="p-1.5 text-muted-foreground/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                                                                title="Edit Transaction"
+                                                            >
+                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteTransaction(tx.id)}
+                                                                className="p-1.5 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                                                                title="Delete Transaction"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
                                                             </button>
                                                         </div>
-                                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                            <span className="text-[10px] font-medium">Quick reaction:</span>
-                                                            {['👍', '❤️', '❓', '🛒', '⚡', '🎉'].map(emoji => (
+                                                    </div>
+
+                                                    {/* Feature 3: Expandable Comment Thread Drawer */}
+                                                    {isCommentOpen && (
+                                                        <div className="mt-2.5 pt-2.5 space-y-2 bg-muted/30 p-3 rounded-xl border border-border/40 animate-in slide-in-from-top-1">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                                                                    <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                                                                    Comments & Questions ({tx.comments?.length || 0})
+                                                                </span>
                                                                 <button
-                                                                    key={emoji}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        addTransactionComment(tx.id, '', emoji);
-                                                                    }}
-                                                                    className="hover:scale-125 transition-transform p-0.5 text-sm"
-                                                                    title={`React with ${emoji}`}
+                                                                    onClick={() => setActiveCommentTxId(null)}
+                                                                    className="p-1 rounded-full text-muted-foreground hover:bg-muted text-xs cursor-pointer"
                                                                 >
-                                                                    {emoji}
+                                                                    <X className="w-3.5 h-3.5" />
                                                                 </button>
-                                                            ))}
+                                                            </div>
+
+                                                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                                                {(!tx.comments || tx.comments.length === 0) ? (
+                                                                    <p className="text-xs text-muted-foreground italic py-1">No comments yet. Ask a question or leave a note!</p>
+                                                                ) : (
+                                                                    tx.comments.map(c => (
+                                                                        <div key={c.id} className="p-2 rounded-lg bg-card border border-border/60 text-xs space-y-0.5 shadow-2xs">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span className="font-bold flex items-center gap-1">
+                                                                                    {c.author === 'Rosy' ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
+                                                                                    {c.emoji && <span className="text-sm ml-1">{c.emoji}</span>}
+                                                                                </span>
+                                                                                <span className="text-[10px] text-muted-foreground">
+                                                                                    {format(new Date(c.createdAt), 'MMM dd, h:mm a')}
+                                                                                </span>
+                                                                            </div>
+                                                                            {c.text && <p className="text-foreground leading-relaxed pl-1">{c.text}</p>}
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+
+                                                            <form
+                                                                onSubmit={(e) => {
+                                                                    e.preventDefault();
+                                                                    if (!commentText.trim() && !commentEmoji) return;
+                                                                    addTransactionComment(tx.id, commentText, commentEmoji);
+                                                                    setCommentText('');
+                                                                    setCommentEmoji('');
+                                                                }}
+                                                                className="space-y-1.5 pt-1 border-t border-border/40"
+                                                            >
+                                                                <div className="flex gap-1.5">
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Ask or note (e.g. What was this for?)..."
+                                                                        value={commentText}
+                                                                        onChange={(e) => setCommentText(e.target.value)}
+                                                                        className="flex-1 px-3 py-1.5 rounded-lg border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary shadow-inner"
+                                                                    />
+                                                                    <button
+                                                                        type="submit"
+                                                                        className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition-all shrink-0 cursor-pointer"
+                                                                    >
+                                                                        <Send className="w-3 h-3" />
+                                                                        <span>Send</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                    <span className="text-[10px] font-medium">Quick reaction:</span>
+                                                                    {['👍', '❤️', '❓', '🛒', '⚡', '🎉'].map(emoji => (
+                                                                        <button
+                                                                            key={emoji}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                addTransactionComment(tx.id, '', emoji);
+                                                                            }}
+                                                                            className="hover:scale-125 transition-transform p-0.5 text-sm cursor-pointer"
+                                                                            title={`React with ${emoji}`}
+                                                                        >
+                                                                            {emoji}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </form>
                                                         </div>
-                                                    </form>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
-                            )}
-                            {viewMode === 'transactions' && filteredTransactions.length === 0 && (
-                                <div className="p-12 text-center text-muted-foreground">
-                                    <Filter className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                    <p>No transactions found.</p>
-                                </div>
+                                            );
+                                        })
+                                    )}
+                                    </div>
+                                </>
                             )}
                         </div>
+
+                        {/* Excel Status Bar (Counts & Totals) */}
+                        {viewMode === 'transactions' && filteredTransactions.length > 0 && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-muted/40 border-t border-border/50 text-[11px] text-muted-foreground font-mono select-none">
+                                <div className="flex items-center gap-3">
+                                    <span>COUNT: <strong className="text-foreground">{filteredTransactions.length}</strong></span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span>EXPENSE: <strong className="text-rose-600 font-bold">{formatMoney(filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (Number(t.amount) || 0), 0))}</strong></span>
+                                    <span>INCOME: <strong className="text-emerald-600 font-bold">{formatMoney(filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (Number(t.amount) || 0), 0))}</strong></span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
 
             {/* Upload Preview Modal */}
             {

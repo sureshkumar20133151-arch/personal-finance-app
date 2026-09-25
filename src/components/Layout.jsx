@@ -1,29 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Wallet, Settings, Receipt,
-  User, Building2, TrendingUp, PieChart,
-  Sparkles, ChevronRight
+  User, Building2, PieChart, Home,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import ClockWidget from './ClockWidget';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { triggerHapticSelection } from '../lib/haptics';
 import AvatarFallback from './AvatarFallback';
 
+// Desktop top-nav items (no Account — it's the avatar on the right)
 const desktopNavItems = [
-  { name: 'Dashboard',    path: '/dashboard',    icon: LayoutDashboard },
+  { name: 'Home',         path: '/dashboard',    icon: Home            },
   { name: 'Transactions', path: '/transactions', icon: Receipt         },
   { name: 'Budget',       path: '/budget',       icon: PieChart        },
   { name: 'Loans',        path: '/loans',        icon: Building2       },
   { name: 'Setup',        path: '/setup',        icon: Settings        },
-  { name: 'Account',      path: '/account',      icon: User            },
 ];
 
+// Mobile bottom-nav items
 const mobileNavItems = [
-  { name: 'Home',    path: '/dashboard',    icon: LayoutDashboard },
+  { name: 'Home',    path: '/dashboard',    icon: Home            },
   { name: 'Txns',   path: '/transactions', icon: Receipt         },
   { name: 'Budget', path: '/budget',       icon: PieChart        },
   { name: 'Loans',  path: '/loans',        icon: Building2       },
@@ -44,9 +42,76 @@ const Layout = () => {
     return () => main.removeEventListener('scroll', onScroll);
   }, []);
 
-
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row font-sans selection:bg-primary/20 w-full max-w-full overflow-x-hidden relative">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 w-full max-w-full overflow-x-hidden">
+
+      {/* ── Desktop Top Navigation Bar ─────────────────────────── */}
+      <header className={cn(
+        "hidden md:flex items-center justify-between px-6 py-2.5 sticky top-0 z-40 transition-all duration-300",
+        scrolled
+          ? "bg-card/95 backdrop-blur-xl border-b border-border shadow-sm"
+          : "bg-card/80 backdrop-blur-md border-b border-border/50"
+      )}>
+        {/* Left: Logo */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="p-1.5 bg-primary/10 text-primary rounded-xl border border-primary/20 shadow-sm">
+            <Wallet className="w-4 h-4" />
+          </div>
+          <span className="text-base font-extrabold tracking-tight text-foreground">BudgetTracker</span>
+          <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+            {subscription === 'trial' ? 'Free Trial' : isPro ? 'Pro' : 'Starter'}
+          </span>
+        </div>
+
+        {/* Center: Nav Links */}
+        <nav className="flex items-center gap-1">
+          {desktopNavItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={triggerHapticSelection}
+              className={({ isActive }) => cn(
+                "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-150",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+              )}
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon className={cn(
+                    "w-3.5 h-3.5 shrink-0",
+                    isActive ? "text-primary-foreground" : "text-muted-foreground"
+                  )} />
+                  <span>{item.name}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Right: Profile Avatar */}
+        <NavLink
+          to="/account"
+          onClick={triggerHapticSelection}
+          className={({ isActive }) => cn(
+            "relative w-9 h-9 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all duration-200 shadow-sm shrink-0",
+            isActive
+              ? "border-primary ring-2 ring-primary/30"
+              : "border-border hover:border-primary/50"
+          )}
+          title="Account"
+        >
+          {currentUser?.photoURL ? (
+            <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <AvatarFallback />
+          )}
+          {(isPro || subscription === 'trial') && (
+            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-background" />
+          )}
+        </NavLink>
+      </header>
 
       {/* ── Mobile Header ─────────────────────────────────────── */}
       <header className={cn(
@@ -85,98 +150,18 @@ const Layout = () => {
         </NavLink>
       </header>
 
-      {/* ── Desktop Sidebar ────────────────────────────────────── */}
-      <aside className="hidden md:flex w-64 lg:w-72 bg-card border-r border-border shadow-sm h-screen sticky top-0 flex-col">
-        <div className="h-full flex flex-col p-5 lg:p-6">
-
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-6 px-1">
-            <div className="p-2.5 bg-primary/10 text-primary border border-primary/20 rounded-xl shadow-sm shrink-0">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-lg font-extrabold tracking-tight text-foreground">BudgetTracker</span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
-                  {subscription === 'trial' ? 'Free Trial' : isPro ? 'Pro' : 'Starter'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Clock */}
-          <div className="mb-5">
-            <ClockWidget />
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1">
-            {desktopNavItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => cn(
-                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150 group relative",
-                  isActive
-                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/70 font-medium"
-                )}
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon className={cn(
-                      "w-4 h-4 shrink-0 transition-colors",
-                      isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                    )} />
-                    <span className="text-sm flex-1">{item.name}</span>
-                    {isActive && (
-                      <ChevronRight className="w-3.5 h-3.5 opacity-75" />
-                    )}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </nav>
-
-          {/* Pro tip / upgrade nudge */}
-          <div className="mt-4 pt-4 border-t border-border">
-            {/* User info pill */}
-            <div className="flex items-center gap-2.5 px-2 mb-4">
-              <div className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0 flex items-center justify-center bg-primary/10">
-                {currentUser?.photoURL ? (
-                  <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <AvatarFallback />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">
-                  {currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User'}
-                </p>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  {currentUser?.email}
-                </p>
-              </div>
-            </div>
-
-            {/* Pro tip card */}
-            <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
-              <div className="flex items-center gap-1.5 mb-1">
-                <TrendingUp className="w-3.5 h-3.5 text-primary" />
-                <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Pro Tip</p>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Categorize expenses daily for 30% better spending insights & budget accuracy.
-              </p>
-            </div>
-          </div>
+      {/* ── Main Content ───────────────────────────────────────── */}
+      <main
+        id="main-content"
+        className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-28 md:pb-8 w-full max-w-full overflow-x-auto"
+      >
+        <div className="max-w-7xl mx-auto animate-up w-full">
+          <Outlet />
         </div>
-      </aside>
+      </main>
 
       {/* ── Mobile Bottom Navigation ───────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] w-full max-w-full">
-        {/* Blur + border */}
         <div className="bg-card/95 backdrop-blur-2xl border-t border-border/80 shadow-2xl">
           <div className="flex justify-around items-center px-2 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
             {mobileNavItems.map((item) => (
@@ -218,16 +203,6 @@ const Layout = () => {
           </div>
         </div>
       </nav>
-
-      {/* ── Main Content ───────────────────────────────────────── */}
-      <main
-        id="main-content"
-        className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-28 md:pb-8 w-full max-w-full overflow-x-hidden"
-      >
-        <div className="max-w-7xl mx-auto animate-up w-full max-w-full">
-          <Outlet />
-        </div>
-      </main>
     </div>
   );
 };
