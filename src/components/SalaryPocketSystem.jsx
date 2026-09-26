@@ -420,8 +420,25 @@ const MonthEndModal = ({ onClose, buffer, onTransferToSavings, formatMoney }) =>
 };
 
 // ─── DeferredPaymentsPanel ─────────────────────────────────────────────────
-export const DeferredPaymentsPanel = ({ transactions, onMarkPaid, formatMoney }) => {
+export const DeferredPaymentsPanel = ({
+  transactions,
+  onMarkPaid,
+  onAddPending,
+  categories = [],
+  defaultActor = 'Suresh',
+  formatMoney
+}) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  // Form states for new pending payment
+  const [desc, setDesc] = useState('');
+  const [amount, setAmount] = useState('');
+  const [deferredTo, setDeferredTo] = useState('');
+  const [deferredNote, setDeferredNote] = useState('');
+  const [paidBy, setPaidBy] = useState(defaultActor || 'Suresh');
+  const [categoryId, setCategoryId] = useState('');
+
   const deferred = useMemo(() =>
     (transactions || [])
       .filter(t => t.paymentStatus === 'deferred')
@@ -432,78 +449,312 @@ export const DeferredPaymentsPanel = ({ transactions, onMarkPaid, formatMoney })
     [transactions]
   );
 
-  if (deferred.length === 0) return null;
+  const totalPendingAmount = useMemo(() =>
+    deferred.reduce((sum, t) => sum + (Number(t.amount) || 0), 0),
+    [deferred]
+  );
 
   const overdue = deferred.filter(t => t.deferredTo && new Date(t.deferredTo) < new Date()).length;
 
+  const handleSavePending = (e) => {
+    e?.preventDefault();
+    if (!desc.trim()) return;
+    const numAmount = parseFloat(amount);
+    if (!numAmount || numAmount <= 0) return;
+
+    if (onAddPending) {
+      onAddPending({
+        description: desc.trim(),
+        amount: numAmount,
+        deferredTo: deferredTo || null,
+        deferredNote: deferredNote.trim() || null,
+        paidBy: paidBy || defaultActor || 'Suresh',
+        categoryId: categoryId || (categories.find(c => c.type === 'expense')?.id || 'other'),
+      });
+    }
+
+    // Reset form
+    setDesc('');
+    setAmount('');
+    setDeferredTo('');
+    setDeferredNote('');
+    setShowAddModal(false);
+  };
+
+  const PRESETS = [
+    { label: '🏠 House Rent', desc: 'House Rent', note: 'Promised to pay next week' },
+    { label: '🪙 Chit Fund', desc: 'Chit Fund Payment', note: 'Due this month' },
+    { label: '🤝 Hand Loan', desc: 'Borrowed from friend', note: 'Promise to return' },
+    { label: '🥛 Milk & Grocery', desc: 'Grocery / Milk Pending', note: 'Shop credit bill' },
+    { label: '⚡ Utility Bill', desc: 'Electricity / Water Bill', note: 'Pay before last date' },
+  ];
+
   return (
-    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
-      <button
-        onClick={() => setCollapsed(c => !c)}
-        className="w-full flex items-center justify-between p-4 hover:bg-amber-500/10 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center">
-            <CalendarClock className="w-4 h-4 text-amber-500" />
+    <>
+      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 bg-amber-500/10 border-b border-amber-500/20">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+              <CalendarClock className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-sm text-foreground">⏳ Pending Payments</p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                  {deferred.length} pending
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Total to pay: <strong className="text-foreground">{fmt(totalPendingAmount, formatMoney)}</strong>
+                {overdue > 0 && <span className="ml-1 text-red-500 font-bold">• {overdue} overdue!</span>}
+              </p>
+            </div>
           </div>
-          <div className="text-left">
-            <p className="font-bold text-sm text-foreground">⏳ Deferred Payments</p>
-            <p className="text-[10px] text-muted-foreground">
-              {deferred.length} pending obligation{deferred.length > 1 ? 's' : ''}
-              {overdue > 0 && <span className="ml-1 text-red-500 font-bold">• {overdue} overdue!</span>}
-            </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-all shadow-sm shadow-amber-500/30"
+              title="Add a pending payment"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Pending</span>
+            </button>
+            <button
+              onClick={() => setCollapsed(c => !c)}
+              className="p-1.5 rounded-lg hover:bg-amber-500/20 text-muted-foreground transition-colors"
+            >
+              {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
           </div>
         </div>
-        {collapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
-      </button>
 
-      {!collapsed && (
-        <div className="px-4 pb-4 space-y-2">
-          {deferred.map(tx => {
-            const daysLeft = tx.deferredTo
-              ? Math.ceil((new Date(tx.deferredTo) - new Date()) / (1000 * 60 * 60 * 24))
-              : null;
-            const isOverdue = daysLeft !== null && daysLeft < 0;
-            const urgent = daysLeft !== null && daysLeft <= 3 && !isOverdue;
+        {/* Content */}
+        {!collapsed && (
+          <div className="p-3 sm:p-4 space-y-2">
+            {deferred.length > 0 ? (
+              deferred.map(tx => {
+                const daysLeft = tx.deferredTo
+                  ? Math.ceil((new Date(tx.deferredTo) - new Date()) / (1000 * 60 * 60 * 24))
+                  : null;
+                const isOverdue = daysLeft !== null && daysLeft < 0;
+                const urgent = daysLeft !== null && daysLeft <= 3 && !isOverdue;
 
-            return (
-              <div key={tx.id} className={cn(
-                'flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 border',
-                isOverdue ? 'bg-red-500/10 border-red-500/30' : urgent ? 'bg-amber-500/10 border-amber-500/30' : 'bg-muted/40 border-border/40'
-              )}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{tx.description}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <span className={cn('text-[10px] font-bold', isOverdue ? 'text-red-500' : urgent ? 'text-amber-500' : 'text-muted-foreground')}>
-                      {tx.deferredTo
-                        ? isOverdue
-                          ? `⚠️ Overdue since ${format(new Date(tx.deferredTo), 'MMM d')}`
-                          : `Due ${format(new Date(tx.deferredTo), 'MMM d')} (${daysLeft}d)`
-                        : 'No due date'}
-                    </span>
-                    {tx.deferredNote && (
-                      <span className="text-[10px] text-muted-foreground italic truncate max-w-[120px]">{tx.deferredNote}</span>
-                    )}
+                return (
+                  <div key={tx.id} className={cn(
+                    'flex items-center justify-between gap-3 rounded-xl p-3 border transition-all',
+                    isOverdue
+                      ? 'bg-red-500/10 border-red-500/30'
+                      : urgent
+                        ? 'bg-amber-500/10 border-amber-500/30'
+                        : 'bg-card border-border/60 hover:border-border'
+                  )}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-foreground truncate">{tx.description}</p>
+                        {tx.paidBy && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
+                            {tx.paidBy === 'Rosy' ? '🌸 Rosy' : '👤 Suresh'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap text-[10px]">
+                        <span className={cn('font-bold', isOverdue ? 'text-red-500' : urgent ? 'text-amber-500' : 'text-muted-foreground')}>
+                          {tx.deferredTo
+                            ? isOverdue
+                              ? `⚠️ Overdue since ${format(new Date(tx.deferredTo), 'MMM d')}`
+                              : `Due ${format(new Date(tx.deferredTo), 'MMM d')} (${daysLeft}d left)`
+                            : 'No due date'}
+                        </span>
+                        {tx.deferredNote && (
+                          <span className="text-muted-foreground italic truncate max-w-[150px]">
+                            • "{tx.deferredNote}"
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <span className="text-xs sm:text-sm font-extrabold text-foreground">{fmt(tx.amount, formatMoney)}</span>
+                      <button
+                        onClick={() => onMarkPaid(tx.id)}
+                        className="h-7 px-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold transition-all flex items-center gap-1 shadow-sm shadow-emerald-500/20 active:scale-95"
+                        title="Mark as paid"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Pay</span>
+                      </button>
+                    </div>
                   </div>
+                );
+              })
+            ) : (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/40 text-xs text-muted-foreground">
+                <span className="flex items-center gap-2">
+                  <span>🎉</span> No pending payments. You don't owe anyone right now!
+                </span>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="text-[11px] text-amber-500 hover:underline font-bold"
+                >
+                  + Add Pending
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── MODAL: ADD PENDING PAYMENT ── */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                  ⏳
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-bold text-foreground">{fmt(tx.amount, formatMoney)}</span>
-                  <button
-                    onClick={() => onMarkPaid(tx.id)}
-                    className="h-7 px-2.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold hover:bg-emerald-600 transition-colors flex items-center gap-1"
-                  >
-                    <Check className="w-3 h-3" />
-                    Pay
-                  </button>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Add Pending Payment</h3>
+                  <p className="text-[10px] text-muted-foreground">Record money you promised to pay later</p>
                 </div>
               </div>
-            );
-          })}
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Presets */}
+            <div className="p-3 bg-muted/30 border-b border-border/40 space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Quick Select</p>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESETS.map(p => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setDesc(p.desc);
+                      setDeferredNote(p.note);
+                    }}
+                    className={cn(
+                      'text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all',
+                      desc === p.desc
+                        ? 'bg-amber-500 text-white border-amber-500'
+                        : 'bg-background text-muted-foreground border-border hover:border-amber-500/50'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSavePending} className="p-4 space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Whom to Pay / Reason *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. House Rent, Chit Fund, Friend Ramesh"
+                  value={desc}
+                  onChange={e => setDesc(e.target.value)}
+                  className="w-full h-9 px-3 rounded-lg border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 mt-1 shadow-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Amount (₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 5000"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 mt-1 shadow-sm font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Promised Due Date</label>
+                  <input
+                    type="date"
+                    value={deferredTo}
+                    onChange={e => setDeferredTo(e.target.value)}
+                    className="w-full h-9 px-2 rounded-lg border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 mt-1 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Who Will Pay</label>
+                  <select
+                    value={paidBy}
+                    onChange={e => setPaidBy(e.target.value)}
+                    className="w-full h-9 px-2 rounded-lg border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 mt-1 shadow-sm"
+                  >
+                    <option value="Suresh">👤 Suresh</option>
+                    <option value="Rosy">🌸 Rosy</option>
+                    <option value="Both">🤝 Both (Joint)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Category</label>
+                  <select
+                    value={categoryId}
+                    onChange={e => setCategoryId(e.target.value)}
+                    className="w-full h-9 px-2 rounded-lg border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 mt-1 shadow-sm"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.filter(c => c.type === 'expense').map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Note / Promise to Pay</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Promised to pay next month 5th"
+                  value={deferredNote}
+                  onChange={e => setDeferredNote(e.target.value)}
+                  className="w-full h-9 px-3 rounded-lg border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 mt-1 shadow-sm"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="text-xs px-3 py-1.5 rounded-lg border text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!desc.trim() || !amount}
+                  className="text-xs px-4 py-1.5 rounded-lg bg-amber-500 text-white font-bold hover:bg-amber-600 shadow-sm transition-all disabled:opacity-50"
+                >
+                  Save Pending Payment
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
+
 
 // ─── SalaryPocketDashboard (Main Card) ────────────────────────────────────
 const SalaryPocketDashboard = ({

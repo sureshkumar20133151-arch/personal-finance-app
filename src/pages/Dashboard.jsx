@@ -134,7 +134,7 @@ const Dashboard = () => {
     isSmsUnlocked, isPro,
     householdId, currentActorName,
     monthlySalary, salaryPockets, savingsPool,
-    updateSalaryPockets, addToSavingsPool, markDeferredAsPaid,
+    updateSalaryPockets, addToSavingsPool, markDeferredAsPaid, addTransaction,
   } = useFinanceData();
 
   const netBalance = totalBalance;
@@ -963,6 +963,20 @@ const Dashboard = () => {
           <DeferredPaymentsPanel
             transactions={transactions}
             onMarkPaid={markDeferredAsPaid}
+            onAddPending={(pendingData) => {
+              addTransaction({
+                ...pendingData,
+                type: 'expense',
+                paymentStatus: 'deferred',
+                date: new Date().toISOString().split('T')[0],
+                paymentMode: 'cash',
+                scope: 'ours',
+              });
+              setToast({ show: true, message: `Pending payment added: ${pendingData.description}`, type: 'success' });
+              setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
+            }}
+            categories={categories}
+            defaultActor={currentActorName || 'Suresh'}
             formatMoney={formatMoney}
           />
 
