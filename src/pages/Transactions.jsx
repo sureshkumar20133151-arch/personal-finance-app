@@ -677,42 +677,6 @@ const Transactions = () => {
     const getCategoryName = (id) => categories.find(c => c.id === id)?.name || 'Unknown';
     const getCategoryColor = (id) => categories.find(c => c.id === id)?.color || '#ccc';
 
-    const handleExportData = () => {
-        if (!transactions || transactions.length === 0) {
-            alert("No transactions to export.");
-            return;
-        }
-
-        // Format to CSV
-        const headers = ["Description", "Date", "Type", "Category", "Amount", "Payment Mode"];
-        const rows = transactions.map(t => {
-            const dateStr = t.date ? format(new Date(t.date), 'yyyy-MM-dd') : '';
-            const categoryName = getCategoryName(t.categoryId);
-            return [
-                `"${(t.description || '').replace(/"/g, '""')}"`,
-                dateStr,
-                t.type || '',
-                `"${categoryName}"`,
-                t.amount || 0,
-                t.paymentMode || ''
-            ];
-        });
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(e => e.join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `budget_tracker_transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     // Render Reusable Form Inputs for Add & Edit
     const renderFormInputs = (isEdit = false) => (
         <>

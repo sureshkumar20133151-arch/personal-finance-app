@@ -3,11 +3,9 @@ import { useFinanceData } from '../hooks/useFinanceData';
 import { Plus, Trash2, Calendar, CreditCard, Building2, Car, Crown, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format, addMonths, differenceInMonths } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
 
 const Loans = () => {
     const { loans, addLoan, deleteLoan, formatMoney, getLoanDetails } = useFinanceData();
-    const navigate = useNavigate();
 
     const [isAdding, setIsAdding] = useState(false);
 

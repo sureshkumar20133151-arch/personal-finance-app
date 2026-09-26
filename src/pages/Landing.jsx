@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
     TrendingUp, Shield, BarChart3, CheckCircle2,
     ArrowRight, Lock, Smartphone, Zap,
@@ -10,7 +10,6 @@ import {
 
 const Landing = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const navigate = useNavigate();
 
     // FAQ Data
     const faqs = [

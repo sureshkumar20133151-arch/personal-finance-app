@@ -8,7 +8,7 @@ const JoinHousehold = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { currentUser, loginWithGoogle } = useAuth();
-    const { joinHousehold, householdId, profile } = useFinanceData();
+    const { joinHousehold, householdId } = useFinanceData();
 
     const codeParam = searchParams.get("code") || searchParams.get("invite") || "";
     const [code, setCode] = useState(codeParam.toUpperCase());
@@ -17,7 +17,7 @@ const JoinHousehold = () => {
     const [error, setError] = useState("");
     const [joined, setJoined] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (codeParam) {
             const formatted = codeParam.toUpperCase().trim();
             setCode(formatted);

@@ -6,7 +6,6 @@ import CategoryIcon from '../components/CategoryIcon';
 import BudgetTargetModal from '../components/BudgetTargetModal';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import CircleProgress from '../components/CircleProgress';
-import { useNavigate } from 'react-router-dom';
 import { triggerHapticSelection } from '../lib/haptics';
 import SalaryPocketSystem from '../components/SalaryPocketSystem';
 
@@ -15,7 +14,6 @@ const Budget = () => {
         categories, transactions, updateCategory, formatMoney, monthlyBudget, isPro,
         monthlySalary, salaryPockets, updateSalaryPockets, addToSavingsPool
     } = useFinanceData();
-    const navigate = useNavigate();
 
     // 2 Tabs: 'categories' | 'pockets'
     const [budgetTab, setBudgetTab] = useState('categories');

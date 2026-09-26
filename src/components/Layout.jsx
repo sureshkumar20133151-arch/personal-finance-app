@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Wallet, Settings, Receipt,
   User, Building2, PieChart, Home,
@@ -31,7 +31,6 @@ const mobileNavItems = [
 const Layout = () => {
   const { currentUser } = useAuth();
   const { isPro, subscription } = useFinanceData();
-  const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {

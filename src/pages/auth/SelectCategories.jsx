@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
 import { useFinanceData } from "../../hooks/useFinanceData";
 import { useNavigate } from "react-router-dom";
 import { SUGGESTED_CATEGORIES } from "../../context/FinanceContext";
@@ -56,7 +55,7 @@ const SelectCategories = () => {
     const { profile, saveCategorySelection, saveProfile } = useFinanceData();
     const navigate = useNavigate();
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (profile?.categoriesSelected) {
             navigate("/dashboard", { replace: true });
         }

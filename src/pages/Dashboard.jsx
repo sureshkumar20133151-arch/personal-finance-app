@@ -130,11 +130,9 @@ const Dashboard = () => {
     transactions = [], formatMoney, categories = [],
     loans = [], recurring = [], salaryDate, monthlyBudget,
     rescanTransactions,
-    bankBalance, cashBalance, totalBalance, bankAccountBalances,
-    isSmsUnlocked, isPro,
-    householdId, currentActorName,
-    monthlySalary, salaryPockets, savingsPool,
-    updateSalaryPockets, addToSavingsPool, markDeferredAsPaid, addTransaction,
+    cashBalance, totalBalance, bankAccountBalances,
+    isSmsUnlocked,
+    markDeferredAsPaid,
   } = useFinanceData();
 
   const netBalance = totalBalance;
@@ -382,42 +380,6 @@ const Dashboard = () => {
       .slice(0, 4);
   }, [recurring, categories]);
 
-  // Next single upcoming recurring payment across all frequencies
-  const nextRecurringPayment = useMemo(() => {
-    const today = new Date();
-    const list = (recurring || [])
-      .filter(r => r.active)
-      .map(r => {
-        const lastRun = r.lastProcessedDate ? new Date(r.lastProcessedDate) : new Date();
-        let nextDue = new Date(lastRun);
-        if (r.frequency === 'weekly') {
-          nextDue.setDate(lastRun.getDate() + 7);
-        } else if (r.frequency === 'monthly') {
-          nextDue.setMonth(lastRun.getMonth() + 1);
-        } else if (r.frequency === 'custom') {
-          nextDue.setDate(lastRun.getDate() + (r.interval || 30));
-        } else {
-          nextDue.setDate(lastRun.getDate() + 1);
-        }
-        
-        while (nextDue < today) {
-          if (r.frequency === 'weekly') {
-            nextDue.setDate(nextDue.getDate() + 7);
-          } else if (r.frequency === 'monthly') {
-            nextDue.setMonth(nextDue.getMonth() + 1);
-          } else if (r.frequency === 'custom') {
-            nextDue.setDate(nextDue.getDate() + (r.interval || 30));
-          } else {
-            nextDue.setDate(nextDue.getDate() + 1);
-          }
-        }
-        
-        return { ...r, nextDue };
-      })
-      .sort((a, b) => a.nextDue - b.nextDue);
-    return list[0] || null;
-  }, [recurring]);
-
 
   const totalEMI    = useMemo(() => loans.reduce((s, l) => s + (l.monthlyAmount || 0), 0), [loans]);
   const savingsRate = income > 0 ? Math.round((monthlyNet / income) * 100) : 0;
@@ -433,25 +395,6 @@ const Dashboard = () => {
   const daysPassed       = Math.max(Math.ceil((today - monthStart) / (1000 * 60 * 60 * 24)), 1);
   const dailyBurnRate    = totalOutflow / daysPassed;
   const projectedMonthly = dailyBurnRate * 30;
-
-  // ── Smart AI Insights & Health Score Computation ──────────────────────────
-  const healthScore = useMemo(() => {
-    let score = 75;
-    if (savingsRate >= 20) score += 15;
-    else if (savingsRate >= 10) score += 8;
-    else if (savingsRate < 0) score -= 15;
-
-    if (monthlyBudget > 0) {
-      if (budgetUsed <= 80) score += 10;
-      else if (budgetUsed > 100) score -= 25;
-      else score -= 10;
-
-      if (projectedMonthly <= monthlyBudget) score += 10;
-      else score -= 15;
-    }
-
-    return Math.max(15, Math.min(100, Math.round(score)));
-  }, [savingsRate, monthlyBudget, budgetUsed, projectedMonthly]);
 
   const smartInsights = useMemo(() => {
     const list = [];
@@ -566,132 +509,6 @@ const Dashboard = () => {
       `\n_Tracked with BudgetTracker_ 🇮🇳`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   }, [currentDate, income, expense, savings, debt, netBalance, expenseData, formatMoney, monthlyNet]);
-
-  // ── Household Spend Analysis (Feature 7) ──────────────────────────────────
-  const householdSpend = useMemo(() => {
-    const expenses = monthlyTx.filter(t => t.type === 'expense');
-    const totalExp = expenses.reduce((s, t) => s + (t.amount || 0), 0);
-
-    let sureshTotal = 0;
-    let sureshJoint = 0;
-    let sureshPersonal = 0;
-    let sureshCount = 0;
-
-    let rosyTotal = 0;
-    let rosyJoint = 0;
-    let rosyPersonal = 0;
-    let rosyCount = 0;
-
-    let claudeTotal = 0;
-    let claudeCount = 0;
-
-    let jointTotal = 0;
-    let personalTotal = 0;
-
-    expenses.forEach(t => {
-      const amt = Number(t.amount) || 0;
-      const creator = (t.createdBy || '').toLowerCase();
-      const updator = (t.updatedBy || '').toLowerCase();
-      const scope = t.scope || 'ours';
-
-      const isRosy = creator.includes('rosy') || updator.includes('rosy') || creator === 'do139v31skrxmspkli1ar0a9zo2';
-      const isClaude = creator.includes('claude') || updator.includes('claude');
-
-      if (isRosy) {
-        rosyTotal += amt;
-        rosyCount++;
-        if (scope === 'ours') rosyJoint += amt;
-        else rosyPersonal += amt;
-      } else if (isClaude) {
-        claudeTotal += amt;
-        claudeCount++;
-      } else {
-        sureshTotal += amt;
-        sureshCount++;
-        if (scope === 'ours') sureshJoint += amt;
-        else sureshPersonal += amt;
-      }
-
-      if (scope === 'mine' || scope === 'partner') {
-        personalTotal += amt;
-      } else {
-        jointTotal += amt;
-      }
-    });
-
-    const sureshPct = totalExp > 0 ? Math.round((sureshTotal / totalExp) * 100) : 0;
-    const rosyPct   = totalExp > 0 ? Math.round((rosyTotal / totalExp) * 100) : 0;
-    const claudePct = totalExp > 0 ? Math.round((claudeTotal / totalExp) * 100) : 0;
-    const jointPct  = totalExp > 0 ? Math.round((jointTotal / totalExp) * 100) : 0;
-    const personalPct = totalExp > 0 ? Math.round((personalTotal / totalExp) * 100) : 0;
-
-    const diff = Math.abs(sureshTotal - rosyTotal);
-    const higherSpender = sureshTotal >= rosyTotal ? 'Suresh' : 'Rosy';
-    const lowerSpender = sureshTotal >= rosyTotal ? 'Rosy' : 'Suresh';
-
-    const jointDiff = Math.abs(sureshJoint - rosyJoint);
-    const jointHigher = sureshJoint >= rosyJoint ? 'Suresh' : 'Rosy';
-    const jointLower = sureshJoint >= rosyJoint ? 'Rosy' : 'Suresh';
-    const settlementAmt = Math.round(jointDiff / 2);
-
-    return {
-      totalExp,
-      sureshTotal,
-      sureshJoint,
-      sureshPersonal,
-      sureshCount,
-      sureshPct,
-      rosyTotal,
-      rosyJoint,
-      rosyPersonal,
-      rosyCount,
-      rosyPct,
-      claudeTotal,
-      claudeCount,
-      claudePct,
-      jointTotal,
-      jointPct,
-      personalTotal,
-      personalPct,
-      diff,
-      higherSpender,
-      lowerSpender,
-      jointDiff,
-      jointHigher,
-      jointLower,
-      settlementAmt,
-      txCount: expenses.length,
-      hasRosyOrTeam: rosyTotal > 0 || claudeTotal > 0 || Boolean(householdId),
-    };
-  }, [monthlyTx, householdId]);
-
-  const handleHouseholdShare = useCallback(() => {
-    const monthName = format(currentDate, 'MMMM yyyy');
-    const { totalExp, sureshTotal, sureshPct, rosyTotal, rosyPct, claudeTotal, claudePct, jointTotal, personalTotal, diff, higherSpender, settlementAmt, jointHigher, jointLower } = householdSpend;
-
-    let msg = `🏠 *FinTrack Household Report — ${monthName}*\n\n`;
-    msg += `💳 *Total Household Spend:* ${formatMoney(totalExp)}\n\n`;
-    msg += `👤 *Suresh:* ${formatMoney(sureshTotal)} (${sureshPct}%)\n`;
-    msg += `🌸 *Rosy:* ${formatMoney(rosyTotal)} (${rosyPct}%)\n`;
-    if (claudeTotal > 0) {
-      msg += `🤖 *Claude MCP:* ${formatMoney(claudeTotal)} (${claudePct}%)\n`;
-    }
-    msg += `\n🏠 *Joint (Ours):* ${formatMoney(jointTotal)}\n`;
-    msg += `👤 *Personal (Mine):* ${formatMoney(personalTotal)}\n\n`;
-
-    if (sureshTotal > 0 && rosyTotal > 0) {
-      if (diff === 0) {
-        msg += `⚖️ *Split Status:* Perfectly balanced 50/50 contribution!\n`;
-      } else {
-        msg += `⚖️ *Overall:* ${higherSpender} contributed ${formatMoney(diff)} more this month.\n`;
-        if (settlementAmt > 0) {
-          msg += `🤝 *Joint 50/50 Settlement:* ${jointLower} can transfer ${formatMoney(settlementAmt)} to ${jointHigher}.\n`;
-        }
-      }
-    }
-    msg += `\n_Generated by FinTrack Budget Tracker_ 💑`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-  }, [currentDate, householdSpend, formatMoney]);
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pb-6">
