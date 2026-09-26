@@ -807,6 +807,77 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* ── UPCOMING PAYMENTS (Directly below Glassmorphism Hero Card) ── */}
+      <div className="rounded-3xl border border-border/60 bg-card p-4 sm:p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">Upcoming Payments</h3>
+                {upcomingExpenses.length > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                    {upcomingExpenses.length} due soon
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Bills, EMIs & recurring subscriptions</p>
+            </div>
+          </div>
+        </div>
+
+        {upcomingExpenses.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {upcomingExpenses.map(item => {
+              const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
+              const urgent = daysUntil <= 7;
+              const cat = item.category || { name: 'Bill', color: '#64748b', icon: 'HelpCircle' };
+              return (
+                <div key={item.id} className={cn(
+                  'flex items-center justify-between p-3 rounded-2xl border transition-all',
+                  urgent
+                    ? 'bg-red-500/5 border-red-500/25 hover:border-red-500/40'
+                    : 'bg-muted/20 border-border/60 hover:border-border'
+                )}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-background border border-border/60 shrink-0">
+                      <CategoryIcon iconName={cat.icon || cat.emoji} size={14} color={cat.color} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{item.description || cat.name}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <span>📅 {format(item.nextDue, 'dd MMM')}</span>
+                        <span className="capitalize text-muted-foreground/75">({item.frequency})</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-extrabold text-red-500">-{formatMoney(item.amount)}</p>
+                    <span className={cn(
+                      'inline-block text-[9px] font-bold px-1.5 py-0.5 rounded mt-0.5',
+                      urgent
+                        ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 animate-pulse'
+                        : 'bg-muted text-muted-foreground'
+                    )}>
+                      {daysUntil <= 0 ? 'Today!' : `${daysUntil}d left`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/15 border border-border/40 text-xs text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <span>🎉</span> No bills due this week. All caught up!
+            </span>
+            <span className="text-[11px] text-primary font-medium">Add recurring in Transactions</span>
+          </div>
+        )}
+      </div>
+
       {/* ── BANK ACCOUNTS (horizontal scroll, compact) ── */}
       {bankAccounts.length > 0 && (
         <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x">
@@ -924,107 +995,24 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* ── NEXT RECURRING BILL BANNER ── */}
-          {nextRecurringPayment && (() => {
-            const daysUntil = Math.ceil((nextRecurringPayment.nextDue - new Date()) / (1000 * 60 * 60 * 24));
-            const urgent = daysUntil <= 7;
-            return (
-              <div className={cn(
-                'rounded-2xl border p-4 flex items-center justify-between gap-4',
-                urgent ? 'bg-red-500/8 border-red-500/30' : 'bg-primary/5 border-primary/20'
-              )}>
-                <div className="flex items-center gap-3">
-                  <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-lg', urgent ? 'bg-red-500/15' : 'bg-primary/10')}>🔄</div>
-                  <div>
-                    <p className="font-bold text-sm text-foreground">{nextRecurringPayment.description}</p>
-                    <p className="text-xs text-muted-foreground">Due: {format(nextRecurringPayment.nextDue, 'dd MMM yyyy')}</p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-base font-extrabold text-foreground">{formatMoney(nextRecurringPayment.amount)}</p>
-                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', urgent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 animate-pulse' : 'bg-primary/10 text-primary')}>
-                    {daysUntil <= 0 ? 'Due today!' : `In ${daysUntil}d`}
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* ── CHARTS: Expense Breakdown + Upcoming Bills (side by side on desktop) ── */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* Expense + Income charts */}
-            <div className="lg:col-span-2 grid gap-4 sm:grid-cols-2">
-              <AnalyticsWidget
-                title="Expense Breakdown"
-                icon={TrendingDown}
-                data={expenseData}
-                totalValue={expense}
-                formatMoney={formatMoney}
-                colorClass="text-destructive"
-              />
-              <AnalyticsWidget
-                title="Income Sources"
-                icon={TrendingUp}
-                data={incomeData}
-                totalValue={income}
-                formatMoney={formatMoney}
-                colorClass="text-emerald-500"
-              />
-            </div>
-
-            {/* Upcoming Bills */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  Upcoming Bills
-                </h3>
-                {upcomingExpenses.length > 0 && (
-                  <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-semibold">
-                    {upcomingExpenses.length} due
-                  </span>
-                )}
-              </div>
-              {upcomingExpenses.length > 0 ? (
-                <div className="space-y-2">
-                  {upcomingExpenses.map(item => {
-                    const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
-                    const urgent = daysUntil <= 7;
-                    const cat = item.category || { name: 'Uncategorized', color: '#64748b', icon: 'HelpCircle' };
-                    return (
-                      <div key={item.id} className={cn(
-                        'flex items-center justify-between p-2.5 rounded-xl border',
-                        urgent ? 'bg-red-500/5 border-red-500/20' : 'bg-muted/20 border-border/50'
-                      )}>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-background border border-border/60 shrink-0">
-                            <CategoryIcon iconName={cat.icon || cat.emoji} size={13} color={cat.color} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-foreground truncate">{item.description || cat.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{format(item.nextDue, 'dd MMM')}</p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-extrabold text-red-500">-{formatMoney(item.amount)}</p>
-                          <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', urgent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 animate-pulse' : 'bg-muted text-muted-foreground')}>
-                            {daysUntil <= 0 ? 'Today!' : `${daysUntil}d`}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                    <Calendar className="w-5 h-5 text-primary/50" />
-                  </div>
-                  <p className="text-xs font-semibold text-foreground">No upcoming bills</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Set recurring transactions to track due dates</p>
-                </div>
-              )}
-            </div>
+          {/* ── CHARTS: Expense Breakdown + Income Sources (side by side) ── */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AnalyticsWidget
+              title="Expense Breakdown"
+              icon={TrendingDown}
+              data={expenseData}
+              totalValue={expense}
+              formatMoney={formatMoney}
+              colorClass="text-destructive"
+            />
+            <AnalyticsWidget
+              title="Income Sources"
+              icon={TrendingUp}
+              data={incomeData}
+              totalValue={income}
+              formatMoney={formatMoney}
+              colorClass="text-emerald-500"
+            />
           </div>
 
 
