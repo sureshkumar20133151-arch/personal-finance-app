@@ -98,7 +98,7 @@ const ProgressBar = ({ label, value, max, color, formatMoney }) => {
 
 const tourSteps = [
   {
-    title: "👋 Welcome to FinTrack!",
+    title: "👋 Welcome to BudgetTracker!",
     content: "Let's take a quick 1-minute tour to help you understand how to manage your budget and track your expenses.",
     target: null,
   },
@@ -701,7 +701,7 @@ const Dashboard = () => {
         {/* Left: Title + month selector */}
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">💰 FinTrack</h1>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">Dashboard</h1>
             <p className="text-[11px] text-muted-foreground">{format(monthStart, 'dd MMM')} – {format(monthEnd, 'dd MMM yyyy')}</p>
           </div>
         </div>
