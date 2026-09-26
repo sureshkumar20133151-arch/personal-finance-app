@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Tracker - Pricing & Feature Configurator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-primary: #8b5cf6;
+            --accent-primary-glow: rgba(139, 92, 246, 0.3);
+            --accent-secondary: #06b6d4;
+            --accent-secondary-glow: rgba(6, 182, 212, 0.3);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            backdrop-filter: blur(12px);
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 15px 35px rgba(139, 92, 246, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .card-title i {
+            color: var(--accent-primary);
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .slider-label {
+            color: var(--text-muted);
+        }
+
+        .slider-value {
+            color: var(--accent-secondary);
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
+            -webkit-appearance: none;
+            accent-color: var(--accent-secondary);
+        }
+
+        /* Feature Row */
+        .feature-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            transition: background 0.2s;
+        }
+
+        .feature-row:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .feature-info {
+            flex-grow: 1;
+            padding-right: 1.5rem;
+        }
+
+        .feature-name {
+            font-weight: 600;
+            font-size: 1.05rem;
+            margin-bottom: 0.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        /* Segmented Control for Free/Pro */
+        .toggle-container {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            min-width: 160px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .toggle-btn.active.free {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-btn.active.pro {
+            background: linear-gradient(135deg, var(--accent-primary), #6d28d9);
+            color: white;
+            box-shadow: 0 4px 12px var(--accent-primary-glow);
+        }
+
+        /* Preview Cards */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 640px) {
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .preview-card {
+            border-radius: 20px;
+            padding: 2rem 1.5rem;
+            border: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .preview-card.free-preview {
+            background: rgba(17, 24, 39, 0.4);
+        }
+
+        .preview-card.pro-preview {
+            background: linear-gradient(145deg, rgba(23, 15, 48, 0.8), rgba(10, 15, 30, 0.9));
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.1);
+        }
+
+        .preview-card.pro-preview::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        }
+
+        .plan-badge {
+            align-self: flex-start;
+            padding: 0.25rem 0.75rem;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .free-preview .plan-badge {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+        }
+
+        .pro-preview .plan-badge {
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+            color: #c084fc;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .plan-price {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .plan-price span {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
+        }
+
+        .plan-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .preview-list {
+            list-style: none;
+            margin-bottom: 2rem;
+            flex-grow: 1;
+        }
+
+        .preview-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: 0.88rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.3;
+        }
+
+        .preview-item i {
+            font-size: 1rem;
+            margin-top: 1px;
+        }
+
+        .preview-item.yes i {
+            color: var(--success);
+        }
+
+        .preview-item.no i {
+            color: var(--text-muted);
+            opacity: 0.4;
+        }
+
+        .preview-item.no {
+            color: var(--text-muted);
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .plan-btn {
+            width: 100%;
+            padding: 0.8rem;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .free-preview .plan-btn {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .pro-preview .plan-btn {
+            background: linear-gradient(135deg, var(--accent-primary), #6d28d9);
+            color: white;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+        }
+
+        .pro-preview .plan-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Action Panel */
+        .action-panel {
+            text-align: center;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, var(--accent-secondary), #0891b2);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border-radius: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .output-box {
+            display: none;
+            margin-top: 1.5rem;
+            background: #070a13;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: left;
+            position: relative;
+        }
+
+        .output-box pre {
+            color: #34d399;
+            font-size: 0.85rem;
+            font-family: monospace;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .copy-toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--success);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 99px;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+        }
+
+        .copy-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Budget Tracker - Feature Gating Configurator</h1>
+        <p>விவரங்களைத் தேர்வு செய்து, இலவச/ப்ரோ திட்ட அம்சங்கள் மற்றும் விலையைத் தீர்மானிக்கவும்.</p>
+    </header>
+
+    <div class="grid">
+        <!-- Configuration Side -->
+        <div>
+            <div class="card">
+                <div class="card-title">
+                    <i data-lucide="settings"></i> Price Configuration / கட்டண விவரம்
+                </div>
+                
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Pro Monthly Price / மாதக் கட்டணம்</span>
+                        <span class="slider-value" id="monthly-val">₹149</span>
+                    </div>
+                    <input type="range" id="monthly-slider" min="0" max="499" value="149" step="10">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Pro Yearly Price / ஆண்டுக் கட்டணம்</span>
+                        <span class="slider-value" id="yearly-val">₹999</span>
+                    </div>
+                    <input type="range" id="yearly-slider" min="0" max="4999" value="999" step="50">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <i data-lucide="list-checks"></i> Assign Features / அம்சங்களைப் பிரிக்கவும்
+                </div>
+
+                <div id="features-container">
+                    <!-- Dynamic Features Inject -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Side -->
+        <div>
+            <div class="card" style="position: sticky; top: 2rem;">
+                <div class="card-title">
+                    <i data-lucide="eye"></i> Live Plan Preview / நேரடிப் பார்வை
+                </div>
+
+                <div class="pricing-grid">
+                    <!-- Free Card -->
+                    <div class="preview-card free-preview">
+                        <span class="plan-badge">Free Plan</span>
+                        <div class="plan-price">₹0<span>/month</span></div>
+                        <div class="plan-sub">அடிப்படை பட்ஜெட் டிராக்கர்</div>
+                        
+                        <ul class="preview-list" id="free-preview-list">
+                            <!-- Injected by JS -->
+                        </ul>
+
+                        <button class="plan-btn">Active Plan</button>
+                    </div>
+
+                    <!-- Pro Card -->
+                    <div class="preview-card pro-preview">
+                        <span class="plan-badge">Pro Plan</span>
+                        <div class="plan-price" id="preview-pro-price">₹149<span>/month</span></div>
+                        <div class="plan-sub" id="preview-pro-sub">₹999 billed yearly (30 Days Free Trial)</div>
+                        
+                        <ul class="preview-list" id="pro-preview-list">
+                            <!-- Injected by JS -->
+                        </ul>
+
+                        <button class="plan-btn">Upgrade to Pro</button>
+                    </div>
+                </div>
+
+                <div class="action-panel" style="margin-top: 2rem;">
+                    <button class="action-btn" onclick="generateConfig()">
+                        <i data-lucide="copy"></i> Save & Export Config
+                    </button>
+                    <div class="output-box" id="output-container">
+                        <pre id="output-pre"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="copy-toast" id="toast">
+    <i data-lucide="check-circle-2"></i> Copied config to clipboard! Send it to me in chat.
+</div>
+
+<script>
+    // Lucide icons init
+    lucide.createIcons();
+
+    // List of features in the app
+    const appFeatures = [
+        {
+            id: 'auto_sms',
+            name: 'Automatic SMS Scan',
+            nameTa: 'தானியங்கி SMS ஸ்கேன்',
+            desc: 'Reads transactional SMS messages to log expenses automatically.',
+            descTa: 'போனுக்கு வரும் வங்கி மெசேஜ்களைப் படித்து செலவுகளைத் தானாகப் பதியும்.',
+            default: 'pro'
+        },
+        {
+            id: 'auto_noti',
+            name: 'Real-time UPI Notifications',
+            nameTa: 'யுபிஐ நோட்டிஃபிகேஷன் ஸ்கேன்',
+            desc: 'Detects real-time payment alerts from GPay, PhonePe, Paytm, etc.',
+            descTa: 'GPay, PhonePe-லிருந்து வரும் நேரடி அறிவிப்புகளை ஸ்கேன் செய்யும்.',
+            default: 'pro'
+        },
+        {
+            id: 'manual_entry',
+            name: 'Manual Transaction Entry',
+            nameTa: 'மனுவல் செலவுப் பதிவு',
+            desc: 'Add income, expenses, categories, and payment modes manually.',
+            descTa: 'வருமானம் மற்றும் செலவுகளைக் கைமுறையாகப் பதியும் அம்சம்.',
+            default: 'free'
+        },
+        {
+            id: 'file_import',
+            name: 'Bank Statement File Import',
+            nameTa: 'வங்கி அறிக்கை பதிவேற்றம்',
+            desc: 'Import monthly transactions by uploading PDF, Excel, or CSV files.',
+            descTa: 'PDF/Excel வங்கி அறிக்கைகளைப் பதிவேற்றி கணக்குகளை ஏற்றும் வசதி.',
+            default: 'pro'
+        },
+        {
+            id: 'multi_account',
+            name: 'Multiple Bank Accounts',
+            nameTa: 'பல வங்கி கணக்குகளை இணைத்தல்',
+            desc: 'Link and monitor live balances across unlimited bank accounts.',
+            descTa: 'ஒன்றுக்கும் மேற்பட்ட வங்கிக் கணக்குகள் மற்றும் கிரெடிட் கார்டுகளை இணைக்கும் வசதி.',
+            default: 'pro'
+        },
+        {
+            id: 'cash_tracker',
+            name: 'Cash Tracker / Wallet',
+            nameTa: 'ரொக்கப் பணம் (Cash) கண்காணிப்பு',
+            desc: 'Track cash wallet balances separate from bank accounts.',
+            descTa: 'கையிலிருக்கும் ரொக்கப் பணப் புழக்கத்தைத் தனியாகக் கண்காணிக்கும் வசதி.',
+            default: 'free'
+        },
+        {
+            id: 'category_budget',
+            name: 'Category budgets & Limit alerts',
+            nameTa: 'பிரிவு வாரியான பட்ஜெட் வரம்புகள்',
+            desc: 'Set individual category budget limits and get alert notifications.',
+            descTa: 'உணவு, ஷாப்பிங் போன்ற தனித்தனி பிரிவுகளுக்கு பட்ஜெட் வரம்புகள் அமைத்தல்.',
+            default: 'pro'
+        },
+        {
+            id: 'loan_tracker',
+            name: 'Loans & Debts Tracker',
+            nameTa: 'கடன் & கடனாளிகள் கண்காணிப்பு',
+            desc: 'Track loans lent, borrowed, EMI schedules, and interest rates.',
+            descTa: 'கொடுத்த மற்றும் வாங்கிய கடன்கள், மாதாந்திர தவணைகளைக் கண்காணிக்கும் வசதி.',
+            default: 'pro'
+        },
+        {
+            id: 'advanced_analytics',
+            name: 'Advanced Charts & Monthly Trends',
+            nameTa: 'விவரமான செலவு வரைபடங்கள்',
+            desc: 'Visual graphs comparing monthly progress, category breakdowns, and trends.',
+            descTa: 'மாதாந்திர முன்னேற்றம் மற்றும் வரலாற்றுப் பகுப்பாய்வு விளக்க வரைபடங்கள்.',
+            default: 'free'
+        },
+        {
+            id: 'data_export',
+            name: 'PDF & Excel Data Export',
+            nameTa: 'கணக்குகளை ஏற்றுமதி செய்தல்',
+            desc: 'Export logs to Excel or PDF for bookkeeping or backup.',
+            descTa: 'கணக்கு விவரங்களை Excel அல்லது PDF ஆக டவுன்லோடு செய்யும் வசதி.',
+            default: 'pro'
+        },
+        {
+            id: 'cloud_sync',
+            name: 'Real-time Cloud Sync',
+            nameTa: 'கிளவுட் ஒத்திசைவு (Sync)',
+            desc: 'Synchronizes your data in real-time across multiple devices via Firebase.',
+            descTa: 'உங்கள் தரவை கிளவுட் மூலம் பல சாதனங்களில் ஒத்திசைக்கும் வசதி.',
+            default: 'pro'
+        }
+    ];
+
+    // Current State
+    const currentAllocations = {};
+    appFeatures.forEach(f => {
+        currentAllocations[f.id] = f.default;
+    });
+
+    const monthlySlider = document.getElementById('monthly-slider');
+    const yearlySlider = document.getElementById('yearly-slider');
+    const monthlyVal = document.getElementById('monthly-val');
+    const yearlyVal = document.getElementById('yearly-val');
+
+    // UI Element Update
+    function updatePricingTexts() {
+        monthlyVal.textContent = `₹${monthlySlider.value}`;
+        yearlyVal.textContent = `₹${yearlySlider.value}`;
+
+        document.getElementById('preview-pro-price').innerHTML = `₹${monthlySlider.value}<span>/month</span>`;
+        document.getElementById('preview-pro-sub').innerHTML = `₹${yearlySlider.value} billed yearly (30 Days Free Trial)`;
+    }
+
+    monthlySlider.addEventListener('input', updatePricingTexts);
+    yearlySlider.addEventListener('input', updatePricingTexts);
+
+    // Render configuration list
+    function renderConfigurationList() {
+        const container = document.getElementById('features-container');
+        container.innerHTML = '';
+
+        appFeatures.forEach(f => {
+            const isPro = currentAllocations[f.id] === 'pro';
+            const row = document.createElement('div');
+            row.className = 'feature-row';
+
+            row.innerHTML = `
+                <div class="feature-info">
+                    <div class="feature-name">
+                        ${f.name} <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">/ ${f.nameTa}</span>
+                    </div>
+                    <div class="feature-desc">${f.desc}<br><span style="opacity: 0.7; font-style: italic;">${f.descTa}</span></div>
+                </div>
+                <div class="toggle-container">
+                    <button class="toggle-btn free ${!isPro ? 'active free' : ''}" onclick="setFeaturePlan('${f.id}', 'free')">Free</button>
+                    <button class="toggle-btn pro ${isPro ? 'active pro' : ''}" onclick="setFeaturePlan('${f.id}', 'pro')">Pro</button>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+
+        renderPreviews();
+    }
+
+    // Assign feature plan state
+    window.setFeaturePlan = function(featureId, plan) {
+        currentAllocations[featureId] = plan;
+        renderConfigurationList();
+    };
+
+    // Render Preview lists
+    function renderPreviews() {
+        const freeList = document.getElementById('free-preview-list');
+        const proList = document.getElementById('pro-preview-list');
+
+        freeList.innerHTML = '';
+        proList.innerHTML = '';
+
+        appFeatures.forEach(f => {
+            const isPro = currentAllocations[f.id] === 'pro';
+
+            // Free List
+            const freeItem = document.createElement('li');
+            if (!isPro) {
+                freeItem.className = 'preview-item yes';
+                freeItem.innerHTML = `<i data-lucide="check"></i> <span>${f.name}</span>`;
+            } else {
+                freeItem.className = 'preview-item no';
+                freeItem.innerHTML = `<i data-lucide="x"></i> <span>${f.name}</span>`;
+            }
+            freeList.appendChild(freeItem);
+
+            // Pro List (Pro has everything)
+            const proItem = document.createElement('li');
+            proItem.className = 'preview-item yes';
+            proItem.innerHTML = `<i data-lucide="check"></i> <span>${f.name}</span>`;
+            proList.appendChild(proItem);
+        });
+
+        lucide.createIcons();
+    }
+
+    // Generate output config JSON
+    window.generateConfig = function() {
+        const config = {
+            monthlyPrice: parseInt(monthlySlider.value),
+            yearlyPrice: parseInt(yearlySlider.value),
+            features: currentAllocations
+        };
+
+        const outputContainer = document.getElementById('output-container');
+        const outputPre = document.getElementById('output-pre');
+
+        const configSummaryText = `=== BILLING & PRICING CONFIGURATION ===
+Pro Monthly Price: ₹${config.monthlyPrice}
+Pro Yearly Price: ₹${config.yearlyPrice}
+Free Trial Duration: 30 Days
+
+--- FEATURE ALLOCATIONS ---
+${appFeatures.map(f => {
+    return `${f.name}: [${config.features[f.id].toUpperCase()}]`;
+}).join('\n')}
+
+--- COPY JSON CODE BELOW ---
+${JSON.stringify(config, null, 2)}`;
+
+        outputPre.textContent = configSummaryText;
+        outputContainer.style.display = 'block';
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(configSummaryText).then(() => {
+            const toast = document.getElementById('toast');
+            toast.className = 'copy-toast show';
+            setTimeout(() => {
+                toast.className = 'copy-toast';
+            }, 3000);
+        });
+    };
+
+    // Initial load
+    updatePricingTexts();
+    renderConfigurationList();
+</script>
+
+</body>
+</html>

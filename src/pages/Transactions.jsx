@@ -16,6 +16,7 @@ import CategoryIcon from '../components/CategoryIcon';
 import SMSScanModal from '../components/SMSScanModal';
 import { triggerHapticNotification } from '../lib/haptics';
 import { useAuth } from '../context/AuthContext';
+import { PaymentStatusPicker, PaymentStatusBadge } from '../components/SalaryPocketSystem';
 
 const SORT_OPTIONS = [
     { value: 'date-desc', label: 'Newest First', icon: '📅' },
@@ -32,9 +33,14 @@ const SCOPE_OPTIONS = [
     { value: 'ours', label: 'Home (Joint)', icon: '🏠' },
     { value: 'mine', label: 'Suresh (Personal)', icon: '👤' },
     { value: 'partner', label: 'Rosy (Personal)', icon: '🌸' },
-    { group: 'Person Who Spent' },
-    { value: 'paid:Suresh', label: 'Spent by Suresh', icon: '👤' },
-    { value: 'paid:Rosy', label: 'Spent by Rosy', icon: '🌸' },
+    { group: 'Paid By' },
+    { value: 'paid:Suresh', label: 'Paid by: Suresh', icon: '👤' },
+    { value: 'paid:Rosy', label: 'Paid by: Rosy', icon: '🌸' },
+    { value: 'paid:Both', label: 'Paid by: Both', icon: '🤝' },
+    { group: 'Updated By' },
+    { value: 'updated:Suresh', label: 'Updated by: Suresh', icon: '👤' },
+    { value: 'updated:Rosy', label: 'Updated by: Rosy', icon: '🌸' },
+    { value: 'updated:Claude', label: 'Updated by: Claude AI', icon: '🤖' },
 ];
 
 const CustomSelect = ({
@@ -191,6 +197,7 @@ const Transactions = () => {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState('expense');
     const [categoryId, setCategoryId] = useState('');
+    const [paidBy, setPaidBy] = useState('Suresh');
     const [updatedBy, setUpdatedBy] = useState('Suresh');
 
     // Feature 1: Scope State ('ours' = Joint, 'mine' = Personal, 'partner' = Partner's personal)
@@ -219,9 +226,10 @@ const Transactions = () => {
         setShowAddForm(true);
     };
 
-    // Sync updatedBy with defaultActor if not actively editing
+    // Sync paidBy & updatedBy with defaultActor if not actively editing
     useEffect(() => {
         if (!editingTx && defaultActor) {
+            setPaidBy(defaultActor);
             setUpdatedBy(defaultActor);
             setScope(householdId ? 'ours' : 'mine');
         }
@@ -274,6 +282,12 @@ const Transactions = () => {
     // Payment Mode State
     const [paymentMode, setPaymentMode] = useState('upi');
 
+    // ── Payment Status (Paid / Deferred / Borrowed) ────────────────────────
+    const [paymentStatus, setPaymentStatus] = useState('paid');
+    const [deferredTo, setDeferredTo] = useState('');
+    const [deferredNote, setDeferredNote] = useState('');
+    const [borrowedFrom, setBorrowedFrom] = useState('');
+
     // Debt Repayment Specific State
     const [debtType, setDebtType] = useState('personal'); // 'immediate' | 'personal' | 'emi'
     const [repaymentType, setRepaymentType] = useState('principal'); // 'principal' | 'interest'
@@ -323,8 +337,13 @@ const Transactions = () => {
         setRepaymentType('principal');
         setDebtType('personal');
         setPaymentMode('upi');
+        setPaymentStatus('paid');
+        setDeferredTo('');
+        setDeferredNote('');
+        setBorrowedFrom('');
         setShareWithUid('');
         setShowShareOptions(false);
+        setPaidBy(defaultActor || 'Suresh');
         setUpdatedBy(defaultActor || 'Suresh');
         setScope(householdId ? 'ours' : 'mine');
         setAssignedTo('Both');
@@ -369,11 +388,16 @@ const Transactions = () => {
                 || (scopeFilter === 'ours' && (t.scope === 'ours' || !t.scope))
                 || (scopeFilter === 'mine' && t.scope === 'mine')
                 || (scopeFilter === 'partner' && t.scope === 'partner')
-                || (scopeFilter === 'paid:Suresh' && (t.updatedBy === 'Suresh' || t.createdBy === 'Suresh'))
-                || (scopeFilter === 'paid:Rosy' && (t.updatedBy === 'Rosy' || t.createdBy === 'Rosy'));
+                || (scopeFilter === 'paid:Suresh' && ((t.paidBy || '').toLowerCase().includes('sur') || (!t.paidBy && (!t.scope || t.scope === 'mine' || t.scope === 'ours'))))
+                || (scopeFilter === 'paid:Rosy' && ((t.paidBy || '').toLowerCase().includes('ros') || (!t.paidBy && t.scope === 'partner')))
+                || (scopeFilter === 'paid:Both' && ((t.paidBy || '').toLowerCase().includes('both') || (t.paidBy || '').toLowerCase().includes('joint')))
+                || (scopeFilter === 'updated:Suresh' && ((t.updatedBy || '').toLowerCase().includes('sur') || (t.createdBy || '').toLowerCase().includes('sur') || (!t.updatedBy && !t.createdBy && t.source !== 'mcp')))
+                || (scopeFilter === 'updated:Rosy' && ((t.updatedBy || '').toLowerCase().includes('ros') || (t.createdBy || '').toLowerCase().includes('ros')))
+                || (scopeFilter === 'updated:Claude' && ((t.updatedBy || '').toLowerCase().includes('claude') || (t.createdBy || '').toLowerCase().includes('claude') || t.source === 'mcp'));
             const desc = t.description || '';
             const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (t.paidBy || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (t.updatedBy || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (t.comments || []).some(cm => (cm.text || '').toLowerCase().includes(searchQuery.toLowerCase()));
             return matchesMonth && matchesType && matchesScope && matchesSearch;
@@ -389,8 +413,8 @@ const Transactions = () => {
                 return new Date(b.date) - new Date(a.date);
             }
             if (sortBy === 'person-asc') {
-                const personA = a.updatedBy || a.createdBy || 'Suresh';
-                const personB = b.updatedBy || b.createdBy || 'Suresh';
+                const personA = a.paidBy || a.updatedBy || a.createdBy || 'Suresh';
+                const personB = b.paidBy || b.updatedBy || b.createdBy || 'Suresh';
                 const cmp = personA.localeCompare(personB);
                 if (cmp !== 0) return cmp;
                 return new Date(b.date) - new Date(a.date);
@@ -405,17 +429,33 @@ const Transactions = () => {
         // Validation: Amount required. Category required UNLESS it's a debt repayment (then loanId or just general is fine)
         if (!amount || (type !== 'debt' && !categoryId)) return;
 
+        const numAmount = parseFloat(amount);
+        if (isNaN(numAmount) || numAmount <= 0) {
+            alert('Please enter a valid amount greater than 0.');
+            return;
+        }
+
         const txData = {
-            amount: parseFloat(amount),
-            description,
+            amount: numAmount,
+            description: (description || '').trim(),
             date,
             type,
             categoryId,
             ...(type === 'debt' && loanId ? { loanId, repaymentType } : {}),
             paymentMode: paymentMode,
+            paidBy: paidBy || defaultActor || 'Suresh',
             updatedBy: updatedBy || defaultActor || 'Suresh',
             ...(!editingTx ? { createdBy: updatedBy || defaultActor || 'Suresh' } : {}),
             scope: scope || (householdId ? 'ours' : 'mine'),
+            // ── Payment Status ─────────────────────────────────────────────
+            paymentStatus: paymentStatus || 'paid',
+            ...(paymentStatus === 'deferred' ? {
+                deferredTo: deferredTo || null,
+                deferredNote: (deferredNote || '').trim() || null,
+            } : {}),
+            ...(paymentStatus === 'borrowed' ? {
+                borrowedFrom: (borrowedFrom || '').trim() || null,
+            } : {}),
         };
 
         if (editingTx) {
@@ -504,10 +544,16 @@ const Transactions = () => {
         setType(tx.type || 'expense');
         setCategoryId(tx.categoryId || '');
         setPaymentMode(tx.paymentMode || 'upi');
+        setPaidBy(tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : defaultActor || 'Suresh'));
         setUpdatedBy(tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : defaultActor || 'Suresh'));
         setScope(tx.scope || 'ours');
         if (tx.loanId) setLoanId(tx.loanId);
         if (tx.repaymentType) setRepaymentType(tx.repaymentType);
+        // Payment Status restore
+        setPaymentStatus(tx.paymentStatus || 'paid');
+        setDeferredTo(tx.deferredTo || '');
+        setDeferredNote(tx.deferredNote || '');
+        setBorrowedFrom(tx.borrowedFrom || '');
     };
 
 
@@ -842,8 +888,8 @@ const Transactions = () => {
                 />
             </div>
 
-            {/* Row 4: Payment Mode & Paid By Dropdowns */}
-            <div className="grid grid-cols-2 gap-2.5">
+            {/* Row 4: Payment Mode, Paid By, and Updated By Dropdowns */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="space-y-1">
                     <label htmlFor={isEdit ? "edit-payment-mode" : "payment-mode"} className="text-xs font-semibold text-muted-foreground">
                         Payment Mode
@@ -852,7 +898,7 @@ const Transactions = () => {
                         id={isEdit ? "edit-payment-mode" : "payment-mode"}
                         value={paymentMode}
                         onChange={(e) => setPaymentMode(e.target.value)}
-                        className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                        className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                     >
                         <option value="upi">📱 UPI</option>
                         <option value="cash">💵 Cash</option>
@@ -862,17 +908,34 @@ const Transactions = () => {
                 </div>
 
                 <div className="space-y-1">
+                    <label htmlFor={isEdit ? "edit-paid-by" : "paid-by"} className="text-xs font-semibold text-muted-foreground">
+                        Paid By
+                    </label>
+                    <select
+                        id={isEdit ? "edit-paid-by" : "paid-by"}
+                        value={paidBy || defaultActor || 'Suresh'}
+                        onChange={(e) => setPaidBy(e.target.value)}
+                        className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                    >
+                        <option value="Suresh">👤 Suresh (Husband)</option>
+                        <option value="Rosy">🌸 Rosy</option>
+                        <option value="Both">🤝 Both</option>
+                    </select>
+                </div>
+
+                <div className="space-y-1">
                     <label htmlFor={isEdit ? "edit-updated-by" : "updated-by"} className="text-xs font-semibold text-muted-foreground">
-                        {isEdit ? 'Updated By' : 'Paid By'}
+                        Updated By
                     </label>
                     <select
                         id={isEdit ? "edit-updated-by" : "updated-by"}
-                        value={updatedBy}
+                        value={updatedBy || defaultActor || 'Suresh'}
                         onChange={(e) => setUpdatedBy(e.target.value)}
-                        className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                        className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                     >
-                        <option value="Suresh">👤 Suresh</option>
+                        <option value="Suresh">👤 Suresh (Husband)</option>
                         <option value="Rosy">🌸 Rosy</option>
+                        <option value="Claude">🤖 Claude</option>
                     </select>
                 </div>
             </div>
@@ -893,6 +956,30 @@ const Transactions = () => {
                     <option value="partner">🌸 Rosy Personal</option>
                 </select>
             </div>
+
+            {/* ── Payment Status (Paid / Deferred / Borrowed) ── */}
+            {type === 'expense' && (
+                <PaymentStatusPicker
+                    value={paymentStatus}
+                    deferredTo={deferredTo}
+                    borrowedFrom={borrowedFrom}
+                    onChange={setPaymentStatus}
+                    onDeferredToChange={setDeferredTo}
+                    onBorrowedFromChange={setBorrowedFrom}
+                />
+            )}
+            {type === 'expense' && paymentStatus === 'deferred' && (
+                <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Note (optional)</label>
+                    <input
+                        type="text"
+                        value={deferredNote}
+                        onChange={e => setDeferredNote(e.target.value)}
+                        placeholder='e.g. "Anna said next week ok"'
+                        className="w-full h-9 px-3 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                </div>
+            )}
 
             {/* Share with Member (Add mode only) */}
             {!isEdit && householdId && type === 'expense' && (
@@ -1145,17 +1232,18 @@ const Transactions = () => {
                             <form id="tx-form" onSubmit={handleSubmit} className="space-y-4 pb-2">
                                 {/* Desktop Horizontal Section - Matching Screenshot Exactly */}
                                 <div className="hidden md:block space-y-2">
-                                    <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 select-none">
+                                    <div className="grid grid-cols-12 gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 select-none">
                                         <div className="col-span-2">Date</div>
                                         <div className="col-span-1">Type</div>
                                         <div className="col-span-2">Category</div>
-                                        <div className="col-span-3">Description</div>
+                                        <div className="col-span-2">Description</div>
                                         <div className="col-span-1">Payment</div>
+                                        <div className="col-span-1">Paid By</div>
                                         <div className="col-span-1">Updated By</div>
                                         <div className="col-span-1">Scope</div>
                                         <div className="col-span-1 text-right pr-1">Amount (₹)</div>
                                     </div>
-                                    <div className="grid grid-cols-12 gap-2 items-center bg-muted/20 p-2.5 rounded-xl border border-border/60">
+                                    <div className="grid grid-cols-12 gap-1.5 items-center bg-muted/20 p-2.5 rounded-xl border border-border/60">
                                         {/* Date */}
                                         <div className="col-span-2">
                                             <input
@@ -1212,7 +1300,7 @@ const Transactions = () => {
                                         </div>
 
                                         {/* Description */}
-                                        <div className="col-span-3">
+                                        <div className="col-span-2">
                                             <input
                                                 type="text"
                                                 placeholder="e.g. Petrol, Groceries..."
@@ -1239,6 +1327,19 @@ const Transactions = () => {
                                             </select>
                                         </div>
 
+                                        {/* Paid By */}
+                                        <div className="col-span-1">
+                                            <select
+                                                value={paidBy || defaultActor || 'Suresh'}
+                                                onChange={(e) => setPaidBy(e.target.value)}
+                                                className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
+                                            >
+                                                <option value="Suresh">👤 Suresh</option>
+                                                <option value="Rosy">🌸 Rosy</option>
+                                                <option value="Both">🤝 Both</option>
+                                            </select>
+                                        </div>
+
                                         {/* Updated By */}
                                         <div className="col-span-1">
                                             <select
@@ -1248,6 +1349,7 @@ const Transactions = () => {
                                             >
                                                 <option value="Suresh">👤 Suresh</option>
                                                 <option value="Rosy">🌸 Rosy</option>
+                                                <option value="Claude">🤖 Claude</option>
                                             </select>
                                         </div>
 
@@ -1703,13 +1805,14 @@ const Transactions = () => {
                                     {/* Desktop: Excel Sheet Table View (hidden on mobile, shown on desktop when displayMode === 'table') */}
                                     <div className={cn("hidden md:block overflow-x-auto scrollbar-thin", displayMode === 'cards' && "md:hidden")}>
                                         <table className="w-full text-left text-xs border-collapse">
-                                            <thead>
+                                             <thead>
                                                 <tr className="bg-muted/70 border-b border-border/80 text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
                                                     <th className="py-2.5 px-3 whitespace-nowrap">Date</th>
                                                     <th className="py-2.5 px-2 whitespace-nowrap">Type</th>
                                                     <th className="py-2.5 px-2.5 whitespace-nowrap">Category</th>
-                                                    <th className="py-2.5 px-3 min-w-[140px]">Description</th>
+                                                    <th className="py-2.5 px-3 min-w-[130px]">Description</th>
                                                     <th className="py-2.5 px-2 whitespace-nowrap">Payment</th>
+                                                    <th className="py-2.5 px-2 whitespace-nowrap">Paid By</th>
                                                     <th className="py-2.5 px-2 whitespace-nowrap">Updated By</th>
                                                     <th className="py-2.5 px-2 whitespace-nowrap">Scope</th>
                                                     <th className="py-2.5 px-2.5 whitespace-nowrap text-right">Amount</th>
@@ -1801,6 +1904,19 @@ const Transactions = () => {
                                                             </select>
                                                         </td>
 
+                                                        {/* Paid By */}
+                                                        <td className="py-2 px-1.5 whitespace-nowrap">
+                                                            <select
+                                                                value={paidBy || defaultActor || 'Suresh'}
+                                                                onChange={(e) => setPaidBy(e.target.value)}
+                                                                className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer w-[86px]"
+                                                            >
+                                                                <option value="Suresh">👤 Suresh</option>
+                                                                <option value="Rosy">🌸 Rosy</option>
+                                                                <option value="Both">🤝 Both</option>
+                                                            </select>
+                                                        </td>
+
                                                         {/* Updated By */}
                                                         <td className="py-2 px-1.5 whitespace-nowrap">
                                                             <select
@@ -1810,6 +1926,7 @@ const Transactions = () => {
                                                             >
                                                                 <option value="Suresh">👤 Suresh</option>
                                                                 <option value="Rosy">🌸 Rosy</option>
+                                                                <option value="Claude">🤖 Claude</option>
                                                             </select>
                                                         </td>
 
@@ -1873,7 +1990,7 @@ const Transactions = () => {
 
                                                 {filteredTransactions.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                                                        <td colSpan={10} className="py-12 text-center text-muted-foreground">
                                                             <Filter className="w-10 h-10 mx-auto mb-2 opacity-25" />
                                                             <p className="font-medium text-xs">No transactions match your current filters.</p>
                                                             <p className="text-[11px] opacity-75 mt-0.5">Use the row above to quickly record a new entry!</p>
@@ -1929,21 +2046,46 @@ const Transactions = () => {
 
                                                                     {/* Payment Mode */}
                                                                     <td className="py-2.5 px-2.5 whitespace-nowrap">
-                                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground text-[10px] font-medium border border-border/40">
-                                                                            <span>{tx.paymentMode === 'cash' ? '💵' : tx.paymentMode === 'card' ? '💳' : tx.paymentMode === 'netbanking' ? '🏦' : '📱'}</span>
-                                                                            <span className="capitalize">{tx.paymentMode || 'UPI'}</span>
-                                                                        </span>
+                                                                        <div className="flex flex-col gap-0.5">
+                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground text-[10px] font-medium border border-border/40">
+                                                                                <span>{tx.paymentMode === 'cash' ? '💵' : tx.paymentMode === 'card' ? '💳' : tx.paymentMode === 'netbanking' ? '🏦' : '📱'}</span>
+                                                                                <span className="capitalize">{tx.paymentMode || 'UPI'}</span>
+                                                                            </span>
+                                                                            <PaymentStatusBadge status={tx.paymentStatus} deferredTo={tx.deferredTo} />
+                                                                        </div>
                                                                     </td>
 
                                                                     {/* Paid By */}
                                                                     <td className="py-2.5 px-2.5 whitespace-nowrap">
+                                                                        {(() => {
+                                                                            const payer = tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : 'Suresh');
+                                                                            const isRosyPayer = payer.toLowerCase().includes('ros');
+                                                                            const isBoth = payer.toLowerCase().includes('both') || payer.toLowerCase().includes('joint');
+                                                                            return (
+                                                                                <span className={cn(
+                                                                                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border",
+                                                                                    isBoth
+                                                                                        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                                                                                        : isRosyPayer
+                                                                                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                                                                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                                                                                )}>
+                                                                                    <span>{isBoth ? '🤝' : isRosyPayer ? '🌸' : '👤'}</span>
+                                                                                    <span>{isBoth ? 'Both' : isRosyPayer ? 'Rosy' : 'Suresh'}</span>
+                                                                                </span>
+                                                                            );
+                                                                        })()}
+                                                                    </td>
+
+                                                                    {/* Updated By */}
+                                                                    <td className="py-2.5 px-2.5 whitespace-nowrap">
                                                                         <span className={cn(
                                                                             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border",
-                                                                            isRosy
-                                                                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
-                                                                                : isClaude
+                                                                            isClaude
                                                                                 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                                                                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                                                                                : isRosy
+                                                                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                                                                : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
                                                                         )}>
                                                                             <span>{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
                                                                             <span>{actorLabel}</span>
@@ -2017,7 +2159,7 @@ const Transactions = () => {
                                                                 {/* Inline Comment Thread Drawer */}
                                                                 {isCommentOpen && (
                                                                     <tr className="bg-muted/30">
-                                                                        <td colSpan={9} className="p-3">
+                                                                        <td colSpan={10} className="p-3">
                                                                             <div className="max-w-xl mx-auto space-y-2 bg-card p-3 rounded-xl border border-border/60 shadow-xs animate-in slide-in-from-top-1">
                                                                                 <div className="flex items-center justify-between">
                                                                                     <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
@@ -2164,23 +2306,49 @@ const Transactions = () => {
                                                                     </span>
                                                                 )}
 
-                                                                {/* Updated By Badge (Suresh / Rosy) */}
+                                                                {/* Paid By Badge */}
                                                                 {(() => {
-                                                                    const actor = tx.updatedBy || tx.paidBy || tx.createdBy || 'Suresh';
+                                                                    const payer = tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : 'Suresh');
+                                                                    const isRosyPayer = payer.toLowerCase().includes('ros');
+                                                                    const isBoth = payer.toLowerCase().includes('both') || payer.toLowerCase().includes('joint');
+                                                                    return (
+                                                                        <span
+                                                                            title={`Paid by ${isBoth ? 'Both' : isRosyPayer ? 'Rosy' : 'Suresh'}`}
+                                                                            className={cn(
+                                                                                "inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border",
+                                                                                isBoth
+                                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                                                                                    : isRosyPayer
+                                                                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                                                                    : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                                                                            )}
+                                                                        >
+                                                                            <span>{isBoth ? '🤝' : isRosyPayer ? '🌸' : '👤'}</span>
+                                                                            <span>Paid: {isBoth ? 'Both' : isRosyPayer ? 'Rosy' : 'Suresh'}</span>
+                                                                        </span>
+                                                                    );
+                                                                })()}
+
+                                                                {/* Updated By Badge (Suresh / Rosy / Claude) */}
+                                                                {(() => {
+                                                                    const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : 'Suresh');
                                                                     const isRosy = actor.toLowerCase().includes('ros');
-                                                                    const label = isRosy ? 'Rosy' : 'Suresh';
+                                                                    const isClaude = actor.toLowerCase().includes('claude') || tx.source === 'mcp';
+                                                                    const label = isClaude ? 'Claude' : isRosy ? 'Rosy' : 'Suresh';
                                                                     return (
                                                                         <span
                                                                             title={`Updated by ${label}`}
                                                                             className={cn(
                                                                                 "inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border",
-                                                                                isRosy
+                                                                                isClaude
+                                                                                    ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30"
+                                                                                    : isRosy
                                                                                     ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                                                                                    : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                                                                                    : "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
                                                                             )}
                                                                         >
-                                                                            <span>{isRosy ? '🌸' : '👤'}</span>
-                                                                            <span>{label}</span>
+                                                                            <span>{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
+                                                                            <span>By: {label}</span>
                                                                         </span>
                                                                     );
                                                                 })()}
@@ -2202,6 +2370,12 @@ const Transactions = () => {
                                                                         </span>
                                                                     );
                                                                 })()}
+
+                                                                {/* Payment Status Badge */}
+                                                                <PaymentStatusBadge
+                                                                    status={tx.paymentStatus}
+                                                                    deferredTo={tx.deferredTo}
+                                                                />
                                                             </div>
                                                         </div>
                                                     </div>

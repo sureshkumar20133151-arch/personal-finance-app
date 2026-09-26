@@ -39,8 +39,10 @@ function decodeFirebaseJwt(token) {
     const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'));
     const uid = payload.user_id || payload.uid || payload.sub;
     if (!uid) return null;
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) return null; // Reject expired token
     return { uid, email: payload.email || '', name: payload.name || '' };
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -60,7 +62,34 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing required parameters (idToken, redirectUri)' });
       }
 
-      const user = decodeFirebaseJwt(idToken);
+      let parsedRedirect;
+      try {
+        parsedRedirect = new URL(redirectUri);
+      } catch {
+        return res.status(400).json({ error: 'Invalid redirectUri parameter.' });
+      }
+      const isLocalhost = parsedRedirect.hostname === 'localhost' || parsedRedirect.hostname === '127.0.0.1';
+      if (parsedRedirect.protocol !== 'https:' && !(isLocalhost && parsedRedirect.protocol === 'http:')) {
+        return res.status(400).json({ error: 'redirectUri must use HTTPS (or HTTP for localhost).' });
+      }
+
+      let user = null;
+      try {
+        const { getApps } = await import('firebase-admin/app');
+        const adminApp = getApps().find(a => a.name === 'mcp-oauth-auth');
+        if (adminApp) {
+          const { getAuth } = await import('firebase-admin/auth');
+          const verified = await getAuth(adminApp).verifyIdToken(idToken);
+          user = { uid: verified.uid, email: verified.email || '', name: verified.name || '' };
+        }
+      } catch {
+        // Fall back to decoded payload if verifyIdToken fails or admin not yet initialized
+      }
+
+      if (!user) {
+        user = decodeFirebaseJwt(idToken);
+      }
+
       if (!user || !user.uid) {
         return res.status(401).json({ error: 'Invalid or expired Firebase ID token.' });
       }
@@ -140,6 +169,26 @@ export default async function handler(req, res) {
     if (!redirect_uri) {
       return res.status(400).send('<h2>Invalid OAuth Request: Missing redirect_uri parameter.</h2>');
     }
+
+    let parsedRedirect;
+    try {
+      parsedRedirect = new URL(redirect_uri);
+    } catch {
+      return res.status(400).send('<h2>Invalid OAuth Request: Malformed redirect_uri parameter.</h2>');
+    }
+    const isLocalhost = parsedRedirect.hostname === 'localhost' || parsedRedirect.hostname === '127.0.0.1';
+    if (parsedRedirect.protocol !== 'https:' && !(isLocalhost && parsedRedirect.protocol === 'http:')) {
+      return res.status(400).send('<h2>Invalid OAuth Request: redirect_uri must use HTTPS (or HTTP for localhost).</h2>');
+    }
+
+    const safeParamsJson = JSON.stringify({
+      clientId: String(client_id || ''),
+      redirectUri: parsedRedirect.toString(),
+      state: String(state || ''),
+      codeChallenge: String(code_challenge || ''),
+      codeChallengeMethod: String(code_challenge_method || 'S256'),
+      scope: String(scope || 'finance:read finance:write'),
+    }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -292,10 +341,14 @@ export default async function handler(req, res) {
     }
   </style>
 
+  <script type="application/json" id="oauth-params">${safeParamsJson}</script>
+
   <!-- Firebase Web SDK Modular (v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const oauthParams = JSON.parse(document.getElementById("oauth-params").textContent || "{}");
 
     const firebaseConfig = {
       apiKey: "AIzaSyBmyy7c2ScBC1xrAStSjhgkL-0ouvY5-Jo",
@@ -365,12 +418,12 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             idToken,
-            clientId: "${client_id}",
-            redirectUri: "${redirect_uri}",
-            state: "${state}",
-            codeChallenge: "${code_challenge}",
-            codeChallengeMethod: "${code_challenge_method}",
-            scope: "${scope}",
+            clientId: oauthParams.clientId,
+            redirectUri: oauthParams.redirectUri,
+            state: oauthParams.state,
+            codeChallenge: oauthParams.codeChallenge,
+            codeChallengeMethod: oauthParams.codeChallengeMethod,
+            scope: oauthParams.scope,
           }),
         });
 
@@ -390,10 +443,9 @@ export default async function handler(req, res) {
     });
 
     cancelBtn.addEventListener("click", () => {
-      const redirectUri = "${redirect_uri}";
-      const targetUrl = new URL(redirectUri);
+      const targetUrl = new URL(oauthParams.redirectUri);
       targetUrl.searchParams.set("error", "access_denied");
-      if ("${state}") targetUrl.searchParams.set("state", "${state}");
+      if (oauthParams.state) targetUrl.searchParams.set("state", oauthParams.state);
       window.location.href = targetUrl.toString();
     });
   </script>

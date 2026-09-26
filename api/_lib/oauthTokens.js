@@ -70,7 +70,9 @@ export function verifyAccessToken(token) {
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
 
-  if (signature !== expectedSignature) {
+  const expectedSigBuf = Buffer.from(expectedSignature);
+  const actualSigBuf = Buffer.from(signature);
+  if (expectedSigBuf.length !== actualSigBuf.length || !crypto.timingSafeEqual(expectedSigBuf, actualSigBuf)) {
     return null; // Invalid signature
   }
 
@@ -81,7 +83,7 @@ export function verifyAccessToken(token) {
       return null; // Expired
     }
     return payload;
-  } catch (e) {
+  } catch {
     return null;
   }
 }

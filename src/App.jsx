@@ -48,7 +48,9 @@ const App = () => {
       } else {
         localStorage.setItem('app_build_id', APP_BUILD_ID);
       }
-    } catch(e) {}
+    } catch {
+      // Ignored: Storage access might fail in private browsing mode
+    }
   }, []);
 
   useEffect(() => {

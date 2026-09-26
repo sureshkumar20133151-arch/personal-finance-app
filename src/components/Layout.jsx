@@ -155,13 +155,13 @@ const Layout = () => {
         id="main-content"
         className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-28 md:pb-8 w-full max-w-full overflow-x-auto"
       >
-        <div className="max-w-7xl mx-auto animate-up w-full">
+        <div className="max-w-7xl mx-auto w-full">
           <Outlet />
         </div>
       </main>
 
       {/* ── Mobile Bottom Navigation ───────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] w-full max-w-full">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 w-full max-w-full">
         <div className="bg-card/95 backdrop-blur-2xl border-t border-border/80 shadow-2xl">
           <div className="flex justify-around items-center px-2 py-2" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
             {mobileNavItems.map((item) => (

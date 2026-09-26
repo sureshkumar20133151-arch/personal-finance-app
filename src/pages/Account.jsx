@@ -30,6 +30,14 @@ const Account = () => {
     const [copiedPromptIdx, setCopiedPromptIdx] = useState(null);
     const [showAdvancedMcp, setShowAdvancedMcp] = useState(false);
     const [showClaudeGuideModal, setShowClaudeGuideModal] = useState(false);
+    const [showMcpDetails, setShowMcpDetails] = useState(false);
+    const [mobilePlanTab, setMobilePlanTab] = useState(subscription === 'free' ? 'free' : (subscription === 'starter' ? 'starter' : 'pro'));
+
+    useEffect(() => {
+        if (subscription) {
+            setMobilePlanTab(subscription === 'free' ? 'free' : (subscription === 'starter' ? 'starter' : 'pro'));
+        }
+    }, [subscription]);
 
     const mcpConnectorName = 'Budget Tracker Pro';
     const mcpBaseUrl = (typeof window !== 'undefined' && (window.location.origin.includes('localhost') || window.location.origin.includes('capacitor')))
@@ -420,82 +428,82 @@ const Account = () => {
                 </div>
             )}
 
-            <header className="flex flex-col gap-1">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Account</h1>
-                <p className="text-muted-foreground">Manage your profile and subscription.</p>
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
+                        <User className="w-7 h-7 text-primary" />
+                        Account & Settings
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">Manage your profile, subscription, AI connectors, and team sharing.</p>
+                </div>
+                <button
+                    onClick={handleLogout}
+                    className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 transition-all cursor-pointer shadow-xs active:scale-95"
+                >
+                    <LogOut className="w-4 h-4" />
+                    Log Out
+                </button>
             </header>
 
             <div className="grid gap-6 md:grid-cols-2">
-                {/* Profile Card */}
-                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
-                    <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
-                        {/* Profile Photo with Upload Trigger and Pro Badge */}
-                        <div className="relative group shrink-0">
-                            <div className={cn(
-                                "w-24 h-24 rounded-full overflow-hidden flex items-center justify-center relative bg-muted border border-border transition-all",
-                                isPro ? "ring-4 ring-amber-400 ring-offset-2 dark:ring-offset-card shadow-lg shadow-amber-400/10" : ""
-                            )}>
-                                {photoLoading ? (
-                                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                ) : currentUser?.photoURL ? (
-                                    <img 
-                                        src={currentUser.photoURL} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <AvatarFallback />
-                                )}
+                {/* ── 1. Profile Card (Full-Width Responsive Banner) ── */}
+                <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm md:col-span-2">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                        {/* Profile Avatar with Photo Upload & Preset trigger */}
+                        <div className="flex flex-col items-center gap-2 shrink-0">
+                            <div className="relative group">
+                                <div className={cn(
+                                    "w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden flex items-center justify-center relative bg-muted border-2 border-border transition-all shadow-md",
+                                    isPro ? "ring-4 ring-amber-400/40 ring-offset-2 dark:ring-offset-card" : ""
+                                )}>
+                                    {photoLoading ? (
+                                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                    ) : currentUser?.photoURL ? (
+                                        <img 
+                                            src={currentUser.photoURL} 
+                                            alt="Profile" 
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <AvatarFallback />
+                                    )}
 
-                                {/* Image upload overlay */}
-                                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity duration-200 text-xs font-semibold">
-                                    <Camera className="w-5 h-5 mb-1" />
-                                    <span>Upload</span>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        onChange={handlePhotoChange}
-                                        disabled={photoLoading}
-                                    />
-                                </label>
+                                    {/* Image upload hover overlay */}
+                                    <label 
+                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity duration-200 text-[11px] font-semibold"
+                                        title="Upload Custom Photo"
+                                    >
+                                        <Camera className="w-5 h-5 mb-0.5" />
+                                        <span>Change</span>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={handlePhotoChange}
+                                            disabled={photoLoading}
+                                        />
+                                    </label>
+                                </div>
+
+                                {/* Floating Pro Badge */}
+                                {isPro && (
+                                    <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-amber-400 to-amber-600 text-white rounded-full p-1.5 shadow-md border-2 border-background flex items-center justify-center" title="Pro Member">
+                                        <Crown className="w-3.5 h-3.5" />
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Premium Pro Badge overlay */}
-                            {isPro && (
-                                <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-amber-400 to-amber-600 text-white rounded-full p-1.5 shadow-md border border-white dark:border-card flex items-center justify-center" title="Pro Member">
-                                    <Crown className="w-3.5 h-3.5" />
-                                </div>
-                            )}
-
-                            {/* Choose-a-preset-avatar trigger */}
+                            {/* Choose Preset Avatar button */}
                             <button
                                 type="button"
                                 onClick={() => setShowAvatarPicker((v) => !v)}
                                 disabled={photoLoading}
-                                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20"
                             >
-                                <Sparkles className="w-3.5 h-3.5" />
-                                Choose Avatar
+                                <Sparkles className="w-3 h-3" />
+                                <span>{showAvatarPicker ? "Close Presets" : "Choose Avatar"}</span>
                             </button>
                         </div>
-
-                        {showAvatarPicker && (
-                            <div className="w-full grid grid-cols-6 gap-2.5 -mt-2 sm:mt-0 sm:ml-2">
-                                {AVATAR_PRESETS.map((preset) => (
-                                    <button
-                                        key={preset.id}
-                                        type="button"
-                                        onClick={() => handleChooseAvatar(preset.id)}
-                                        title={preset.id}
-                                        className="w-11 h-11 rounded-full flex items-center justify-center text-xl border-2 border-transparent hover:border-primary transition-colors"
-                                        style={{ background: `linear-gradient(135deg, ${preset.from}, ${preset.to})` }}
-                                    >
-                                        {preset.emoji}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
 
                         {/* User Details */}
                         <div className="flex-1 w-full text-center sm:text-left space-y-2">
@@ -506,13 +514,13 @@ const Account = () => {
                                             type="text"
                                             value={newName}
                                             onChange={(e) => setNewName(e.target.value)}
-                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                            className="flex h-9 w-full rounded-xl border border-input bg-background px-3 py-1 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-xs"
                                             placeholder="Your name"
                                             autoFocus
                                         />
                                         <button 
                                             onClick={handleSaveName}
-                                            className="p-2 bg-primary text-white rounded-lg hover:bg-primary/95 transition-colors"
+                                            className="p-2 bg-primary text-white rounded-xl hover:bg-primary/95 transition-colors cursor-pointer"
                                         >
                                             <Check className="w-4 h-4" />
                                         </button>
@@ -521,19 +529,19 @@ const Account = () => {
                                                 setIsEditingName(false);
                                                 setNewName(currentUser?.displayName || currentUser?.email?.split('@')[0] || '');
                                             }}
-                                            className="p-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+                                            className="p-2 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-colors cursor-pointer"
                                         >
                                             <X className="w-4 h-4" />
                                         </button>
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-2 justify-center sm:justify-start">
-                                        <h2 className="text-xl font-extrabold tracking-tight text-foreground flex items-center gap-1.5">
+                                        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
                                             {currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User'}
                                         </h2>
                                         <button 
                                             onClick={() => setIsEditingName(true)}
-                                            className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+                                            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
                                             title="Edit name"
                                         >
                                             <Edit2 className="w-3.5 h-3.5" />
@@ -541,316 +549,319 @@ const Account = () => {
                                     </div>
                                 )}
                             </div>
+
                             <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
+
                             {currentUser?.uid && (
-                                <div className="flex items-center gap-1.5 justify-center sm:justify-start text-xs text-muted-foreground/70 font-mono">
-                                    <span>UID: {currentUser.uid}</span>
+                                <div className="flex items-center gap-2 justify-center sm:justify-start text-xs text-muted-foreground font-mono">
+                                    <span className="bg-muted/60 px-2.5 py-0.5 rounded-md border border-border/50">
+                                        UID: <span className="font-semibold text-foreground/80">{currentUser.uid.slice(0, 8)}...{currentUser.uid.slice(-4)}</span>
+                                    </span>
                                     <button
                                         onClick={() => {
                                             navigator.clipboard.writeText(currentUser.uid);
-                                            showToast("UID copied to clipboard!");
+                                            showToast("Full UID copied to clipboard!");
                                         }}
-                                        className="p-1 hover:text-foreground rounded transition-colors"
-                                        title="Copy UID"
+                                        className="p-1 hover:text-foreground hover:bg-muted rounded transition-colors cursor-pointer text-muted-foreground"
+                                        title="Copy Full UID"
                                     >
                                         <Copy className="w-3 h-3" />
                                     </button>
                                 </div>
                             )}
-                            
-                            <div className="flex justify-center sm:justify-start pt-1">
+
+                            {/* Plan Pill & Quick Link */}
+                            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                                 {isPro ? (
                                     subscription === 'trial' ? (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-400/10 text-amber-500 border border-amber-400/30 shadow-sm shadow-amber-400/5">
-                                            <Crown className="w-3 h-3" /> Pro Trial ({remainingTrialDays} days left)
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs">
+                                            <Crown className="w-3.5 h-3.5 text-amber-500" /> Pro Trial ({remainingTrialDays} days left)
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-400/10 text-amber-500 border border-amber-400/30 shadow-sm shadow-amber-400/5">
-                                            <Crown className="w-3 h-3" /> Pro ({subscription === 'yearly' ? 'Yearly' : 'Monthly'})
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs">
+                                            <Crown className="w-3.5 h-3.5 text-amber-500" /> Pro Member ({subscription === 'yearly' ? 'Yearly' : 'Monthly'})
                                         </span>
                                     )
                                 ) : (
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
-                                        Free Account
+                                        Free Starter Account
                                     </span>
                                 )}
+                                <a
+                                    href="#subscription-plans"
+                                    className="text-xs font-semibold text-primary hover:underline ml-1"
+                                >
+                                    Manage Plan ↓
+                                </a>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex gap-4 border-t border-border/50 pt-4 mt-2">
-                        <button
-                            onClick={handleLogout}
-                            className="bg-destructive/10 text-destructive hover:bg-destructive/20 w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-                        >
-                            <LogOut className="w-4 h-4" />
-                            Log Out
-                        </button>
+                        {/* Preset Avatar Selection Grid */}
+                        {showAvatarPicker && (
+                            <div className="w-full sm:w-auto p-3 rounded-2xl bg-muted/40 border border-border animate-in fade-in zoom-in-95 duration-150">
+                                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center sm:text-left">Pick an Avatar</p>
+                                <div className="grid grid-cols-6 sm:grid-cols-3 gap-2">
+                                    {AVATAR_PRESETS.map((preset) => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            onClick={() => handleChooseAvatar(preset.id)}
+                                            title={preset.id}
+                                            className="w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 border-transparent hover:border-primary hover:scale-105 transition-all shadow-xs cursor-pointer active:scale-95"
+                                            style={{ background: `linear-gradient(135deg, ${preset.from}, ${preset.to})` }}
+                                        >
+                                            {preset.emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* AI & Claude MCP Connectors Card */}
-                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
-                    <div>
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-3 mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
-                                    <Bot className="w-6 h-6" />
+                {/* ── 2. AI & Claude MCP Connectors Card (Full-Width Sleek Hub) ── */}
+                <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm md:col-span-2">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
+                                <Bot className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-foreground">AI & Claude Connectors</h2>
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        OAuth 2.0
+                                    </span>
                                 </div>
-                                <div>
-                                    <h2 className="text-xl font-extrabold tracking-tight text-foreground">AI & Claude Connectors</h2>
-                                    <p className="text-xs text-muted-foreground mt-0.5">Control finances via Claude, Cursor & MCP AIs</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Control finances, query balances, and voice log expenses via Claude AI & Cursor</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Primary 1-Click Action Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                        <button
+                            onClick={handleConnectToClaude}
+                            className="group relative overflow-hidden bg-gradient-to-r from-[#D97757] via-[#c66849] to-[#b3573c] hover:from-[#c66849] hover:to-[#9f4830] text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-between cursor-pointer active:scale-[0.99]"
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-sm font-black shadow-inner">
+                                    ✦
+                                </span>
+                                <div className="text-left">
+                                    <div className="text-sm font-bold tracking-tight flex items-center gap-1.5">
+                                        Connect to Claude
+                                        <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded font-medium">1-Click</span>
+                                    </div>
+                                    <div className="text-[11px] text-white/80 font-normal">
+                                        Auto-copies URL & opens Claude modal
+                                    </div>
                                 </div>
                             </div>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                OAuth 2.0
+                            <div className="flex items-center gap-1 text-xs font-semibold bg-white/15 px-2 py-1 rounded-lg group-hover:bg-white/25 transition-colors">
+                                <span>Open</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => setShowClaudeGuideModal(true)}
+                            className="py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 hover:from-indigo-500/15 hover:to-pink-500/15 border border-indigo-500/20 text-foreground text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer active:scale-[0.99]"
+                        >
+                            <Sparkles className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span>Need Help? Open Visual 2-Step Guide</span>
+                        </button>
+                    </div>
+
+                    {/* Instant Feedback Banner */}
+                    {copiedMcpUrl && (
+                        <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                            <Check className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
+                            <div>
+                                <p className="font-bold text-foreground">✨ URL Copied & Claude Connectors Opened!</p>
+                                <p className="text-muted-foreground mt-0.5 leading-relaxed">
+                                    Paste with <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[11px] font-mono text-foreground">Ctrl+V</kbd> in Claude's URL field, set Name to <strong>Budget Tracker Pro</strong>, and click <strong>Connect</strong>!
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Dual Copy Row: Connector Name & Server URL (Full-Width, Uncut) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                        {/* Name */}
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                                <span>Connector Name</span>
+                                <span className="text-[10px]">Field 1</span>
+                            </div>
+                            <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/50 border border-border">
+                                <span className="text-xs font-bold text-foreground truncate flex-1 px-1 select-all">
+                                    {mcpConnectorName}
+                                </span>
+                                <button
+                                    onClick={handleCopyName}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 text-xs font-semibold transition-all shrink-0 cursor-pointer shadow-xs"
+                                >
+                                    {copiedMcpName ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                    <span>{copiedMcpName ? "Copied" : "Copy Name"}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* URL */}
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                                <span>Server URL</span>
+                                <span className="text-[10px]">Field 2</span>
+                            </div>
+                            <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/50 border border-border">
+                                <code className="text-xs font-mono text-foreground truncate flex-1 px-1 select-all">
+                                    {mcpConnectorUrl}
+                                </code>
+                                <button
+                                    onClick={handleCopyUrl}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold transition-all shrink-0 cursor-pointer shadow-xs"
+                                >
+                                    {copiedMcpUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                    <span>{copiedMcpUrl ? "Copied" : "Copy URL"}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Client ID pill */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground p-2.5 px-3 rounded-xl bg-muted/30 border border-border/50">
+                        <span>OAuth Client ID (if requested): <strong className="font-mono text-foreground font-semibold">claude</strong></span>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText("claude");
+                                showToast("Copied Client ID: 'claude'", "success");
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[11px] font-bold transition-colors cursor-pointer shadow-xs"
+                        >
+                            Copy "claude"
+                        </button>
+                    </div>
+
+                    {/* Expandable Instructions & Prompts */}
+                    <div className="mt-4 pt-3 border-t border-border/50">
+                        <button
+                            type="button"
+                            onClick={() => setShowMcpDetails((v) => !v)}
+                            className="w-full flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors py-1 cursor-pointer"
+                        >
+                            <span className="flex items-center gap-1.5">
+                                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                <span>{showMcpDetails ? "Hide Setup Instructions & Voice Prompts" : "View Setup Instructions & Voice Prompts"}</span>
                             </span>
-                        </div>
+                            {showMcpDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
 
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Connect Claude AI to check real-time account balances, record expenses, and analyze spending habits using natural language voice or text.
-                        </p>
+                        {showMcpDetails && (
+                            <div className="mt-3 space-y-4 pt-2 text-xs animate-in fade-in duration-200">
+                                {/* 5 Steps */}
+                                <div className="bg-muted/40 rounded-xl p-3.5 border border-border/60 space-y-2">
+                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                        How to Connect (One-Time Setup):
+                                    </h4>
+                                    <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside leading-relaxed">
+                                        <li>Click <strong>✦ Connect to Claude</strong> above (opens Claude Connectors)</li>
+                                        <li>Fill <strong>Name</strong> & <strong>Server URL</strong> using copy buttons above</li>
+                                        <li><strong>Authentication:</strong> Leave default as <strong>Sign in now</strong></li>
+                                        <li><strong>OAuth Client ID:</strong> Use <strong>claude</strong> (if Claude asks)</li>
+                                        <li>Click <strong>Connect</strong> — Claude saves it permanently for all future chats!</li>
+                                    </ol>
+                                </div>
 
-                        {/* Figma-style 1-Click "Connect to Claude" Action Button */}
-                        <div className="mb-4">
-                            <button
-                                onClick={handleConnectToClaude}
-                                className="w-full group relative overflow-hidden bg-gradient-to-r from-[#D97757] via-[#c66849] to-[#b3573c] hover:from-[#c66849] hover:to-[#9f4830] text-white font-bold py-3.5 px-5 rounded-xl shadow-lg shadow-[#D97757]/20 hover:shadow-xl hover:shadow-[#D97757]/30 transition-all flex items-center justify-between active:scale-[0.99]"
-                            >
-                                <div className="flex items-center gap-2.5">
-                                    <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-sm font-black shadow-inner">
-                                        ✦
-                                    </span>
-                                    <div className="text-left">
-                                        <div className="text-sm font-bold tracking-tight flex items-center gap-1.5">
-                                            Connect to Claude
-                                            <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded font-medium">1-Click</span>
-                                        </div>
-                                        <div className="text-[11px] text-white/80 font-normal">
-                                            Copies URL & opens Custom Connector modal directly
-                                        </div>
+                                {/* Example Prompts */}
+                                <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                        <span>Try saying to Claude (click to copy):</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {[
+                                            "What is my total account balance and net cashflow this month?",
+                                            "Add ₹450 expense for groceries paid via Google Pay",
+                                            "How much have I spent on Dining Out this week?",
+                                            "Give me a breakdown of all transactions by category"
+                                        ].map((prompt, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(prompt);
+                                                    setCopiedPromptIdx(idx);
+                                                    setTimeout(() => setCopiedPromptIdx(null), 2000);
+                                                    showToast("Prompt copied to clipboard!");
+                                                }}
+                                                className="text-left p-2.5 rounded-xl bg-muted/30 hover:bg-muted/70 border border-border/50 text-xs text-muted-foreground hover:text-foreground transition-all flex items-center justify-between group cursor-pointer"
+                                            >
+                                                <span className="truncate italic">"{prompt}"</span>
+                                                <span className="shrink-0 ml-2 text-[10px] font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                                                    {copiedPromptIdx === idx ? "Copied!" : "Copy"}
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-xs font-semibold bg-white/15 px-2.5 py-1.5 rounded-lg group-hover:bg-white/25 transition-colors">
-                                    <span>Open</span>
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                </div>
-                            </button>
 
-                            {/* Open Visual Guide Button */}
-                            <button
-                                onClick={() => setShowClaudeGuideModal(true)}
-                                className="mt-2.5 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 hover:from-indigo-500/20 hover:to-pink-500/20 border border-indigo-500/20 text-foreground text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
-                            >
-                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                                <span>Need Help? Open 2-Step Quick Guide</span>
-                            </button>
-
-                            {/* Instant Visual Guidance Banner when Clicked */}
-                            {copiedMcpUrl && (
-                                <div className="mt-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <Check className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
-                                    <div>
-                                        <p className="font-bold text-[12px] text-foreground">✨ URL Copied & Claude Connectors Opened!</p>
-                                        <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                                            In Claude's popup:
-                                            <br />
-                                            • <strong>Name:</strong> Click <em>Copy</em> on 'Budget Tracker Pro' below (or type it).
-                                            <br />
-                                            • <strong>Server URL:</strong> Already in clipboard! Just press <kbd className="px-1.5 py-0.5 bg-muted rounded border text-[11px] font-mono text-foreground">Ctrl+V</kbd> and click <strong>Connect</strong>!
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Dual 1-Click Copy: Name & URL */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
-                            {/* Connector Name Box */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                                    <span>Connector Name</span>
-                                    <span className="text-[10px] text-muted-foreground font-normal">Field 1</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-border">
-                                    <span className="text-xs font-semibold text-foreground truncate flex-1 px-1 select-all">
-                                        {mcpConnectorName}
-                                    </span>
+                                {/* Advanced Desktop Config */}
+                                <div className="border-t border-border/50 pt-3">
                                     <button
-                                        onClick={handleCopyName}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 text-xs font-semibold transition-all shrink-0 shadow-sm"
-                                        title="Copy App Name"
+                                        type="button"
+                                        onClick={() => setShowAdvancedMcp(!showAdvancedMcp)}
+                                        className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1 cursor-pointer"
                                     >
-                                        {copiedMcpName ? (
-                                            <>
-                                                <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                                <span className="text-emerald-500 font-bold">Copied</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-3.5 h-3.5" />
-                                                <span>Copy Name</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Connector URL Box */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                                    <span>Server URL</span>
-                                    <span className="text-[10px] text-muted-foreground font-normal">Field 2</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-border">
-                                    <code className="text-xs font-mono text-foreground truncate flex-1 px-1 select-all">
-                                        {mcpConnectorUrl}
-                                    </code>
-                                    <button
-                                        onClick={handleCopyUrl}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold transition-all shrink-0 shadow-sm"
-                                        title="Copy Server URL"
-                                    >
-                                        {copiedMcpUrl ? (
-                                            <>
-                                                <Check className="w-3.5 h-3.5" />
-                                                <span>Copied</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-3.5 h-3.5" />
-                                                <span>Copy URL</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Optional Client ID Chip */}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground p-2 px-3 rounded-xl bg-muted/40 border border-border/50 mb-4">
-                            <span>OAuth Client ID (if Claude asks): <strong className="font-mono text-foreground font-semibold">claude</strong></span>
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText("claude");
-                                    showToast("Copied Client ID: 'claude'", "success");
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[11px] font-bold transition-colors shadow-sm"
-                            >
-                                Copy "claude"
-                            </button>
-                        </div>
-
-                        {/* Quick Setup Instructions */}
-                        <div className="bg-muted/40 rounded-xl p-3 border border-border/60 mb-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                                    How to Connect (One-Time Setup):
-                                </h4>
-                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                                    Permanent Setup
-                                </span>
-                            </div>
-                            <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside leading-relaxed">
-                                <li>Click <strong>✦ Connect to Claude</strong> above (opens Claude Connectors)</li>
-                                <li>Fill <strong>Name</strong> & <strong>Server URL</strong> using copy buttons above</li>
-                                <li><strong>Authentication:</strong> Leave default as <strong>Sign in now</strong></li>
-                                <li><strong>OAuth Client ID:</strong> Use <strong>claude</strong> (if Claude asks)</li>
-                                <li>Click <strong>Connect</strong> — Claude saves it permanently for all future chats!</li>
-                            </ol>
-                        </div>
-
-                        {/* Example Prompts */}
-                        <div className="space-y-2 mb-4">
-                            <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                                <span>Try saying to Claude (click to copy):</span>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                {[
-                                    "What is my total account balance and net cashflow this month?",
-                                    "Add ₹450 expense for groceries paid via Google Pay",
-                                    "How much have I spent on Dining Out this week?",
-                                    "Give me a breakdown of all transactions by category"
-                                ].map((prompt, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(prompt);
-                                            setCopiedPromptIdx(idx);
-                                            setTimeout(() => setCopiedPromptIdx(null), 2000);
-                                            showToast("Prompt copied to clipboard!");
-                                        }}
-                                        className="w-full text-left p-2 rounded-lg bg-muted/30 hover:bg-muted/70 border border-border/50 text-xs text-muted-foreground hover:text-foreground transition-all flex items-center justify-between group"
-                                    >
-                                        <span className="truncate italic">"{prompt}"</span>
-                                        <span className="shrink-0 ml-2 text-[10px] font-medium text-muted-foreground group-hover:text-primary transition-colors">
-                                            {copiedPromptIdx === idx ? "Copied!" : "Copy"}
+                                        <span className="flex items-center gap-1.5">
+                                            <Terminal className="w-3.5 h-3.5" />
+                                            Advanced / Claude Desktop Config
                                         </span>
+                                        {showAdvancedMcp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                     </button>
-                                ))}
-                            </div>
-                        </div>
 
-                        {/* Advanced Accordion */}
-                        <div className="border-t border-border/50 pt-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowAdvancedMcp(!showAdvancedMcp)}
-                                className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1"
-                            >
-                                <span className="flex items-center gap-1.5">
-                                    <Terminal className="w-3.5 h-3.5" />
-                                    Advanced / Claude Desktop Config
-                                </span>
-                                {showAdvancedMcp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </button>
+                                    {showAdvancedMcp && (
+                                        <div className="mt-3 space-y-3 pt-2 text-xs">
+                                            <div className="space-y-1">
+                                                <label className="text-[11px] font-semibold text-muted-foreground">Direct URL (with your UID pre-attached):</label>
+                                                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border border-border font-mono text-[11px]">
+                                                    <span className="truncate flex-1 px-1">{mcpConnectorUrl}?uid={currentUser?.uid || 'YOUR_UID'}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(`${mcpConnectorUrl}?uid=${currentUser?.uid || ''}`);
+                                                            showToast("Direct UID URL copied!");
+                                                        }}
+                                                        className="p-1 hover:text-primary transition-colors cursor-pointer"
+                                                        title="Copy Direct URL"
+                                                    >
+                                                        <Copy className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                            {showAdvancedMcp && (
-                                <div className="mt-3 space-y-3 pt-2 text-xs">
-                                    {/* Direct UID URL */}
-                                    <div className="space-y-1">
-                                        <label className="text-[11px] font-semibold text-muted-foreground">Direct URL (with your UID pre-attached):</label>
-                                        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border border-border font-mono text-[11px]">
-                                            <span className="truncate flex-1 px-1">{mcpConnectorUrl}?uid={currentUser?.uid || 'YOUR_UID'}</span>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(`${mcpConnectorUrl}?uid=${currentUser?.uid || ''}`);
-                                                    showToast("Direct UID URL copied!");
-                                                }}
-                                                className="p-1 hover:text-primary transition-colors"
-                                                title="Copy Direct URL"
-                                            >
-                                                <Copy className="w-3.5 h-3.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Claude Desktop Config */}
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[11px] font-semibold text-muted-foreground">claude_desktop_config.json snippet:</label>
-                                            <button
-                                                onClick={() => {
-                                                    const snippet = JSON.stringify({
-                                                        mcpServers: {
-                                                            "budget-tracker": {
-                                                                "url": mcpConnectorUrl
-                                                            }
-                                                        }
-                                                    }, null, 2);
-                                                    navigator.clipboard.writeText(snippet);
-                                                    showToast("Config JSON copied!");
-                                                }}
-                                                className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                                            >
-                                                <Copy className="w-3 h-3" /> Copy JSON
-                                            </button>
-                                        </div>
-                                        <pre className="p-2.5 rounded-lg bg-black/90 text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed border border-border/40">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-[11px] font-semibold text-muted-foreground">claude_desktop_config.json snippet:</label>
+                                                    <button
+                                                        onClick={() => {
+                                                            const snippet = JSON.stringify({
+                                                                mcpServers: {
+                                                                    "budget-tracker": {
+                                                                        "url": mcpConnectorUrl
+                                                                    }
+                                                                }
+                                                            }, null, 2);
+                                                            navigator.clipboard.writeText(snippet);
+                                                            showToast("Config JSON copied!");
+                                                        }}
+                                                        className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                                                    >
+                                                        <Copy className="w-3 h-3" /> Copy JSON
+                                                    </button>
+                                                </div>
+                                                <pre className="p-2.5 rounded-lg bg-black/90 text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed border border-border/40">
 {`{
   "mcpServers": {
     "budget-tracker": {
@@ -858,63 +869,94 @@ const Account = () => {
     }
   }
 }`}
-                                        </pre>
-                                    </div>
-
-                                    {/* Test OAuth Link */}
-                                    <div className="pt-1">
-                                        <a
-                                            href={`${mcpBaseUrl}/oauth/authorize?client_id=claude_desktop_preview&response_type=code&redirect_uri=${encodeURIComponent(mcpBaseUrl + '/api/mcp-debug')}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-semibold"
-                                        >
-                                            <ExternalLink className="w-3.5 h-3.5" />
-                                            Test OAuth 2.0 Consent Screen in New Tab
-                                        </a>
-                                    </div>
+                                                </pre>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Subscription Plans Section */}
+                {/* ── 3. Subscription Plans Section ── */}
                 <div id="subscription-plans" className="md:col-span-2">
-                    <h2 className="text-xl font-bold mb-1">Subscription Plans</h2>
-                    <p className="text-sm text-muted-foreground mb-5">All features included in Starter. Only SMS auto-scan is a future Pro add-on.</p>
-                    <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">Subscription Plans</h2>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">All features included in Starter. SMS auto-scan is a future Pro add-on.</p>
+                        </div>
+                    </div>
 
-                        {/* Free Plan */}
-                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", subscription === 'free' ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm")}>
+                    {/* Mobile Segmented Switcher */}
+                    <div className="flex md:hidden bg-muted/60 p-1 rounded-xl mb-4 border border-border">
+                        <button
+                            type="button"
+                            onClick={() => setMobilePlanTab('free')}
+                            className={cn(
+                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                                mobilePlanTab === 'free' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+                            )}
+                        >
+                            Free
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMobilePlanTab('starter')}
+                            className={cn(
+                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                                mobilePlanTab === 'starter' ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground"
+                            )}
+                        >
+                            Starter (₹9)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMobilePlanTab('pro')}
+                            className={cn(
+                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                                mobilePlanTab === 'pro' ? "bg-amber-500 text-white shadow-xs" : "text-muted-foreground"
+                            )}
+                        >
+                            👑 Pro (₹100)
+                        </button>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-5">
+                        {/* Free Plan Card */}
+                        <div className={cn(
+                            "p-5 sm:p-6 rounded-2xl border transition-all relative flex flex-col justify-between",
+                            subscription === 'free' ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm",
+                            mobilePlanTab !== 'free' ? "hidden md:flex" : "flex"
+                        )}>
                             <div>
                                 {subscription === 'free' && (
                                     <div className="absolute top-0 right-0 bg-muted text-muted-foreground text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl border-l border-b border-border">
                                         ✅ ACTIVE
                                     </div>
                                 )}
-                                <h3 className="text-2xl font-bold text-foreground mb-2">Free Plan</h3>
+                                <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Free Plan</h3>
                                 <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-black text-foreground">₹0</span>
-                                        <span className="text-sm font-medium text-muted-foreground">/ month</span>
+                                        <span className="text-xs sm:text-sm font-medium text-muted-foreground">/ month</span>
                                     </div>
-                                    <div className="text-xs text-muted-foreground font-medium mt-1">
+                                    <div className="text-xs text-muted-foreground font-medium mt-0.5">
                                         Basic plan for personal tracking
                                     </div>
                                 </div>
                                 <ul className="space-y-2.5 mb-6 mt-4">
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Up to 50 Txns / Month</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> 1 Member Max (Owner only)</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Manual Transaction Entry</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Basic Category Tracking</li>
-                                    <li className="flex items-center gap-2 text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" /> <span>Family Sharing</span></li>
-                                    <li className="flex items-center gap-2 text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" /> <span>Statement PDF Import</span></li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Up to 50 Txns / Month</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> 1 Member Max (Owner only)</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Manual Transaction Entry</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Basic Category Tracking</li>
+                                    <li className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 shrink-0" /> <span>Family Sharing</span></li>
+                                    <li className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground/50"><X className="w-4 h-4 text-muted-foreground/40 shrink-0" /> <span>Statement PDF Import</span></li>
                                 </ul>
                             </div>
                             <div>
                                 {subscription === 'free' ? (
-                                    <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
+                                    <div className="text-center py-2.5 px-4 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-xs sm:text-sm">
                                         Current Plan
                                     </div>
                                 ) : (
@@ -924,7 +966,7 @@ const Account = () => {
                                                 updateSubscription('free');
                                             }
                                         }}
-                                        className="block w-full py-2.5 px-6 text-center rounded-xl border border-border text-muted-foreground hover:bg-muted font-bold transition-colors text-xs"
+                                        className="block w-full py-2.5 px-4 text-center rounded-xl border border-border text-muted-foreground hover:bg-muted font-bold transition-colors text-xs cursor-pointer"
                                     >
                                         Switch to Free
                                     </button>
@@ -932,46 +974,50 @@ const Account = () => {
                             </div>
                         </div>
 
-                        {/* Starter Plan */}
-                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between", subscription === 'starter' ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "border-border bg-card shadow-sm")}>
+                        {/* Starter Plan Card */}
+                        <div className={cn(
+                            "p-5 sm:p-6 rounded-2xl border transition-all relative flex flex-col justify-between",
+                            subscription === 'starter' ? "border-primary ring-1 ring-primary/20 bg-primary/5 shadow-md" : "border-border bg-card shadow-sm",
+                            mobilePlanTab !== 'starter' ? "hidden md:flex" : "flex"
+                        )}>
                             <div>
                                 {subscription === 'starter' && (
                                     <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
                                         ✅ ACTIVE
                                     </div>
                                 )}
-                                <h3 className="text-2xl font-bold text-foreground mb-2">Starter Plan</h3>
+                                <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Starter Plan</h3>
                                 <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-black text-foreground">₹9</span>
-                                        <span className="text-sm font-medium text-muted-foreground">/ month</span>
+                                        <span className="text-xs sm:text-sm font-medium text-muted-foreground">/ month</span>
                                     </div>
-                                    <div className="text-xs text-primary font-semibold mt-1">
+                                    <div className="text-xs text-primary font-semibold mt-0.5">
                                         Best for couples & solo tracking
                                     </div>
                                 </div>
                                 <ul className="space-y-2.5 mb-6 mt-4">
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Unlimited Monthly Txns</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> 2 Members (Owner + 1 Invited)</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Multiple Banks & Cash Wallet</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Statement PDF & CSV Import</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> CSV / Excel Data Export</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> Category Budgets & Alerts</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Unlimited Monthly Txns</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> 2 Members (Owner + 1 Invited)</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Multiple Banks & Cash Wallet</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Statement PDF & CSV Import</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> CSV / Excel Data Export</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Category Budgets & Alerts</li>
                                 </ul>
                             </div>
                             <div>
                                 {subscription === 'starter' ? (
-                                    <div className="text-center py-2.5 px-6 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-sm">
+                                    <div className="text-center py-2.5 px-4 rounded-xl bg-muted text-muted-foreground font-bold border border-border text-xs sm:text-sm">
                                         ✅ Starter Plan Active
                                     </div>
                                 ) : (
                                     <button
                                         onClick={() => handleUpgrade('starter')}
                                         disabled={checkoutLoading}
-                                        className="block w-full py-3 px-6 text-center rounded-xl font-bold transition-all bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-sm"
+                                        className="block w-full py-3 px-4 text-center rounded-xl font-bold transition-all bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs sm:text-sm cursor-pointer"
                                     >
                                         {checkoutLoading ? (
-                                            <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
+                                            <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Processing...</span>
                                         ) : (
                                             "Subscribe — ₹9 / mo"
                                         )}
@@ -980,52 +1026,55 @@ const Account = () => {
                             </div>
                         </div>
 
-                        {/* Pro Plan */}
-                        <div className={cn("p-6 rounded-2xl border transition-all relative flex flex-col justify-between border-amber-500/40 ring-1 ring-amber-500/20 bg-amber-500/5 shadow-md")}>
+                        {/* Pro Plan Card */}
+                        <div className={cn(
+                            "p-5 sm:p-6 rounded-2xl border transition-all relative flex flex-col justify-between border-amber-500/40 ring-1 ring-amber-500/20 bg-amber-500/5 shadow-md",
+                            mobilePlanTab !== 'pro' ? "hidden md:flex" : "flex"
+                        )}>
                             <div>
-                                <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-extrabold px-3 py-1 rounded-bl-xl rounded-tr-xl shadow-sm">
+                                <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[11px] font-extrabold px-3 py-1 rounded-bl-xl rounded-tr-xl shadow-xs">
                                     {subscription === 'trial' ? '✨ TRIAL ACTIVE' : (isPro && subscription !== 'starter' ? '✅ ACTIVE' : '🔥 POPULAR')}
                                 </div>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Crown className="w-5 h-5 text-amber-500" />
-                                    <h3 className="text-2xl font-bold text-foreground">Pro Plan</h3>
+                                    <h3 className="text-xl sm:text-2xl font-bold text-foreground">Pro Plan</h3>
                                 </div>
                                 <div className="flex flex-col gap-1 mb-2 pb-4 border-b border-border">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-black text-foreground">₹100</span>
-                                        <span className="text-sm font-medium text-muted-foreground">/ month</span>
+                                        <span className="text-xs sm:text-sm font-medium text-muted-foreground">/ month</span>
                                     </div>
                                     {subscription === 'trial' && trialEndDate ? (
-                                        <div className="text-xs text-amber-500 font-semibold mt-1">
+                                        <div className="text-xs text-amber-500 font-semibold mt-0.5">
                                             🎉 Free Trial active — {remainingTrialDays} days remaining!
                                         </div>
                                     ) : (
-                                        <div className="text-xs text-amber-500 font-semibold mt-1">
+                                        <div className="text-xs text-amber-500 font-semibold mt-0.5">
                                             Includes Free 90-Day Trial!
                                         </div>
                                     )}
                                 </div>
                                 <ul className="space-y-2.5 mb-6 mt-4">
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Everything in Starter</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> 4 Members (Team/Family)</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Advanced Charts & Trends</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Loans & Debts EMI Tracker</li>
-                                    <li className="flex items-center gap-3 text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 flex-shrink-0" /> Priority Cloud Sync</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" /> Everything in Starter</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" /> 4 Members (Team/Family)</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" /> Advanced Charts & Trends</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" /> Loans & Debts EMI Tracker</li>
+                                    <li className="flex items-center gap-3 text-xs sm:text-sm text-foreground"><CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" /> Priority Cloud Sync</li>
                                 </ul>
                             </div>
                             <div>
                                 {isPro && subscription !== 'starter' && subscription !== 'free' && subscription !== 'trial' ? (
-                                    <div className="text-center py-2.5 px-6 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30 text-sm">
+                                    <div className="text-center py-2.5 px-4 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30 text-xs sm:text-sm">
                                         ✅ Pro Active
                                     </div>
                                 ) : (
                                     <button
                                         onClick={() => handleUpgrade('monthly')}
                                         disabled={checkoutLoading}
-                                        className="block w-full py-3 px-6 text-center rounded-xl font-bold transition-all bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:opacity-90 shadow-md text-sm"
+                                        className="block w-full py-3 px-4 text-center rounded-xl font-bold transition-all bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:opacity-90 shadow-md text-xs sm:text-sm cursor-pointer"
                                     >
                                         {checkoutLoading ? (
-                                            <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span>
+                                            <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Processing...</span>
                                         ) : subscription === 'trial' ? (
                                             "Subscribe Pro — ₹100 / mo"
                                         ) : (
@@ -1035,7 +1084,11 @@ const Account = () => {
                                 )}
                             </div>
                         </div>
+                    </div>
 
+                    {/* Integrated Coupon Voucher Redemption */}
+                    <div className="mt-5">
+                        <CouponCard />
                     </div>
                 </div>
 

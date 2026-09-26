@@ -121,6 +121,10 @@ const DEFAULT_STATE = {
   initialCashBalance: 0,
   cashSeedDate: null,
   accountingStartDate: null,
+  // ── Virtual Salary Pocket System ─────────────────────────────────────────
+  monthlySalary: 0,
+  salaryPockets: [],   // [{ id, name, icon, color, allocatedTo, allocatedAmount }]
+  savingsPool: [],     // [{ id, name, type:'liquid'|'locked', amount, source, month }]
 };
 
 const STORAGE_KEY = "fintrack_data";
@@ -1485,7 +1489,50 @@ export function FinanceProvider({ children }) {
     }
   };
 
+
+  // ─── Salary Pocket System ───────────────────────────────────────────────
+  const updateSalaryPockets = useCallback((data) => {
+    // data = { monthlySalary, salaryPockets }
+    saveImmediate({
+      ...state,
+      monthlySalary: Number(data.monthlySalary) || 0,
+      salaryPockets: data.salaryPockets || [],
+    });
+  }, [state, saveImmediate]);
+
+  const addToSavingsPool = useCallback((amount, source = 'salary_remainder') => {
+    const month = new Date().toISOString().slice(0, 7);
+    const newEntry = {
+      id: `sav_${Date.now()}`,
+      name: source === 'salary_remainder' ? `${month} Salary Remainder` : 'Manual Savings',
+      type: 'liquid',
+      amount: Number(amount) || 0,
+      source,
+      month,
+      createdAt: new Date().toISOString(),
+    };
+    saveImmediate({
+      ...state,
+      savingsPool: [...(state.savingsPool || []), newEntry],
+    });
+  }, [state, saveImmediate]);
+
+  const markDeferredAsPaid = useCallback((txId) => {
+    const nowIso = new Date().toISOString();
+    const actor = currentActorName;
+    const next = {
+      ...state,
+      transactions: state.transactions.map(t =>
+        t.id === txId
+          ? { ...t, paymentStatus: 'paid', paidAt: nowIso, updatedBy: actor, updatedAt: nowIso }
+          : t
+      ),
+    };
+    saveDebounced(next);
+  }, [state, saveDebounced, currentActorName]);
+
   const updateBudget      = (b)    => saveImmediate({ ...state, monthlyBudget: parseFloat(b) });
+
   const updateSalaryDate  = (d)    => saveImmediate({ ...state, salaryDate: parseInt(d) });
   const updateAccountingStartDate = (date) => saveImmediate({ ...state, accountingStartDate: date || null });
 
@@ -1693,6 +1740,14 @@ export function FinanceProvider({ children }) {
     totalBalance: bankBalance + cashBalance,
     bankAccountBalances,
 
+    // ── Salary Pocket System ─────────────────────────────────────────────
+    monthlySalary:        state.monthlySalary || 0,
+    salaryPockets:        state.salaryPockets || [],
+    savingsPool:          state.savingsPool   || [],
+    updateSalaryPockets,
+    addToSavingsPool,
+    markDeferredAsPaid,
+
     // Household (team sharing)
     currentActorName,
     householdId:            state.householdId || null,
@@ -1725,6 +1780,7 @@ export function FinanceProvider({ children }) {
     addLoan, deleteLoan,
     clearData,
   };
+
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }

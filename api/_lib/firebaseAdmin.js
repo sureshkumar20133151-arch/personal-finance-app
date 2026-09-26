@@ -41,8 +41,10 @@ function decodeFirebaseJwt(token) {
     const payload = JSON.parse(Buffer.from(base64, "base64").toString("utf-8"));
     const uid = payload.user_id || payload.uid || payload.sub;
     if (!uid) return null;
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) return null; // Expired token
     return { uid, email: payload.email || "", ...payload };
-  } catch (e) {
+  } catch {
     return null;
   }
 }

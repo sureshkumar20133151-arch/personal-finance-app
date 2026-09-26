@@ -12,6 +12,7 @@ import AnalyticsWidget from '../components/AnalyticsWidget';
 import { cn } from '../lib/utils';
 import CircleProgress from '../components/CircleProgress';
 import CategoryIcon from '../components/CategoryIcon';
+import SalaryPocketSystem, { DeferredPaymentsPanel } from '../components/SalaryPocketSystem';
 
 
 // ── Mini sparkline bar chart ──────────────────────────────────────────────────
@@ -131,7 +132,9 @@ const Dashboard = () => {
     rescanTransactions,
     bankBalance, cashBalance, totalBalance, bankAccountBalances,
     isSmsUnlocked, isPro,
-    householdId, currentActorName
+    householdId, currentActorName,
+    monthlySalary, salaryPockets, savingsPool,
+    updateSalaryPockets, addToSavingsPool, markDeferredAsPaid,
   } = useFinanceData();
 
   const netBalance = totalBalance;
@@ -880,6 +883,24 @@ const Dashboard = () => {
             );
           })()}
 
+
+          {/* ── Salary Pocket System ── */}
+          <SalaryPocketSystem
+            monthlySalary={monthlySalary}
+            salaryPockets={salaryPockets}
+            transactions={transactions}
+            currentMonth={currentDate}
+            formatMoney={formatMoney}
+            onUpdateSalaryPockets={updateSalaryPockets}
+            onTransferToSavings={(amt) => addToSavingsPool(amt, 'salary_remainder')}
+          />
+
+          {/* ── Deferred Payments Panel ── */}
+          <DeferredPaymentsPanel
+            transactions={transactions}
+            onMarkPaid={markDeferredAsPaid}
+            formatMoney={formatMoney}
+          />
 
           {/* KPI Cards */}
           <div id="tour-kpi-cards" className="grid gap-3 grid-cols-2 lg:grid-cols-4">

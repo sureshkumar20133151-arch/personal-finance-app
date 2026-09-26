@@ -1,0 +1,201 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  .wrap { padding: 1rem 0; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { padding: 6px 14px; font-size: 13px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); cursor: pointer; color: var(--color-text-secondary); background: var(--color-background-primary); }
+  .tab.active { background: var(--color-background-secondary); color: var(--color-text-primary); border-color: var(--color-border-primary); font-weight: 500; }
+  .sms-box { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 12px 14px; font-size: 13px; font-family: var(--font-mono); color: var(--color-text-primary); line-height: 1.6; margin-bottom: 1rem; word-break: break-word; }
+  .highlight-bad { background: #F7C1C1; color: #501313; padding: 1px 3px; border-radius: 3px; }
+  .highlight-good { background: #C0DD97; color: #173404; padding: 1px 3px; border-radius: 3px; }
+  .result-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+  .label { font-size: 12px; color: var(--color-text-secondary); min-width: 80px; padding-top: 2px; }
+  .val { font-size: 14px; font-weight: 500; }
+  .val.wrong { color: #A32D2D; }
+  .val.right { color: #3B6D11; }
+  .val.null { color: var(--color-text-tertiary); font-style: italic; font-weight: 400; }
+  .bug-tag { display: inline-block; background: #FAECE7; color: #993C1D; font-size: 11px; padding: 2px 8px; border-radius: 3px; margin-bottom: 8px; }
+  .fix-tag { display: inline-block; background: #EAF3DE; color: #3B6D11; font-size: 11px; padding: 2px 8px; border-radius: 3px; margin-bottom: 8px; }
+  .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 12px; }
+  .card-title { font-size: 13px; font-weight: 500; margin-bottom: 10px; color: var(--color-text-secondary); display: flex; gap: 8px; align-items: center; }
+  .divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 10px 0; }
+  .custom-area { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; font-size: 13px; font-family: var(--font-mono); width: 100%; min-height: 70px; resize: vertical; background: var(--color-background-primary); color: var(--color-text-primary); }
+  .parse-btn { margin-top: 8px; padding: 7px 18px; font-size: 13px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); cursor: pointer; background: var(--color-background-primary); color: var(--color-text-primary); }
+  .parse-btn:hover { background: var(--color-background-secondary); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 500px) { .two-col { grid-template-columns: 1fr; } }
+  .bug-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #F0997B; color: #4A1B0C; font-size: 11px; font-weight: 500; }
+  .fix-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #97C459; color: #173404; font-size: 11px; font-weight: 500; }
+</style>
+
+<div class="wrap">
+
+<div class="tabs" id="tabs">
+  <div class="tab active" onclick="setTab(0)">Bug 1: Cr Bal</div>
+  <div class="tab" onclick="setTab(1)">Bug 2: Dr boundary</div>
+  <div class="tab" onclick="setTab(2)">Bug 3: Missing keywords</div>
+  <div class="tab" onclick="setTab(3)">Bug 4: Balance pickup</div>
+  <div class="tab" onclick="setTab(4)">Bug 5: Amount > 0 not checked</div>
+  <div class="tab" onclick="setTab(5)">Test your SMS</div>
+</div>
+
+<div id="panel"></div>
+
+</div>
+
+<script>
+const BUGS = [
+  {
+    title: "Cr Bal parsed as credit income",
+    sms: "Rs.500 txn from A/c XX1234 on 01-Jun. Cr Bal Rs.9500.",
+    badPattern: "Cr Bal Rs.9500",
+    bugDesc: "Pattern cr\\.?\\s*(?:rs\\.?|inr|₹)?\\s*([\\d,]+) matches 'Cr Bal Rs.9500' → income ₹9500 (WRONG!)",
+    fixDesc: "Require currency symbol directly after Cr with no gap word. Exclude 'bal' between Cr and amount.",
+    bugResult: { amount: 9500, type: "income", desc: "Online Transaction" },
+    fixResult: { amount: null, type: null, desc: "(skipped — no debit keyword found in SMS)" }
+  },
+  {
+    title: "dr without word boundary matches 'order'",
+    sms: "Your order #ORD9001 Rs.1200 processed. Avl Bal Rs.8800.",
+    badPattern: "order",
+    bugDesc: "Pattern dr\\.?\\s*[\\d]+ matches 'dr' inside 'order' — picks up 9001 as amount!",
+    fixDesc: "Add \\b word boundary: \\bdr\\b so it only matches standalone 'Dr' not 'order'.",
+    bugResult: { amount: 9001, type: "expense", desc: "Online Transaction" },
+    fixResult: { amount: null, type: null, desc: "(skipped — 'order' not a bank transaction SMS)" }
+  },
+  {
+    title: "Missing debit keywords",
+    sms: "Your HDFC Card XX1234 used for Rs.3500 at SWIGGY on 01-Jun. Avl Limit Rs.46500.",
+    badPattern: "used for",
+    bugDesc: "No DEBIT_PATTERN matches 'used for Rs.3500' — amount returns null, transaction missed completely.",
+    fixDesc: "Add 'used\\s+for', 'purchase', 'debit\\s+of' to DEBIT_PATTERNS.",
+    bugResult: { amount: null, type: null, desc: "(null — missed entirely)" },
+    fixResult: { amount: 3500, type: "expense", desc: "SWIGGY" }
+  },
+  {
+    title: "Available balance picked up as amount",
+    sms: "A/c XX1234 debited by Rs.200. Avail bal Rs.19800.",
+    badPattern: "Rs.19800",
+    bugDesc: "Some patterns iterate the full SMS. If debit fails, credit runs and 'Avail bal Rs.19800' can match.",
+    fixDesc: "Pre-strip 'Avl/Avail Bal Rs.XXXX' from SMS before running patterns.",
+    bugResult: { amount: 19800, type: "income", desc: "Online Transaction" },
+    fixResult: { amount: 200, type: "expense", desc: "Online Transaction" }
+  },
+  {
+    title: "amount <= 0 not caught in smsParser.js",
+    sms: "INR 0.00 debited from A/c XX1234.",
+    badPattern: "INR 0.00",
+    bugDesc: "autoScanSms.js checks amount > 0 but smsParser.js only checks isNaN — zero amounts slip through.",
+    fixDesc: "Change 'if (!amount || isNaN(amount))' to 'if (!amount || isNaN(amount) || amount <= 0)' in smsParser.js.",
+    bugResult: { amount: 0, type: "expense", desc: "Online Transaction" },
+    fixResult: { amount: null, type: null, desc: "(filtered out)" }
+  }
+];
+
+let activeTab = 0;
+
+function setTab(i) {
+  activeTab = i;
+  document.querySelectorAll('.tab').forEach((t,j) => t.className = 'tab' + (j===i?' active':''));
+  render();
+}
+
+function highlightSms(sms, bad) {
+  const esc = bad.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return sms.replace(new RegExp(esc,'g'), m => `<span class="highlight-bad">${m}</span>`);
+}
+
+function resultCard(label, r, isBug) {
+  const cls = isBug ? 'wrong' : 'right';
+  const isNull = r.amount === null;
+  return `<div class="card">
+    <div class="card-title">${isBug ? '<span class="bug-num">!</span>' : '<span class="fix-num">✓</span>'} ${label}</div>
+    <div class="result-row"><span class="label">Amount</span><span class="val ${isNull?'null':cls}">${isNull ? 'null' : '₹' + r.amount.toLocaleString('en-IN')}</span></div>
+    <div class="result-row"><span class="label">Type</span><span class="val ${isNull?'null':cls}">${isNull ? 'null' : r.type}</span></div>
+    <div class="result-row"><span class="label">Merchant</span><span class="val ${isNull?'null':''}">${r.desc}</span></div>
+  </div>`;
+}
+
+function customParse(sms) {
+  const DEBIT = [
+    /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been\s+)?(?:debited|spent|withdrawn|transferred|transfer|paid|deducted|sent|charged|charge)/i,
+    /(?:debited|spent|paid|withdrawn|deducted|sent|transferred|transfer|charged|charge|used\s+for|purchase(?:d)?|debit\s+of)\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /sent\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*to/i,
+    /\bdr\b\.?\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*\bdr\b/i,
+    /debited\s+with\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /txn\s+of\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+debited/i,
+    /payment\s+of\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  ];
+  const CREDIT = [
+    /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been\s+)?(?:credited|deposited|received|added|refunded)/i,
+    /(?:credited|deposited|received|added|refunded)\s*(?:for|by|of|with|towards)?\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:sent|transferred|paid)\s+you\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /\bcr\b\.?\s+(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*\bcr\b/i,
+  ];
+  const stripped = sms.replace(/(?:avl|avail(?:able)?\.?)\s*(?:bal(?:ance)?|limit)\s*(?:is\s*)?(?:inr|rs\.?|₹)?\s*[\d,]+(?:\.\d{1,2})?/gi, '')
+                       .replace(/\bcr\.?\s*bal(?:ance)?\s*(?:inr|rs\.?|₹)?\s*[\d,]+(?:\.\d{1,2})?/gi, '');
+  const low = stripped.toLowerCase();
+  if (low.includes('failed')||low.includes('declined')||low.includes('insufficient')) return null;
+  const bank = /\b(a\/c|acct|account|balance|debited|credited|dr\b|cr\b|inr|rs\.?|₹|upi|neft|imps|rtgs|netbanking|atm)\b/i;
+  if (!bank.test(sms)) return null;
+  let amount=null,type=null;
+  for (const p of DEBIT) { const m=stripped.match(p); if(m){const v=(m[1]||m[2]||'').replace(/,/g,''); if(v){amount=parseFloat(v);type='expense';break;}}}
+  if (!amount) { for (const p of CREDIT) { const m=stripped.match(p); if(m){const v=(m[1]||m[2]||'').replace(/,/g,''); if(v){amount=parseFloat(v);type='income';break;}}}}
+  if (!amount||isNaN(amount)||amount<=0) return null;
+  const MP = /(?:at|to|towards|vpa)\s+([a-zA-Z0-9\s\-_\.@*]{3,20}?)(?:\s+(?:on|via|ref)|[.,]|$)/gi;
+  let merchant=null;
+  for (const m of sms.matchAll(MP)) { if(m[1]&&m[1].trim().length>2&&!/a\/c|acct|account/i.test(m[1])){merchant=m[1].trim();break;}}
+  return { amount, type, desc: merchant ? merchant.substring(0,25) : 'Online Transaction' };
+}
+
+function render() {
+  const panel = document.getElementById('panel');
+  if (activeTab === 5) {
+    panel.innerHTML = `
+      <div class="card">
+        <div class="card-title"><i class="ti ti-device-mobile" aria-hidden="true"></i> Test your own bank SMS</div>
+        <textarea class="custom-area" id="customSms" placeholder="Paste any bank SMS here...&#10;e.g. INR 500.00 debited from A/c XX1234. Avl Bal INR 4500."></textarea>
+        <button class="parse-btn" onclick="runCustom()">Parse SMS ↗</button>
+        <div id="customResult" style="margin-top:12px;"></div>
+      </div>`;
+    return;
+  }
+  const b = BUGS[activeTab];
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-title"><span class="bug-num">${activeTab+1}</span> ${b.title}</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;">SMS</div>
+      <div class="sms-box">${highlightSms(b.sms, b.badPattern)}</div>
+      <span class="bug-tag"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Bug: ${b.bugDesc}</span>
+      <hr class="divider">
+      <span class="fix-tag"><i class="ti ti-check" aria-hidden="true"></i> Fix: ${b.fixDesc}</span>
+    </div>
+    <div class="two-col">
+      ${resultCard('Current (buggy) output', b.bugResult, true)}
+      ${resultCard('Fixed output', b.fixResult, false)}
+    </div>`;
+}
+
+function runCustom() {
+  const sms = document.getElementById('customSms').value.trim();
+  if (!sms) return;
+  const r = customParse(sms);
+  const el = document.getElementById('customResult');
+  if (!r) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--color-text-secondary);padding:8px 0;">No financial transaction detected (OTP / promo / failed txn SMS skipped correctly)</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="card">
+    <div class="card-title"><span class="fix-num">✓</span> Parsed (fixed logic)</div>
+    <div class="result-row"><span class="label">Amount</span><span class="val right">₹${r.amount.toLocaleString('en-IN')}</span></div>
+    <div class="result-row"><span class="label">Type</span><span class="val right">${r.type}</span></div>
+    <div class="result-row"><span class="label">Merchant</span><span class="val">${r.desc}</span></div>
+  </div>`;
+}
+
+render();
+</script>

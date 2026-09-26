@@ -474,7 +474,9 @@ async function resolveUserProfileAndTeam(db, uid, data = {}) {
         if (cData.name) profileName = cData.name;
         if (cData.email) userEmail = userEmail || cData.email;
       }
-    } catch (cErr) {}
+    } catch {
+      // Non-fatal fallback error ignored
+    }
   }
 
   // 4. Fallback to email username or Suresh
@@ -870,6 +872,7 @@ async function handleAddTransaction(args = {}, targetUid) {
     categoryId,
     paymentMode: payment_mode || 'other',
     source: 'mcp',
+    paidBy: (data.profile?.firstName || data.displayName || (uid === DEFAULT_ROSIE_UID ? 'Rosy' : 'Suresh')),
     createdBy: 'Claude',
     updatedBy: 'Claude',
     updatedAt: new Date().toISOString(),

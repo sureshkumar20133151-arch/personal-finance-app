@@ -170,7 +170,9 @@ export function AuthProvider({ children }) {
                                 if (cloudPhoto) {
                                     try {
                                         localStorage.setItem(`custom_photo_${user.uid}`, cloudPhoto);
-                                    } catch {}
+                                    } catch {
+                                        // Ignore storage quota or access errors in private browsing
+                                    }
                                     setCurrentUser(createUserProxy(user, cloudPhoto));
                                 }
                             }
