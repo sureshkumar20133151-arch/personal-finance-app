@@ -733,29 +733,29 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── HERO BALANCE CARD (Glassmorphism, CRED-style) ── */}
-      <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700" />
-        {/* Glass noise overlay */}
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
-        {/* Glow orbs */}
-        <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-purple-400/30 blur-3xl" />
-        <div className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-blue-400/20 blur-2xl" />
+      {/* ── HERO BALANCE CARD (Glassmorphism, Luxury Black CRED-style) ── */}
+      <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black">
+        {/* Dark Luxury Matte/Carbon Black background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-neutral-950 to-black" />
+        {/* Subtle glass reflection overlay */}
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent" />
+        {/* Subtle ambient light */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-52 h-52 rounded-full bg-white/5 blur-3xl pointer-events-none" />
 
         <div className="relative p-5 sm:p-7">
           {/* Total balance */}
           <div className="mb-5">
-            <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">Total Balance</p>
-            <p className="text-white text-4xl sm:text-5xl font-extrabold tracking-tight leading-none">
+            <p className="text-zinc-400 text-xs font-semibold uppercase tracking-widest mb-1">Total Balance</p>
+            <p className="text-white text-4xl sm:text-5xl font-extrabold tracking-tight leading-none font-mono">
               {formatMoney(netBalance)}
             </p>
             {expenseTrend !== null && (
               <span className={cn(
-                'inline-flex items-center gap-1 mt-2 text-[11px] font-bold px-2.5 py-1 rounded-full',
+                'inline-flex items-center gap-1 mt-2.5 text-[11px] font-bold px-2.5 py-1 rounded-full border',
                 expenseTrend <= 0
-                  ? 'bg-emerald-400/25 text-emerald-200'
-                  : 'bg-red-400/25 text-red-200'
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : 'bg-red-500/15 text-red-400 border-red-500/30'
               )}>
                 {expenseTrend > 0 ? '↑' : '↓'} {Math.abs(expenseTrend)}% vs last month
               </span>
@@ -765,13 +765,17 @@ const Dashboard = () => {
           {/* 3 stat pills */}
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
-              { label: 'Income', value: income, icon: '💚', color: 'from-emerald-400/20 to-emerald-400/10', border: 'border-emerald-400/30' },
-              { label: 'Spent',  value: expense, icon: '🔴', color: 'from-red-400/20 to-red-400/10',     border: 'border-red-400/30' },
-              { label: 'Saved',  value: savings, icon: '💙', color: 'from-blue-400/20 to-blue-400/10',   border: 'border-blue-400/30' },
+              { label: 'Income', value: income, icon: '💚', textCol: 'text-emerald-400', border: 'border-emerald-500/25', bg: 'bg-zinc-900/80 hover:bg-zinc-900' },
+              { label: 'Spent',  value: expense, icon: '🔴', textCol: 'text-red-400',     border: 'border-red-500/25',     bg: 'bg-zinc-900/80 hover:bg-zinc-900' },
+              { label: 'Saved',  value: savings, icon: '💙', textCol: 'text-blue-400',    border: 'border-blue-500/25',    bg: 'bg-zinc-900/80 hover:bg-zinc-900' },
             ].map(stat => (
-              <div key={stat.label} className={cn('rounded-2xl border p-3 sm:p-4 bg-gradient-to-br backdrop-blur-sm', stat.color, stat.border)}>
-                <p className="text-white/60 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">{stat.label}</p>
-                <p className="text-white text-sm sm:text-lg font-extrabold tracking-tight mt-0.5 truncate">{formatMoney(stat.value)}</p>
+              <div key={stat.label} className={cn('rounded-2xl border p-3 sm:p-4 backdrop-blur-md transition-all shadow-sm', stat.bg, stat.border)}>
+                <p className="text-zinc-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wide flex items-center gap-1">
+                  <span>{stat.icon}</span> {stat.label}
+                </p>
+                <p className={cn('text-sm sm:text-lg font-extrabold tracking-tight mt-0.5 truncate font-mono', stat.textCol)}>
+                  {formatMoney(stat.value)}
+                </p>
               </div>
             ))}
           </div>
@@ -779,28 +783,28 @@ const Dashboard = () => {
           {/* Budget progress bar */}
           {monthlyBudget > 0 && (
             <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="flex justify-between text-white/70 text-[10px] font-semibold mb-1.5">
-                <span>Budget: {formatMoney(expense)} / {formatMoney(monthlyBudget)}</span>
-                <span className={budgetUsed > 100 ? 'text-red-300' : budgetUsed > 80 ? 'text-amber-300' : 'text-emerald-300'}>
+              <div className="flex justify-between text-zinc-400 text-[10px] font-semibold mb-1.5">
+                <span>Budget: <span className="text-zinc-200 font-bold">{formatMoney(expense)}</span> / {formatMoney(monthlyBudget)}</span>
+                <span className={budgetUsed > 100 ? 'text-red-400 font-bold' : budgetUsed > 80 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
                   {budgetUsed}% used
                 </span>
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-2 bg-zinc-800/80 rounded-full overflow-hidden border border-white/5">
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{
                     width: `${Math.min(budgetUsed, 100)}%`,
-                    backgroundColor: budgetUsed > 100 ? '#f87171' : budgetUsed > 80 ? '#fbbf24' : '#34d399'
+                    backgroundColor: budgetUsed > 100 ? '#ef4444' : budgetUsed > 80 ? '#f59e0b' : '#10b981'
                   }}
                 />
               </div>
               {!isOverBudget && daysLeft > 0 && (
-                <p className="text-white/50 text-[10px] mt-1.5">
+                <p className="text-zinc-400 text-[10px] mt-1.5">
                   💡 Safe to spend <span className="text-white font-bold">{formatMoney(Math.round(Math.max(monthlyBudget - expense, 0) / daysLeft))}/day</span> for {daysLeft} more days
                 </p>
               )}
               {isOverBudget && (
-                <p className="text-red-300 text-[10px] mt-1.5 font-bold">🚨 Over budget by {formatMoney(Math.abs(monthlyBudget - expense))}</p>
+                <p className="text-red-400 text-[10px] mt-1.5 font-bold">🚨 Over budget by {formatMoney(Math.abs(monthlyBudget - expense))}</p>
               )}
             </div>
           )}
