@@ -50,6 +50,55 @@ const Setup = () => {
         showToast('Starting balances updated.');
     };
 
+    // Add Bank state
+    const [isAddBankOpen, setIsAddBankOpen] = useState(false);
+    const [newBankName, setNewBankName] = useState('');
+    const [newAccountEnding, setNewAccountEnding] = useState('');
+    const [newBankBalance, setNewBankBalance] = useState('');
+    const [newBankDate, setNewBankDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const handleAddBankAccount = () => {
+        const bName = newBankName.trim();
+        const aEnding = newAccountEnding.trim() || '1234';
+        if (!bName) {
+            showToast('Please enter a bank name', 'error');
+            return;
+        }
+        const key = `${bName}_${aEnding}`;
+        const nextBalances = {
+            ...tempBankBalances,
+            [key]: {
+                amount: parseFloat(newBankBalance) || 0,
+                date: newBankDate ? new Date(newBankDate).toISOString() : new Date().toISOString()
+            }
+        };
+        setTempBankBalances(nextBalances);
+        updateStartingBalances(nextBalances, tempCash, tempCashDate ? new Date(tempCashDate).toISOString() : null);
+        showToast(`Added ${bName} (**** ${aEnding})`);
+        setIsAddBankOpen(false);
+        setNewBankName('');
+        setNewAccountEnding('');
+        setNewBankBalance('');
+    };
+
+    const handleDeleteBank = (key) => {
+        const [bName, aEnding] = key.split('_');
+        if (window.confirm(`Remove ${bName} (**** ${aEnding}) from bank balances?`)) {
+            const next = { ...tempBankBalances };
+            delete next[key];
+            setTempBankBalances(next);
+            updateStartingBalances(next, tempCash, tempCashDate ? new Date(tempCashDate).toISOString() : null);
+            showToast(`${bName} removed`);
+        }
+    };
+
+    const allBankKeys = useMemo(() => {
+        const keys = new Set();
+        (bankAccountBalances || []).forEach(acc => keys.add(`${acc.bankName}_${acc.accountEnding}`));
+        Object.keys(tempBankBalances || {}).forEach(k => keys.add(k));
+        return Array.from(keys);
+    }, [bankAccountBalances, tempBankBalances]);
+
     // Category Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
@@ -291,23 +340,130 @@ const Setup = () => {
                     </div>
 
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
-                        <h3 className="font-semibold mb-1 flex items-center gap-2">
-                            <span style={{ fontSize: '16px' }}>🏦</span> Starting Balances
-                        </h3>
+                        <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <span style={{ fontSize: '16px' }}>🏦</span> Starting Balances
+                            </h3>
+                            <button
+                                onClick={() => setIsAddBankOpen(prev => !prev)}
+                                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>{isAddBankOpen ? 'Close' : 'Add Bank'}</span>
+                            </button>
+                        </div>
                         <p className="text-xs text-muted-foreground mb-4">
                             Set your actual starting account balances for accurate tracking.
                         </p>
+
+                        {/* Add Bank Form */}
+                        {isAddBankOpen && (
+                            <div className="p-4 mb-4 rounded-xl border border-primary/30 bg-primary/5 space-y-3 animate-in fade-in duration-200">
+                                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <span>➕</span> Add Bank Account
+                                </p>
+
+                                {/* Quick Bank Presets */}
+                                <div className="flex flex-wrap gap-1.5">
+                                    {['Indian Bank', 'Canara Bank', 'SBI', 'HDFC Bank', 'ICICI Bank', 'Axis Bank'].map(b => (
+                                        <button
+                                            key={b}
+                                            type="button"
+                                            onClick={() => setNewBankName(b)}
+                                            className={cn(
+                                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all",
+                                                newBankName === b
+                                                    ? "bg-primary text-primary-foreground border-primary"
+                                                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                                            )}
+                                        >
+                                            {b}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase">Bank Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Indian Bank"
+                                            value={newBankName}
+                                            onChange={(e) => setNewBankName(e.target.value)}
+                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary shadow-sm mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase">A/C Ending (Last 4 digits)</label>
+                                        <input
+                                            type="text"
+                                            maxLength={4}
+                                            placeholder="e.g. 5678"
+                                            value={newAccountEnding}
+                                            onChange={(e) => setNewAccountEnding(e.target.value)}
+                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary shadow-sm mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase">Starting Balance (₹)</label>
+                                        <input
+                                            type="number"
+                                            placeholder="e.g. 50000"
+                                            value={newBankBalance}
+                                            onChange={(e) => setNewBankBalance(e.target.value)}
+                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary shadow-sm mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase">As of Date</label>
+                                        <input
+                                            type="date"
+                                            value={newBankDate}
+                                            onChange={(e) => setNewBankDate(e.target.value)}
+                                            className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary shadow-sm mt-1"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddBankOpen(false)}
+                                        className="text-xs px-3 py-1.5 rounded-lg border text-muted-foreground hover:bg-muted"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddBankAccount}
+                                        className="text-xs px-4 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow-sm"
+                                    >
+                                        Save Bank
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4">
-                                {bankAccountBalances.map((acc) => {
-                                    const key = `${acc.bankName}_${acc.accountEnding}`;
+                            <div className="grid grid-cols-1 gap-3">
+                                {allBankKeys.map((key) => {
+                                    const [bName, aEnding] = key.split('_');
                                     const currentData = tempBankBalances[key] || { amount: '', date: '' };
                                     
                                     return (
-                                        <div key={key} className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border/50">
-                                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                                                {acc.bankName} (A/C **** {acc.accountEnding})
-                                            </label>
+                                        <div key={key} className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border/50 relative group">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                                    <span>🏦</span> {bName} (A/C **** {aEnding})
+                                                </label>
+                                                <button
+                                                    onClick={() => handleDeleteBank(key)}
+                                                    className="p-1 text-muted-foreground hover:text-red-500 rounded transition-colors opacity-70 hover:opacity-100"
+                                                    title="Remove bank"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                             
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="relative">
@@ -326,7 +482,7 @@ const Setup = () => {
                                                 </div>
                                                 <input
                                                     type="date"
-                                                    value={currentData.date}
+                                                    value={currentData.date ? currentData.date.split('T')[0] : ''}
                                                     onChange={(e) => setTempBankBalances({
                                                         ...tempBankBalances,
                                                         [key]: { ...currentData, date: e.target.value }
@@ -339,11 +495,10 @@ const Setup = () => {
                                     );
                                 })}
 
-                                {bankAccountBalances.length === 0 && (
-                                    <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-xl text-center border border-dashed border-border">
-                                        {isSmsUnlocked
-                                            ? "Scan SMS to automatically detect and add your bank accounts here."
-                                            : "Your active bank accounts will be listed here."}
+                                {allBankKeys.length === 0 && (
+                                    <div className="text-xs text-muted-foreground bg-muted/30 p-4 rounded-xl text-center border border-dashed border-border/80">
+                                        <p className="font-semibold text-foreground mb-1">No bank accounts added yet</p>
+                                        <p>Click <strong>"+ Add Bank"</strong> above to enter your bank name and starting balance, or upload a statement in Transactions.</p>
                                     </div>
                                 )}
 
