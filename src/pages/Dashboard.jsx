@@ -948,35 +948,10 @@ const Dashboard = () => {
       {activeTab === 'overview' && (
         <div className="space-y-5">
 
-          {/* Salary Pocket System */}
-          <SalaryPocketSystem
-            monthlySalary={monthlySalary}
-            salaryPockets={salaryPockets}
-            transactions={transactions}
-            currentMonth={currentDate}
-            formatMoney={formatMoney}
-            onUpdateSalaryPockets={updateSalaryPockets}
-            onTransferToSavings={(amt) => addToSavingsPool(amt, 'salary_remainder')}
-          />
-
           {/* Deferred Payments Panel */}
           <DeferredPaymentsPanel
             transactions={transactions}
             onMarkPaid={markDeferredAsPaid}
-            onAddPending={(pendingData) => {
-              addTransaction({
-                ...pendingData,
-                type: 'expense',
-                paymentStatus: 'deferred',
-                date: new Date().toISOString().split('T')[0],
-                paymentMode: 'cash',
-                scope: 'ours',
-              });
-              setToast({ show: true, message: `Pending payment added: ${pendingData.description}`, type: 'success' });
-              setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
-            }}
-            categories={categories}
-            defaultActor={currentActorName || 'Suresh'}
             formatMoney={formatMoney}
           />
 

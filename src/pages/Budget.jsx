@@ -8,10 +8,17 @@ import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import CircleProgress from '../components/CircleProgress';
 import { useNavigate } from 'react-router-dom';
 import { triggerHapticSelection } from '../lib/haptics';
+import SalaryPocketSystem from '../components/SalaryPocketSystem';
 
 const Budget = () => {
-    const { categories, transactions, updateCategory, formatMoney, monthlyBudget, isPro } = useFinanceData();
+    const {
+        categories, transactions, updateCategory, formatMoney, monthlyBudget, isPro,
+        monthlySalary, salaryPockets, updateSalaryPockets, addToSavingsPool
+    } = useFinanceData();
     const navigate = useNavigate();
+
+    // 2 Tabs: 'categories' | 'pockets'
+    const [budgetTab, setBudgetTab] = useState('categories');
 
     // Selection State
     const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -81,8 +88,50 @@ const Budget = () => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 animate-in fade-in pb-4 w-full max-w-full overflow-x-hidden" style={{ minHeight: 'calc(100dvh - 120px)' }}>
-            {/* Left Sidebar: Category List */}
+        <div className="max-w-6xl mx-auto space-y-4 animate-in fade-in pb-6 w-full max-w-full overflow-x-hidden">
+            {/* ── TOP HEADER & 2 TABS ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border rounded-2xl p-3.5 sm:p-4 shadow-sm">
+                <div>
+                    <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Wallet className="w-5 h-5 text-primary" />
+                        Budget & Pockets
+                    </h1>
+                    <p className="text-xs text-muted-foreground">Manage category limits and virtual salary envelopes</p>
+                </div>
+
+                {/* 2 Tabs */}
+                <div className="flex gap-1 p-1 bg-muted/60 rounded-xl border border-border/50">
+                    <button
+                        onClick={() => setBudgetTab('categories')}
+                        className={cn(
+                            "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                            budgetTab === 'categories'
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Target className="w-3.5 h-3.5" />
+                        <span>Category Budget</span>
+                    </button>
+                    <button
+                        onClick={() => setBudgetTab('pockets')}
+                        className={cn(
+                            "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                            budgetTab === 'pockets'
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <span>👛</span>
+                        <span>Salary Pockets</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* TAB 1: Category Budget */}
+            {budgetTab === 'categories' && (
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full" style={{ minHeight: 'calc(100dvh - 200px)' }}>
+                    {/* Left Sidebar: Category List */}
             <div className="md:w-72 lg:w-80 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden md:max-h-[calc(100dvh-120px)] md:sticky md:top-0">
                 <div className="p-4 border-b border-border flex flex-col gap-3">
                     <div className="flex items-center justify-between">
@@ -341,6 +390,24 @@ const Budget = () => {
                     </div>
                 )}
             </div>
+        </div>
+    )}
+
+            {/* TAB 2: Salary Pockets */}
+            {budgetTab === 'pockets' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                    <SalaryPocketSystem
+                        monthlySalary={monthlySalary}
+                        salaryPockets={salaryPockets}
+                        transactions={transactions}
+                        currentMonth={new Date()}
+                        formatMoney={formatMoney}
+                        onUpdateSalaryPockets={updateSalaryPockets}
+                        onTransferToSavings={(amt) => addToSavingsPool(amt, 'salary_remainder')}
+                    />
+                </div>
+            )}
+
             <BudgetTargetModal isOpen={showTargetModal} onClose={() => setShowTargetModal(false)} />
         </div>
     );
