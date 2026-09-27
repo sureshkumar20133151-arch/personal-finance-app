@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { verifyAccessToken } from './_lib/oauthTokens.js';
+import { checkMcpRateLimit, globalRateLimiter } from './_lib/rateLimiter.js';
 
 const MCP_API_KEY  = process.env.MCP_API_KEY;
 
@@ -1233,6 +1234,16 @@ async function handleJsonRpc(request, targetUid) {
 
       case 'tools/call': {
         const { name, arguments: args } = params || {};
+
+        // Rate limit check: 20 req/min for write tools, 60 req/min for read tools
+        const rateLimit = checkMcpRateLimit(targetUid, name);
+        if (!rateLimit.allowed) {
+          return err(
+            -32029,
+            `Rate limit exceeded for tool "${name}". Maximum allowed is ${rateLimit.maxLimit} requests/min. Please retry in ${rateLimit.retryAfterSeconds} seconds.`
+          );
+        }
+
         let text;
 
         switch (name) {
@@ -1298,6 +1309,17 @@ export default async function handler(req, res) {
       ],
       tools: TOOLS.map(t => ({ name: t.name, description: t.description })),
       status: 'ok',
+    });
+  }
+
+  // ── Rate Limiting (IP Throttling for DDoS & brute force prevention) ────────
+  const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const ipCheck = globalRateLimiter.check(`ip:${clientIp}`, 120, 60000); // 120 req/min
+  if (!ipCheck.allowed) {
+    res.setHeader('Retry-After', String(ipCheck.retryAfterSeconds));
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      message: `Rate limit exceeded. Please retry in ${ipCheck.retryAfterSeconds} seconds.`,
     });
   }
 

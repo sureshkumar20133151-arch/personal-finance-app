@@ -4,6 +4,10 @@ import './index.css'
 import App from './App.jsx'
 
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { initErrorMonitoring } from './utils/errorMonitoring.js'
+
+// Initialize production error monitoring (Sentry / global unhandled handlers)
+initErrorMonitoring();
 
 // Ask the browser/WebView to make our storage (IndexedDB, where Firebase Auth
 // keeps the signed-in session) persistent rather than "best-effort". Without

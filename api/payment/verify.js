@@ -2,6 +2,7 @@ import { requireAuth, adminDb } from "../_lib/firebaseAdmin.js";
 import { getRazorpayClient, verifyPaymentSignature } from "../_lib/razorpay.js";
 import { PLAN_AMOUNTS_PAISE } from "../_lib/plans.js";
 import { applyCors } from "../_lib/cors.js";
+import { buildGstInvoice, saveInvoiceToDb } from "../_lib/gstInvoice.js";
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -58,11 +59,35 @@ export default async function handler(req, res) {
     }
 
     // 3. All checks passed - write the plan server-side (if Admin SDK is available)
+    let invoiceNumber = null;
     try {
       const db = await adminDb();
       if (db) {
+        // Create and save GST invoice if not already generated
+        try {
+          const invoiceData = buildGstInvoice({
+            uid: decoded.uid,
+            userEmail: decoded.email || order.notes?.email || "",
+            userName: decoded.name || order.notes?.name || "",
+            planType,
+            amountPaise: order.amount,
+            paymentId: razorpay_payment_id,
+            orderId: razorpay_order_id,
+            buyerState: order.notes?.buyerState || "Tamil Nadu",
+            buyerGstin: order.notes?.buyerGstin || "",
+          });
+          invoiceNumber = await saveInvoiceToDb(db, invoiceData);
+        } catch (invErr) {
+          console.warn("GST Invoice generation in verify warning:", invErr.message);
+        }
+
         await db.doc(`users/${decoded.uid}`).set(
-          { subscription: planType, subscriptionUpdatedAt: new Date().toISOString() },
+          {
+            subscription: planType,
+            subscriptionStatus: "active",
+            subscriptionUpdatedAt: new Date().toISOString(),
+            latestInvoiceNumber: invoiceNumber || null,
+          },
           { merge: true }
         );
       }
@@ -70,7 +95,7 @@ export default async function handler(req, res) {
       console.warn("Firestore Admin DB update warning:", dbErr.message);
     }
 
-    return res.status(200).json({ success: true, subscription: planType });
+    return res.status(200).json({ success: true, subscription: planType, invoiceNumber });
   } catch (err) {
     console.error("payment verify failed", err);
     return res.status(500).json({ error: "Verification failed" });

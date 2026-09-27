@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { captureException } from '../utils/errorMonitoring.js';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -33,6 +34,7 @@ class ErrorBoundary extends React.Component {
             errorInfo: errorInfo
         });
         console.error("Uncaught error:", error, errorInfo);
+        captureException(error, { componentStack: errorInfo?.componentStack });
     }
 
     render() {

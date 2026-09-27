@@ -31,7 +31,7 @@ const Legal = () => {
                 We take reasonable measures to help protect your information from loss, theft, misuse, and unauthorized access. All database interactions are secured via authenticated tokens.
 
                 **5. Contact Us**
-                If you have any questions about this Privacy Policy, please contact us at support@budgettracker.app.
+                If you have any questions about this Privacy Policy, please contact us at budgettracker.care@gmail.com.
             `
         };
     } else if (path === '/terms') {
@@ -75,7 +75,7 @@ const Legal = () => {
                 We offer a 7-day money-back guarantee for initial subscription purchases. If you are not satisfied with BudgetTracker Pro within the first 7 days of your purchase, you may request a full refund. 
 
                 **3. Process**
-                To request a refund, please contact us at support@budgettracker.app with your account email and Razorpay payment ID. Refunds will be processed within 5-7 business days to the original payment method.
+                To request a refund, please contact us at budgettracker.care@gmail.com with your account email and Razorpay payment ID. Refunds will be processed within 5-7 business days to the original payment method.
 
                 **4. Exceptions**
                 No refunds are provided for partial months or after the 7-day initial period.
@@ -110,7 +110,7 @@ const Legal = () => {
                 We'd love to hear from you! If you have any questions, feedback, or need support with your account, please reach out to our team.
 
                 **Email Support:**
-                support@budgettracker.app
+                budgettracker.care@gmail.com
 
                 **Phone Support:**
                 +91 9876543210 (Mon - Fri, 9 AM - 5 PM IST)

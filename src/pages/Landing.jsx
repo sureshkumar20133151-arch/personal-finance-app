@@ -260,8 +260,8 @@ const Landing = () => {
                                         <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Multiple Bank Accounts</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Cash Tracker / Wallet</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-700"><CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> Advanced Charts & Monthly Trends</li>
-                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Automatic SMS Scan</li>
-                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Real-time UPI Notifications</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Household & Couple Collaboration</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Salary Virtual Pockets</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Category budgets & Limit alerts</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> Loans & Debts Tracker</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-400 opacity-60"><X className="w-5 h-5 text-red-500 flex-shrink-0" /> PDF & Excel Data Export</li>
@@ -290,10 +290,11 @@ const Landing = () => {
                                             Includes 30 Days Free Trial
                                         </div>
                                     </div>
-                                    <p className="text-slate-300 mb-8 text-sm">For serious savers and businesses.</p>
+                                    <p className="text-slate-300 mb-8 text-sm">For serious savers and families.</p>
                                     <ul className="space-y-4 mb-8">
-                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Automatic SMS Scan</li>
-                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Real-time UPI Notifications</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Smart Bank Statement PDF Parser</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Household & Couple Collaboration</li>
+                                        <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Salary Virtual Pockets (Envelope Budgeting)</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Category budgets & Limit alerts</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> Loans & Debts Tracker</li>
                                         <li className="flex items-center gap-3 text-sm text-slate-200"><CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" /> PDF & Excel Data Export</li>

@@ -21,7 +21,7 @@ const Legal = lazy(() => import('./pages/Legal'));
 
 import { FinanceProvider } from './context/FinanceContext';
 import AccountRecoveryModal from './components/AccountRecoveryModal';
-const SmsSetupGuide = lazy(() => import('./context/SmsSetupGuide'));
+import WhatsAppSupport from './components/WhatsAppSupport';
 
 // Branded loading spinner shown while lazy chunks are downloading
 const PageLoader = () => (
@@ -36,8 +36,6 @@ const PageLoader = () => (
 const APP_BUILD_ID = '1.0.7';
 
 const App = () => {
-  const [showSmsSetup, setShowSmsSetup] = useState(false);
-
   useEffect(() => {
     try {
       const currentBuild = localStorage.getItem('app_build_id');
@@ -51,15 +49,6 @@ const App = () => {
     } catch {
       // Ignored: Storage access might fail in private browsing mode
     }
-  }, []);
-
-  useEffect(() => {
-    const handler = () => {
-      console.log("[App] sms_needs_setup event received, showing guide modal");
-      setShowSmsSetup(true);
-    };
-    window.addEventListener("sms_needs_setup", handler);
-    return () => window.removeEventListener("sms_needs_setup", handler);
   }, []);
 
   return (
@@ -97,17 +86,8 @@ const App = () => {
                 <Route path="/account" element={<Account />} />
               </Route>
             </Routes>
-            {showSmsSetup && (
-              <SmsSetupGuide
-                isOpen={showSmsSetup}
-                onClose={() => setShowSmsSetup(false)}
-                onDone={() => {
-                  setShowSmsSetup(false);
-                  window.dispatchEvent(new CustomEvent("sms_rescan"));
-                }}
-              />
-            )}
           </Suspense>
+          <WhatsAppSupport />
         </FinanceProvider>
       </AuthProvider>
     </Router>

@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { parseStatement } from '../lib/StatementParser';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 import CategoryIcon from '../components/CategoryIcon';
-import SMSScanModal from '../components/SMSScanModal';
+// SMS scan module moved to archive/sms-scanner
 import { triggerHapticNotification } from '../lib/haptics';
 import { useAuth } from '../context/AuthContext';
 import { PaymentStatusPicker, PaymentStatusBadge } from '../components/SalaryPocketSystem';
@@ -1580,27 +1580,7 @@ const Transactions = () => {
                                     </button>
                                 </div>
 
-                                {isSmsUnlocked && (
-                                    <button
-                                        onClick={handleSyncSms}
-                                        disabled={refreshing}
-                                        className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
-                                        title="Auto-sync SMS receipts"
-                                    >
-                                        <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
-                                        <span>Auto Sync</span>
-                                    </button>
-                                )}
-                                {isSmsUnlocked && (
-                                    <button
-                                        onClick={() => setShowSMSScan(true)}
-                                        className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-xs"
-                                        title="Scan SMS Inbox for receipts"
-                                    >
-                                        <MessageSquare className="w-3.5 h-3.5" />
-                                        <span>Scan SMS</span>
-                                    </button>
-                                )}
+
 
                                 {/* Sort By Filter Dropdown */}
                                 <CustomSelect
@@ -2572,12 +2552,7 @@ const Transactions = () => {
                 )
             }
 
-            <SMSScanModal 
-                isOpen={showSMSScan} 
-                onClose={() => setShowSMSScan(false)} 
-                onImport={(txs) => addTransactions(txs)} 
-                categories={categories} 
-            />
+
 
             {/* PDF Password Modal */}
             {showPasswordModal && (

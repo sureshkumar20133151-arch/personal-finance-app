@@ -2,18 +2,19 @@ import crypto from "crypto";
 import { adminDb } from "../_lib/firebaseAdmin.js";
 import { fetchRazorpayOrder } from "../_lib/razorpay.js";
 import { PLAN_AMOUNTS_PAISE } from "../_lib/plans.js";
+import { buildGstInvoice, saveInvoiceToDb } from "../_lib/gstInvoice.js";
 
 // This endpoint is called server-to-server by Razorpay, not by the app, so
 // it deliberately does NOT go through requireAuth() or applyCors() — there
 // is no Firebase ID token to check and no browser origin involved. Trust is
 // established entirely by the HMAC signature check below.
 //
-// Setup (one-time, in the Razorpay Dashboard -> Settings -> Webhooks):
-//   1. Add webhook URL: https://<your-domain>/api/payment/webhook
-//   2. Subscribe to the `payment.captured` event.
-//   3. Razorpay generates a webhook secret at that point — copy it into
-//      the RAZORPAY_WEBHOOK_SECRET env var on Vercel. This is a DIFFERENT
-//      secret from RAZORPAY_KEY_SECRET (the API key secret) — don't reuse it.
+// Webhook Events Handled:
+//   - payment.captured: Plan upgrade & GST invoice creation
+//   - payment.failed: Log failure, update payment error status for user
+//   - subscription.charged / subscription.activated: Recurring renewal & invoice
+//   - subscription.cancelled / subscription.halted: Auto-debit fail / cancelled -> downgrade to free
+//   - refund.created / refund.processed: Refund processed -> revoke plan to free
 //
 // Body parsing is disabled because the signature must be computed over the
 // exact raw bytes Razorpay sent; parsing to JSON first and re-serializing
@@ -34,7 +35,8 @@ function readRawBody(req) {
   });
 }
 
-function verifyWebhookSignature(rawBody, signature, secret) {
+export function verifyWebhookSignature(rawBody, signature, secret) {
+  if (!rawBody || !signature || !secret) return false;
   const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
   const a = Buffer.from(expected);
   const b = Buffer.from(signature || "");
@@ -68,15 +70,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Malformed JSON body" });
   }
 
-  // Ack anything we don't act on so Razorpay doesn't keep retrying it.
-  if (event.event !== "payment.captured") {
-    return res.status(200).json({ received: true, ignored: event.event });
-  }
-
-  const payment = event.payload?.payment?.entity;
-  if (!payment?.order_id || !payment?.id) {
-    return res.status(400).json({ error: "Malformed payment payload" });
-  }
+  const eventType = event.event;
+  const eventId = event.payload?.payment?.entity?.id ||
+                  event.payload?.subscription?.entity?.id ||
+                  event.payload?.refund?.entity?.id ||
+                  `evt_${Date.now()}`;
 
   const db = await adminDb();
   if (!db) {
@@ -84,10 +82,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Server database not configured" });
   }
 
-  // Idempotency: Razorpay may redeliver the same event (retries, duplicate
-  // webhooks for the same payment). Recording the payment id lets us skip
-  // reprocessing instead of re-writing the subscription every time.
-  const eventRef = db.doc(`processedPaymentEvents/${payment.id}`);
+  // Idempotency: Prevent duplicate webhook execution
+  const eventRef = db.doc(`processedPaymentEvents/${eventType}_${eventId}`);
   try {
     const already = await eventRef.get();
     if (already.exists) {
@@ -98,40 +94,264 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Defense in depth, same as api/payment/verify.js: don't trust the
-    // webhook payload's own `notes` blindly — re-fetch the order from
-    // Razorpay's API and cross-check uid/planType/amount/status against it.
-    const order = await fetchRazorpayOrder(payment.order_id);
-    const { uid, planType } = order.notes || {};
+    switch (eventType) {
+      // ───────────────────────────────────────────────────────────────────────
+      // 1. PAYMENT CAPTURED (One-time or direct order success)
+      // ───────────────────────────────────────────────────────────────────────
+      case "payment.captured": {
+        const payment = event.payload?.payment?.entity;
+        if (!payment?.order_id || !payment?.id) {
+          return res.status(400).json({ error: "Malformed payment payload" });
+        }
 
-    if (!uid || !planType || !PLAN_AMOUNTS_PAISE[planType]) {
-      console.warn("[payment/webhook] order missing/invalid uid or planType", payment.order_id);
-      return res.status(400).json({ error: "Order missing uid/planType" });
-    }
-    if (order.amount !== PLAN_AMOUNTS_PAISE[planType]) {
-      console.warn("[payment/webhook] amount mismatch for order", payment.order_id);
-      return res.status(400).json({ error: "Order amount mismatch" });
-    }
-    if (order.status !== "paid") {
-      console.warn("[payment/webhook] order not marked paid yet", payment.order_id);
-      return res.status(400).json({ error: "Order not marked paid" });
-    }
+        const order = await fetchRazorpayOrder(payment.order_id);
+        const { uid, planType, buyerState, buyerGstin } = order.notes || {};
 
-    await db.doc(`users/${uid}`).set(
-      { subscription: planType, subscriptionUpdatedAt: new Date().toISOString() },
-      { merge: true }
-    );
-    await eventRef.set({
-      uid,
-      planType,
-      orderId: payment.order_id,
-      processedAt: new Date().toISOString(),
-    });
+        if (!uid || !planType || !PLAN_AMOUNTS_PAISE[planType]) {
+          console.warn("[payment/webhook] order missing/invalid uid or planType", payment.order_id);
+          return res.status(400).json({ error: "Order missing uid/planType" });
+        }
+        if (order.amount !== PLAN_AMOUNTS_PAISE[planType]) {
+          console.warn("[payment/webhook] amount mismatch for order", payment.order_id);
+          return res.status(400).json({ error: "Order amount mismatch" });
+        }
+        if (order.status !== "paid") {
+          console.warn("[payment/webhook] order not marked paid yet", payment.order_id);
+          return res.status(400).json({ error: "Order not marked paid" });
+        }
 
-    return res.status(200).json({ received: true, uid, subscription: planType });
+        // Generate GST Invoice (18% GST SAC 998314)
+        let invoiceNumber = null;
+        try {
+          const invoiceData = buildGstInvoice({
+            uid,
+            userEmail: payment.email || order.notes?.email || "",
+            userName: order.notes?.name || "",
+            planType,
+            amountPaise: order.amount,
+            paymentId: payment.id,
+            orderId: payment.order_id,
+            buyerState: buyerState || "Tamil Nadu",
+            buyerGstin: buyerGstin || "",
+          });
+          invoiceNumber = await saveInvoiceToDb(db, invoiceData);
+        } catch (invErr) {
+          console.error("[payment/webhook] GST Invoice generation failed:", invErr.message);
+        }
+
+        // Update User Profile
+        await db.doc(`users/${uid}`).set(
+          {
+            subscription: planType,
+            subscriptionStatus: "active",
+            subscriptionUpdatedAt: new Date().toISOString(),
+            lastPaymentError: null,
+            latestInvoiceNumber: invoiceNumber,
+          },
+          { merge: true }
+        );
+
+        await eventRef.set({
+          eventType,
+          uid,
+          planType,
+          orderId: payment.order_id,
+          paymentId: payment.id,
+          invoiceNumber,
+          processedAt: new Date().toISOString(),
+        });
+
+        return res.status(200).json({ received: true, uid, subscription: planType, invoiceNumber });
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // 2. PAYMENT FAILED (Card decline, UPI timeout, bank outage)
+      // ───────────────────────────────────────────────────────────────────────
+      case "payment.failed": {
+        const payment = event.payload?.payment?.entity;
+        const notes = payment?.notes || {};
+        const uid = notes.uid;
+
+        console.warn(`[payment/webhook] Payment failed: ${payment?.id} for user ${uid}, reason: ${payment?.error_description}`);
+
+        if (uid) {
+          await db.doc(`users/${uid}`).set(
+            {
+              lastPaymentFailure: {
+                orderId: payment?.order_id || null,
+                paymentId: payment?.id || null,
+                errorCode: payment?.error_code || 'PAYMENT_FAILED',
+                errorDescription: payment?.error_description || 'Payment was unsuccessful',
+                failedAt: new Date().toISOString(),
+              },
+            },
+            { merge: true }
+          );
+        }
+
+        await eventRef.set({
+          eventType,
+          uid: uid || null,
+          paymentId: payment?.id,
+          error: payment?.error_description,
+          processedAt: new Date().toISOString(),
+        });
+
+        return res.status(200).json({ received: true, loggedFailure: true });
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // 3. RECURRING SUBSCRIPTION CHARGED / ACTIVATED (Renewal)
+      // ───────────────────────────────────────────────────────────────────────
+      case "subscription.charged":
+      case "subscription.activated": {
+        const sub = event.payload?.subscription?.entity;
+        const payment = event.payload?.payment?.entity;
+        const notes = sub?.notes || payment?.notes || {};
+        const uid = notes.uid;
+        const planType = notes.planType || "monthly";
+
+        if (uid) {
+          // Calculate valid until date
+          const currentEnd = sub?.current_end
+            ? new Date(sub.current_end * 1000).toISOString()
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+          // Generate GST invoice for renewal
+          let invoiceNumber = null;
+          if (payment?.id && payment?.amount) {
+            try {
+              const invoiceData = buildGstInvoice({
+                uid,
+                userEmail: payment.email || "",
+                userName: notes.name || "",
+                planType,
+                amountPaise: payment.amount,
+                paymentId: payment.id,
+                orderId: payment.order_id || sub.id,
+                buyerState: notes.buyerState || "Tamil Nadu",
+                buyerGstin: notes.buyerGstin || "",
+              });
+              invoiceNumber = await saveInvoiceToDb(db, invoiceData);
+            } catch (invErr) {
+              console.error("[payment/webhook] Subscription GST invoice failed:", invErr.message);
+            }
+          }
+
+          await db.doc(`users/${uid}`).set(
+            {
+              subscription: planType,
+              subscriptionStatus: "active",
+              subscriptionValidUntil: currentEnd,
+              subscriptionUpdatedAt: new Date().toISOString(),
+              razorpaySubscriptionId: sub?.id || null,
+              latestInvoiceNumber: invoiceNumber,
+            },
+            { merge: true }
+          );
+        }
+
+        await eventRef.set({
+          eventType,
+          uid: uid || null,
+          subscriptionId: sub?.id,
+          processedAt: new Date().toISOString(),
+        });
+
+        return res.status(200).json({ received: true, renewed: true, uid });
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // 4. SUBSCRIPTION CANCELLED / HALTED (e-Mandate exhausted or user cancel)
+      // ───────────────────────────────────────────────────────────────────────
+      case "subscription.cancelled":
+      case "subscription.halted": {
+        const sub = event.payload?.subscription?.entity;
+        const notes = sub?.notes || {};
+        const uid = notes.uid;
+
+        console.info(`[payment/webhook] Subscription ${sub?.id} cancelled/halted for uid: ${uid}`);
+
+        if (uid) {
+          await db.doc(`users/${uid}`).set(
+            {
+              subscription: "free",
+              subscriptionStatus: "cancelled",
+              subscriptionCancelledAt: new Date().toISOString(),
+              cancellationReason: sub?.cancel_reason || "Subscription halted or cancelled",
+            },
+            { merge: true }
+          );
+        }
+
+        await eventRef.set({
+          eventType,
+          uid: uid || null,
+          subscriptionId: sub?.id,
+          processedAt: new Date().toISOString(),
+        });
+
+        return res.status(200).json({ received: true, cancelled: true, uid });
+      }
+
+      // ───────────────────────────────────────────────────────────────────────
+      // 5. REFUND PROCESSED / CREATED
+      // ───────────────────────────────────────────────────────────────────────
+      case "refund.created":
+      case "refund.processed": {
+        const refund = event.payload?.refund?.entity;
+        const payment = event.payload?.payment?.entity;
+        const notes = refund?.notes || payment?.notes || {};
+        const uid = notes.uid;
+
+        console.info(`[payment/webhook] Refund ${refund?.id} of ₹${(refund?.amount || 0) / 100} for uid: ${uid}`);
+
+        if (uid) {
+          // Revert subscription back to free
+          await db.doc(`users/${uid}`).set(
+            {
+              subscription: "free",
+              subscriptionStatus: "refunded",
+              subscriptionUpdatedAt: new Date().toISOString(),
+              lastRefund: {
+                refundId: refund?.id,
+                paymentId: refund?.payment_id,
+                amountPaise: refund?.amount,
+                refundedAt: new Date().toISOString(),
+              },
+            },
+            { merge: true }
+          );
+
+          // Store credit note record
+          await db.doc(`users/${uid}/refunds/${refund?.id || Date.now()}`).set({
+            refundId: refund?.id,
+            paymentId: refund?.payment_id,
+            amountPaise: refund?.amount,
+            processedAt: new Date().toISOString(),
+            status: "processed",
+          });
+        }
+
+        await eventRef.set({
+          eventType,
+          uid: uid || null,
+          refundId: refund?.id,
+          amountPaise: refund?.amount,
+          processedAt: new Date().toISOString(),
+        });
+
+        return res.status(200).json({ received: true, refunded: true, uid });
+      }
+
+      // Default: Acknowledge unrecognized events to prevent Razorpay retries
+      default: {
+        return res.status(200).json({ received: true, ignored: eventType });
+      }
+    }
   } catch (err) {
     console.error("[payment/webhook] processing failed", err);
-    // 500 tells Razorpay to retry the webhook later.
+    // 500 tells Razorpay to retry the webhook later
     return res.status(500).json({ error: "Webhook processing failed" });
   }
 }
