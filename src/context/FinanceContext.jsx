@@ -22,6 +22,7 @@ import { useAuth }           from "./AuthContext";       // ← your auth contex
 import { autoScanTransactions, autoCategory, getAvailableBalance, parseSms } from "./autoScanSms";
 import { v4 as uuidv4 }     from "uuid";
 import { apiUrl } from "../lib/apiBase";
+import { initNotificationChannels, generateActiveAlerts, syncNativeNotifications } from "../lib/notificationScheduler";
 
 const App = registerPlugin("App");
 
@@ -476,22 +477,8 @@ export function FinanceProvider({ children }) {
         }
         // --------------------------------------------------------
 
-        // Request permissions for notifications
-        if (window.Capacitor?.isNativePlatform()) {
-          try {
-            await LocalNotifications.requestPermissions();
-            await LocalNotifications.createChannel({
-              id: 'sms-sync',
-              name: 'SMS & Notification Sync',
-              description: 'Alerts when the app reads financial SMS alerts.',
-              importance: 4,
-              visibility: 1,
-              vibration: true
-            });
-          } catch (e) {
-            console.error("LocalNotifications setup error", e);
-          }
-        }
+        // Initialize Smart Notification channels (EMI/bills and budget alerts)
+        await initNotificationChannels();
 
         // Run auto SMS scan immediately after load (gated for PRO/TRIAL users)
         let newTxs = [];
@@ -1710,7 +1697,36 @@ export function FinanceProvider({ children }) {
     }
   }, [validTransactions]);
 
+  // Current month non-deferred expense for budget alerts
+  const currentMonthExpense = useMemo(() => {
+    const now = new Date();
+    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return (validTransactions || [])
+      .filter(tx => tx.type === 'expense' && tx.date?.startsWith(currentMonthPrefix) && tx.paymentStatus !== 'deferred')
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  }, [validTransactions]);
+
+  // Compute active reminders (EMI, Loans, Deferred Payments, Budget & Low Balance)
+  const activeAlerts = useMemo(() => {
+    return generateActiveAlerts({
+      transactions: validTransactions || [],
+      loans: state.loans || [],
+      recurring: state.recurring || [],
+      monthlyBudget: state.monthlyBudget || 0,
+      currentMonthExpense,
+      totalBalance: bankBalance + cashBalance,
+    });
+  }, [validTransactions, state.loans, state.recurring, state.monthlyBudget, currentMonthExpense, bankBalance, cashBalance]);
+
+  // Sync with Native LocalNotifications & Web browser notifications
+  useEffect(() => {
+    syncNativeNotifications(activeAlerts);
+  }, [activeAlerts]);
+
   const value = {
+    // Smart Reminders & Active Alerts
+    activeAlerts,
+    currentMonthExpense,
     // data
     categories:           state.categories   || [],
     transactions:         filteredTransactions,

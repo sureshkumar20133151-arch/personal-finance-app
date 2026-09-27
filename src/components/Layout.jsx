@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { triggerHapticSelection } from '../lib/haptics';
 import AvatarFallback from './AvatarFallback';
+import NotificationCenter from './NotificationCenter';
 
 // Desktop top-nav items (no Account — it's the avatar on the right)
 const desktopNavItems = [
@@ -30,7 +31,7 @@ const mobileNavItems = [
 
 const Layout = () => {
   const { currentUser } = useAuth();
-  const { isPro, subscription } = useFinanceData();
+  const { isPro, subscription, activeAlerts } = useFinanceData();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -89,27 +90,30 @@ const Layout = () => {
           ))}
         </nav>
 
-        {/* Right: Profile Avatar */}
-        <NavLink
-          to="/account"
-          onClick={triggerHapticSelection}
-          className={({ isActive }) => cn(
-            "relative w-9 h-9 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all duration-200 shadow-sm shrink-0",
-            isActive
-              ? "border-primary ring-2 ring-primary/30"
-              : "border-border hover:border-primary/50"
-          )}
-          title="Account"
-        >
-          {currentUser?.photoURL ? (
-            <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
-          ) : (
-            <AvatarFallback />
-          )}
-          {(isPro || subscription === 'trial') && (
-            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-background" />
-          )}
-        </NavLink>
+        {/* Right: Notifications & Profile Avatar */}
+        <div className="flex items-center gap-2.5">
+          <NotificationCenter alerts={activeAlerts || []} />
+          <NavLink
+            to="/account"
+            onClick={triggerHapticSelection}
+            className={({ isActive }) => cn(
+              "relative w-9 h-9 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all duration-200 shadow-sm shrink-0",
+              isActive
+                ? "border-primary ring-2 ring-primary/30"
+                : "border-border hover:border-primary/50"
+            )}
+            title="Account"
+          >
+            {currentUser?.photoURL ? (
+              <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <AvatarFallback />
+            )}
+            {(isPro || subscription === 'trial') && (
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-background" />
+            )}
+          </NavLink>
+        </div>
       </header>
 
       {/* ── Mobile Header ─────────────────────────────────────── */}
@@ -128,25 +132,28 @@ const Layout = () => {
           </span>
         </div>
 
-        {/* Avatar / Account link */}
-        <NavLink
-          to="/account"
-          className={({ isActive }) => cn(
-            "relative w-9 h-9 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all duration-200 shadow-sm",
-            isActive
-              ? "border-primary ring-2 ring-primary/30"
-              : "border-border hover:border-primary/50"
-          )}
-        >
-          {currentUser?.photoURL ? (
-            <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
-          ) : (
-            <AvatarFallback />
-          )}
-          {(isPro || subscription === 'trial') && (
-            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-background" />
-          )}
-        </NavLink>
+        {/* Mobile Right: Notifications & Avatar */}
+        <div className="flex items-center gap-2">
+          <NotificationCenter alerts={activeAlerts || []} />
+          <NavLink
+            to="/account"
+            className={({ isActive }) => cn(
+              "relative w-9 h-9 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all duration-200 shadow-sm",
+              isActive
+                ? "border-primary ring-2 ring-primary/30"
+                : "border-border hover:border-primary/50"
+            )}
+          >
+            {currentUser?.photoURL ? (
+              <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <AvatarFallback />
+            )}
+            {(isPro || subscription === 'trial') && (
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-background" />
+            )}
+          </NavLink>
+        </div>
       </header>
 
       {/* ── Main Content ───────────────────────────────────────── */}
