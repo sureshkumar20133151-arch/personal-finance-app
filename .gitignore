@@ -31,8 +31,30 @@ dist-ssr
 dist_nsis/
 dist_electron/
 mobile apk/
-app-debug.apk
+# Android & Firebase Secrets
 google-services.json
 android/app/google-services.json
 *-firebase-adminsdk-*.json
 *adminsdk*.json
+
+# Sensitive User Data & Bank Statements
+*.pdf
+scratch/
+
+# Build artifacts & binary APKs
+*.apk
+mobile apk/
+outputs/
+Reference/
+
+# Debug and scratch scripts
+check.mjs
+clean-*.mjs
+get-*.mjs
+test-*.mjs
+test-*.cjs
+test-*.js
+test_*.js
+test_*.cjs
+test_*.mjs
+verify-*.mjs
