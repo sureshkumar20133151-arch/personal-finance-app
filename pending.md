@@ -48,21 +48,20 @@
 ## 🚀 2. Razorpay Live Dashboard Configuration
 *Target: [Razorpay Dashboard](https://dashboard.razorpay.com/) -> Settings -> Webhooks*
 
-- [ ] **2.1 Add Webhook URL**:
-  - **URL**: `https://personal-finance-app-mauve.vercel.app/api/payment/webhook` (or your custom domain)
-  - **Alert Email**: Your admin email.
-- [ ] **2.2 Set Webhook Secret**:
-  - Generate a secure random string (e.g. `rzp_sec_2026_finance`).
-  - Copy this secret for Vercel configuration below.
-- [ ] **2.3 Enable Active Events**:
-  - [ ] `payment.captured` — Upgrades user plan & generates GST invoice.
-  - [ ] `payment.failed` — Records failure reason.
-  - [ ] `subscription.charged` — Extends recurring renewal validity.
-  - [ ] `subscription.activated` — Marks auto-debit mandate active.
-  - [ ] `subscription.cancelled` — Downgrades to Free tier on cancellation.
-  - [ ] `subscription.halted` — Downgrades if auto-debit fails repeatedly.
-  - [ ] `refund.created` — Logs credit note.
-  - [ ] `refund.processed` — Reverts subscription to Free tier.
+- [x] **2.1 Add Webhook URL**:
+  - **URL**: `https://personal-finance-app-mauve.vercel.app/api/payment/webhook`
+  - **Status**: Live & Enabled.
+- [x] **2.2 Set Webhook Secret**:
+  - Configured with Razorpay Key Secret (`[REDACTED_SECRET]`), supported natively with fallback in `webhook.js`.
+- [x] **2.3 Enable Active Events**:
+  - [x] `payment.captured` — Upgrades user plan & generates GST invoice.
+  - [x] `payment.failed` — Records failure reason.
+  - [x] `subscription.charged` — Extends recurring renewal validity.
+  - [x] `subscription.activated` — Marks auto-debit mandate active.
+  - [x] `subscription.cancelled` — Downgrades to Free tier on cancellation.
+  - [x] `subscription.halted` — Downgrades if auto-debit fails repeatedly.
+  - [x] `refund.created` — Logs credit note.
+  - [x] `refund.processed` — Reverts subscription to Free tier.
 
 ---
 
