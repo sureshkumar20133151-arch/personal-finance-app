@@ -33,6 +33,9 @@ const Setup = () => {
     const [toast, setToast] = useState(null);
     const toastTimeoutRef = useRef(null);
 
+    // Tabs: 'preferences' | 'categories' | 'accounts'
+    const [activeTab, setActiveTab] = useState('preferences');
+
     const showToast = (message, type = 'success') => {
         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         setToast({ message, type });
@@ -223,6 +226,14 @@ const Setup = () => {
         { id: 'debt', label: 'Debt', icon: LucideIcons.CreditCard, color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
     ];
 
+    // Setup page tabs — keeps once-off preferences, everyday category edits,
+    // and account/danger-zone actions in separate contexts instead of one long scroll.
+    const SETUP_TABS = [
+        { id: 'preferences', label: 'Preferences', icon: LucideIcons.SlidersHorizontal },
+        { id: 'categories', label: 'Categories', icon: LucideIcons.Tags },
+        { id: 'accounts', label: 'Accounts', icon: LucideIcons.Landmark },
+    ];
+
     // Filter icons based on search
     const filteredIcons = useMemo(() => {
         if (!iconSearch) return ICON_NAMES.slice(0, 100);
@@ -256,22 +267,43 @@ const Setup = () => {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Setup</h1>
                     <p className="text-muted-foreground">Customize categories, icons, and preferences.</p>
                 </div>
-                <button
-                    onClick={() => openAddModal('expense')}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm hover:shadow active:scale-[0.98]"
-                >
-                    <Plus className="w-4 h-4" />
-                    <span>Create Category</span>
-                </button>
+                {activeTab === 'categories' && (
+                    <button
+                        onClick={() => openAddModal('expense')}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm hover:shadow active:scale-[0.98]"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Create Category</span>
+                    </button>
+                )}
             </header>
 
-            <div className="grid gap-8 md:grid-cols-12">
-                {/* Left Column: General Preferences */}
-                <div className="space-y-6 md:col-span-5 order-2 md:order-1">
+            {/* Tab bar */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border/50 w-full sm:w-fit overflow-x-auto">
+                {SETUP_TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                            "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all",
+                            activeTab === tab.id
+                                ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <tab.icon className="w-4 h-4" />
+                        <span>{tab.label}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* ===================== PREFERENCES TAB ===================== */}
+            {activeTab === 'preferences' && (
+                <div className="grid gap-6 sm:grid-cols-2 max-w-3xl animate-in fade-in duration-300">
                     <ThemeSelector />
                     <CurrencySelector />
 
-                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sm:col-span-2">
                         <h3 className="font-semibold mb-1 flex items-center gap-2">
                             <span style={{ fontSize: '16px' }}>💰</span> Salary Date
                         </h3>
@@ -307,7 +339,7 @@ const Setup = () => {
                         </p>
                     </div>
 
-                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sm:col-span-2">
                         <h3 className="font-semibold mb-1 flex items-center gap-2">
                             <span style={{ fontSize: '16px' }}>📅</span> Accounting Start Date
                         </h3>
@@ -338,7 +370,13 @@ const Setup = () => {
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            {/* =================== END PREFERENCES TAB ==================== */}
 
+            {/* ===================== ACCOUNTS TAB ===================== */}
+            {activeTab === 'accounts' && (
+                <div className="space-y-6 max-w-2xl animate-in fade-in duration-300">
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
                         <div className="flex items-center justify-between mb-1">
                             <h3 className="font-semibold flex items-center gap-2">
@@ -529,33 +567,40 @@ const Setup = () => {
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-red-500/20 bg-red-500/5 shadow-sm p-6">
-                        <h3 className="font-semibold mb-1 flex items-center gap-2 text-red-500">
-                            <span style={{ fontSize: '16px' }}>⚠️</span> Data Management
-                        </h3>
-                        <p className="text-xs text-muted-foreground mb-4">
-                            {isSmsUnlocked
-                                ? "Clear all transaction data and settings. Use this to reset the app or to purge duplicate SMS transactions before a fresh scan."
-                                : "Clear all transaction data and settings. Use this to reset the app to a clean state."}
-                        </p>
-                        <button
-                            onClick={() => {
-                                const confirmMsg = isSmsUnlocked
-                                    ? "Are you sure you want to permanently clear all app data? You will need to rescan your SMS."
-                                    : "Are you sure you want to permanently clear all app data? This action cannot be undone.";
-                                if (window.confirm(confirmMsg)) {
-                                    clearData();
-                                }
-                            }}
-                            className="w-full bg-red-500 text-white font-medium py-2 rounded-xl text-sm hover:bg-red-600 transition shadow-sm"
-                        >
-                            Clear App Data & Restart
-                        </button>
+                    {/* Danger Zone is visually separated and always sits last in this tab */}
+                    <div className="pt-4 border-t border-dashed border-border/70">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-red-500/80 mb-2">Danger Zone</p>
+                        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 shadow-sm p-6">
+                            <h3 className="font-semibold mb-1 flex items-center gap-2 text-red-500">
+                                <span style={{ fontSize: '16px' }}>⚠️</span> Data Management
+                            </h3>
+                            <p className="text-xs text-muted-foreground mb-4">
+                                {isSmsUnlocked
+                                    ? "Clear all transaction data and settings. Use this to reset the app or to purge duplicate SMS transactions before a fresh scan."
+                                    : "Clear all transaction data and settings. Use this to reset the app to a clean state."}
+                            </p>
+                            <button
+                                onClick={() => {
+                                    const confirmMsg = isSmsUnlocked
+                                        ? "Are you sure you want to permanently clear all app data? You will need to rescan your SMS."
+                                        : "Are you sure you want to permanently clear all app data? This action cannot be undone.";
+                                    if (window.confirm(confirmMsg)) {
+                                        clearData();
+                                    }
+                                }}
+                                className="w-full bg-red-500 text-white font-medium py-2 rounded-xl text-sm hover:bg-red-600 transition shadow-sm"
+                            >
+                                Clear App Data & Restart
+                            </button>
+                        </div>
                     </div>
                 </div>
+            )}
+            {/* =================== END ACCOUNTS TAB ==================== */}
 
-                {/* Right Column: Category Lists */}
-                <div className="space-y-6 md:col-span-7 order-1 md:order-2">
+            {/* ===================== CATEGORIES TAB ===================== */}
+            {activeTab === 'categories' && (
+                <div className="grid gap-6 lg:grid-cols-2 animate-in fade-in duration-300">
                     {typeConfig.map(t => {
                         const typeCats = getCategories(t.id);
                         return (
@@ -630,7 +675,8 @@ const Setup = () => {
                         );
                     })}
                 </div>
-            </div>
+            )}
+            {/* =================== END CATEGORIES TAB ==================== */}
 
             {/* Category Modal (Add / Edit) */}
             {isModalOpen && (
