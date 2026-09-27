@@ -212,8 +212,11 @@ function computeBankAccountBalancesFor(allTx, initialBankBalances, accountingSta
           if (t.availableBalance != null) {
             computedBalance = t.availableBalance;
           } else {
-            if (t.type === "income") computedBalance += t.amount;
-            else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+            if (t.type === "income" || (t.type === "transfer" && (t.transferDirection === "cash_to_bank" || t.transferDirection === "to_bank"))) {
+              computedBalance += t.amount;
+            } else if (t.type === "expense" || t.type === "debt" || (t.type === "transfer" && (t.transferDirection === "bank_to_cash" || t.transferDirection === "to_cash"))) {
+              computedBalance -= t.amount;
+            }
           }
         }
       });
@@ -225,8 +228,11 @@ function computeBankAccountBalancesFor(allTx, initialBankBalances, accountingSta
       accountTxs.forEach(t => {
         if (seedDate && new Date(t.date) < seedDate) return;
         if (effectiveLimitDate && new Date(t.date) < effectiveLimitDate) return;
-        if (t.type === "income") computedBalance += t.amount;
-        else if (t.type === "expense" || t.type === "debt") computedBalance -= t.amount;
+        if (t.type === "income" || (t.type === "transfer" && (t.transferDirection === "cash_to_bank" || t.transferDirection === "to_bank"))) {
+          computedBalance += t.amount;
+        } else if (t.type === "expense" || t.type === "debt" || (t.type === "transfer" && (t.transferDirection === "bank_to_cash" || t.transferDirection === "to_cash"))) {
+          computedBalance -= t.amount;
+        }
       });
       map[key].balance = computedBalance;
     }
@@ -261,12 +267,14 @@ function computeCashBalanceFor(allTx, initialCashBalance, cashSeedDate, accounti
     );
   };
 
-  const cashIn  = validTx.filter(t => t.type === "income" && t.paymentMode === "cash");
+  const isTransferToCash = (t) => t.type === 'transfer' && (t.transferDirection === 'bank_to_cash' || t.transferDirection === 'to_cash');
+  const isTransferToBank = (t) => t.type === 'transfer' && (t.transferDirection === 'cash_to_bank' || t.transferDirection === 'to_bank');
+
+  const cashIn  = validTx.filter(t => (t.type === "income" && t.paymentMode === "cash") || isTransferToCash(t));
   const atmOut  = validTx.filter(isAtmWithdrawal);
   const cashOut = validTx.filter(t =>
-    (t.type === "expense" || t.type === "debt") &&
-    t.paymentMode === "cash" &&
-    !isAtmWithdrawal(t)
+    ((t.type === "expense" || t.type === "debt") && t.paymentMode === "cash" && !isAtmWithdrawal(t)) ||
+    isTransferToBank(t)
   );
   const inflow  = cashIn.reduce((s, t) => s + t.amount, 0) + atmOut.reduce((s, t) => s + t.amount, 0);
   const outflow = cashOut.reduce((s, t) => s + t.amount, 0);

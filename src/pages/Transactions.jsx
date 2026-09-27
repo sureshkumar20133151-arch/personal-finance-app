@@ -6,7 +6,7 @@ import {
     Plus, Search, Filter, Trash2, Edit2, X, TrendingUp, TrendingDown,
     PiggyBank, CreditCard, Download, MessageSquare, RefreshCw, Share2,
     MessageCircle, CheckCircle, CheckSquare, Square, Home, User, Users,
-    Send, Smile, Calendar, Check, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown
+    Send, Smile, Calendar, Check, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowLeftRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -176,6 +176,7 @@ const Transactions = () => {
         addTransferTransaction,
         currentActorName,
         profile,
+        bankAccountBalances,
     } = useFinanceData();
     const { currentUser } = useAuth();
     const currentUserUid = currentUser?.uid;
@@ -199,6 +200,10 @@ const Transactions = () => {
     const [categoryId, setCategoryId] = useState('');
     const [paidBy, setPaidBy] = useState('Suresh');
     const [updatedBy, setUpdatedBy] = useState('Suresh');
+
+    // Self-Transfer State ('bank_to_cash' | 'cash_to_bank')
+    const [transferDirection, setTransferDirection] = useState('bank_to_cash');
+    const [selectedBankKey, setSelectedBankKey] = useState('');
 
     // Feature 1: Scope State ('ours' = Joint, 'mine' = Personal, 'partner' = Partner's personal)
     const [scope, setScope] = useState('ours');
@@ -348,6 +353,8 @@ const Transactions = () => {
         setScope(householdId ? 'ours' : 'mine');
         setAssignedTo('Both');
         setDueDay(5);
+        setTransferDirection('bank_to_cash');
+        setSelectedBankKey(bankAccountBalances?.[0] ? `${bankAccountBalances[0].bankName}_${bankAccountBalances[0].accountEnding}` : '');
     };
 
     // Derived Logic
@@ -356,6 +363,7 @@ const Transactions = () => {
         { id: 'expense', label: 'Expense', icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900/30' },
         { id: 'savings', label: 'Savings', icon: PiggyBank, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
         { id: 'debt', label: 'Debt', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+        { id: 'transfer', label: 'Transfer', icon: ArrowLeftRight, color: 'text-cyan-500 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/30' },
     ];
 
     const availableCategories = useMemo(() => {
@@ -369,6 +377,7 @@ const Transactions = () => {
         { value: 'income', label: 'Income', icon: '🟢' },
         { value: 'savings', label: 'Savings', icon: '🔵' },
         { value: 'debt', label: 'Debt', icon: '🟠' },
+        { value: 'transfer', label: 'Self Transfer', icon: '🔄' },
         ...(categories && categories.length > 0 ? [
             { group: 'Specific Categories' },
             ...categories.map(c => ({
@@ -426,8 +435,8 @@ const Transactions = () => {
     // Handlers
     const handleSubmit = (e) => {
         e.preventDefault();
-        // Validation: Amount required. Category required UNLESS it's a debt repayment (then loanId or just general is fine)
-        if (!amount || (type !== 'debt' && !categoryId)) return;
+        // Validation: Amount required. Category required UNLESS it's a debt repayment (then loanId or just general is fine) OR self transfer
+        if (!amount || (type !== 'debt' && type !== 'transfer' && !categoryId)) return;
 
         const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) {
@@ -435,25 +444,50 @@ const Transactions = () => {
             return;
         }
 
+        let finalBankName = null;
+        let finalAccountEnding = null;
+        if (type === 'transfer') {
+            if (selectedBankKey) {
+                const parts = selectedBankKey.split('_');
+                finalBankName = parts[0] || null;
+                finalAccountEnding = parts[1] || null;
+            } else if (bankAccountBalances && bankAccountBalances.length > 0) {
+                finalBankName = bankAccountBalances[0].bankName;
+                finalAccountEnding = bankAccountBalances[0].accountEnding;
+            } else {
+                finalBankName = 'Primary Bank';
+                finalAccountEnding = '';
+            }
+        }
+
+        const defaultDesc = type === 'transfer'
+            ? (transferDirection === 'bank_to_cash' ? 'GPay/Bank to Cash' : 'Cash to GPay/Bank')
+            : '';
+
         const txData = {
             amount: numAmount,
-            description: (description || '').trim(),
+            description: (description || defaultDesc).trim(),
             date,
             type,
-            categoryId,
+            ...(type === 'transfer' ? {
+                transferDirection,
+                bankName: finalBankName,
+                accountEnding: finalAccountEnding,
+            } : {}),
+            categoryId: type === 'transfer' ? null : categoryId,
             ...(type === 'debt' && loanId ? { loanId, repaymentType } : {}),
-            paymentMode: paymentMode,
+            paymentMode: type === 'transfer' ? (transferDirection === 'bank_to_cash' ? 'cash' : 'upi') : paymentMode,
             paidBy: paidBy || defaultActor || 'Suresh',
             updatedBy: updatedBy || defaultActor || 'Suresh',
             ...(!editingTx ? { createdBy: updatedBy || defaultActor || 'Suresh' } : {}),
             scope: scope || (householdId ? 'ours' : 'mine'),
             // ── Payment Status ─────────────────────────────────────────────
-            paymentStatus: paymentStatus || 'paid',
-            ...(paymentStatus === 'deferred' ? {
+            paymentStatus: type === 'transfer' ? 'paid' : (paymentStatus || 'paid'),
+            ...(paymentStatus === 'deferred' && type !== 'transfer' ? {
                 deferredTo: deferredTo || null,
                 deferredNote: (deferredNote || '').trim() || null,
             } : {}),
-            ...(paymentStatus === 'borrowed' ? {
+            ...(paymentStatus === 'borrowed' && type !== 'transfer' ? {
                 borrowedFrom: (borrowedFrom || '').trim() || null,
             } : {}),
         };
@@ -547,6 +581,12 @@ const Transactions = () => {
         setPaidBy(tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : defaultActor || 'Suresh'));
         setUpdatedBy(tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : defaultActor || 'Suresh'));
         setScope(tx.scope || 'ours');
+        if (tx.type === 'transfer') {
+            setTransferDirection(tx.transferDirection || 'bank_to_cash');
+            if (tx.bankName) {
+                setSelectedBankKey(`${tx.bankName}_${tx.accountEnding || ''}`);
+            }
+        }
         if (tx.loanId) setLoanId(tx.loanId);
         if (tx.repaymentType) setRepaymentType(tx.repaymentType);
         // Payment Status restore
@@ -689,21 +729,45 @@ const Transactions = () => {
                     <select
                         id={isEdit ? "edit-type" : "type"}
                         value={type}
-                        onChange={(e) => { setType(e.target.value); setCategoryId(''); setIsRecurring(false); }}
+                        onChange={(e) => {
+                            const newType = e.target.value;
+                            setType(newType);
+                            setCategoryId('');
+                            setIsRecurring(false);
+                            if (newType === 'transfer') {
+                                if (!description) setDescription('GPay/Bank to Cash');
+                            }
+                        }}
                         className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                     >
                         <option value="expense">📉 Expense</option>
                         <option value="income">📈 Income</option>
                         <option value="savings">🐷 Savings</option>
                         <option value="debt">💳 Debt Repayment</option>
+                        <option value="transfer">🔄 Self Transfer</option>
                     </select>
                 </div>
 
                 <div className="space-y-1">
                     <label htmlFor={isEdit ? "edit-category" : "category"} className="text-xs font-semibold text-muted-foreground">
-                        Category
+                        {type === 'transfer' ? 'Transfer Direction' : 'Category'}
                     </label>
-                    {type === 'debt' ? (
+                    {type === 'transfer' ? (
+                        <select
+                            id={isEdit ? "edit-transfer-dir" : "transfer-dir"}
+                            value={transferDirection}
+                            onChange={(e) => {
+                                const dir = e.target.value;
+                                setTransferDirection(dir);
+                                if (dir === 'bank_to_cash') setDescription('GPay/Bank to Cash');
+                                else setDescription('Cash to GPay/Bank');
+                            }}
+                            className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-semibold text-cyan-600 dark:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                        >
+                            <option value="bank_to_cash">📱 GPay / Bank ➔ 💵 Cash</option>
+                            <option value="cash_to_bank">💵 Cash ➔ 📱 GPay / Bank</option>
+                        </select>
+                    ) : type === 'debt' ? (
                         <select
                             id={isEdit ? "edit-debt-type" : "debt-type"}
                             value={debtType}
@@ -738,7 +802,7 @@ const Transactions = () => {
                             value={categoryId}
                             onChange={(e) => setCategoryId(e.target.value)}
                             className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
-                            required={type !== 'debt'}
+                            required={type !== 'debt' && type !== 'transfer'}
                         >
                             <option value="" disabled>Select Category</option>
                             {availableCategories.map(c => (
@@ -748,6 +812,23 @@ const Transactions = () => {
                     )}
                 </div>
             </div>
+
+            {/* If Self-Transfer: Visual explanation banner */}
+            {type === 'transfer' && (
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                        <ArrowLeftRight className="w-4 h-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
+                        <span>
+                            {transferDirection === 'bank_to_cash' 
+                                ? '📱 GPay / Bank balance decreases ➔ 💵 Cash in Hand increases.' 
+                                : '💵 Cash in Hand balance decreases ➔ 📱 GPay / Bank balance increases.'}
+                        </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-800 dark:text-cyan-200 uppercase tracking-wider shrink-0">
+                        Self Transfer
+                    </span>
+                </div>
+            )}
 
             {/* If Debt type requires account selection */}
             {type === 'debt' && debtType === 'personal' && (
@@ -854,22 +935,44 @@ const Transactions = () => {
 
             {/* Row 4: Payment Mode, Paid By, and Updated By Dropdowns */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div className="space-y-1">
-                    <label htmlFor={isEdit ? "edit-payment-mode" : "payment-mode"} className="text-xs font-semibold text-muted-foreground">
-                        Payment Mode
-                    </label>
-                    <select
-                        id={isEdit ? "edit-payment-mode" : "payment-mode"}
-                        value={paymentMode}
-                        onChange={(e) => setPaymentMode(e.target.value)}
-                        className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
-                    >
-                        <option value="upi">📱 UPI</option>
-                        <option value="cash">💵 Cash</option>
-                        <option value="card">💳 Card</option>
-                        <option value="netbanking">🏦 Net Banking</option>
-                    </select>
-                </div>
+                {type === 'transfer' ? (
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-muted-foreground truncate block">
+                            {transferDirection === 'bank_to_cash' ? 'From Bank' : 'To Bank'}
+                        </label>
+                        <select
+                            value={selectedBankKey}
+                            onChange={(e) => setSelectedBankKey(e.target.value)}
+                            className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer truncate"
+                        >
+                            {(bankAccountBalances || []).map(b => (
+                                <option key={`${b.bankName}_${b.accountEnding}`} value={`${b.bankName}_${b.accountEnding}`}>
+                                    🏦 {b.bankName} {b.accountEnding ? `(..${b.accountEnding})` : ''}
+                                </option>
+                            ))}
+                            {(!bankAccountBalances || bankAccountBalances.length === 0) && (
+                                <option value="Primary Bank_">🏦 Primary Bank / GPay</option>
+                            )}
+                        </select>
+                    </div>
+                ) : (
+                    <div className="space-y-1">
+                        <label htmlFor={isEdit ? "edit-payment-mode" : "payment-mode"} className="text-xs font-semibold text-muted-foreground">
+                            Payment Mode
+                        </label>
+                        <select
+                            id={isEdit ? "edit-payment-mode" : "payment-mode"}
+                            value={paymentMode}
+                            onChange={(e) => setPaymentMode(e.target.value)}
+                            className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+                        >
+                            <option value="upi">📱 UPI</option>
+                            <option value="cash">💵 Cash</option>
+                            <option value="card">💳 Card</option>
+                            <option value="netbanking">🏦 Net Banking</option>
+                        </select>
+                    </div>
+                )}
 
                 <div className="space-y-1">
                     <label htmlFor={isEdit ? "edit-paid-by" : "paid-by"} className="text-xs font-semibold text-muted-foreground">
@@ -1224,8 +1327,12 @@ const Transactions = () => {
                                             <select
                                                 value={type}
                                                 onChange={(e) => {
-                                                    setType(e.target.value);
+                                                    const newType = e.target.value;
+                                                    setType(newType);
                                                     setCategoryId('');
+                                                    if (newType === 'transfer') {
+                                                        if (!description) setDescription('GPay/Bank to Cash');
+                                                    }
                                                 }}
                                                 className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
                                             >
@@ -1233,12 +1340,27 @@ const Transactions = () => {
                                                 <option value="income">📈 Income</option>
                                                 <option value="savings">🐷 Savings</option>
                                                 <option value="debt">💳 Debt</option>
+                                                <option value="transfer">🔄 Transfer</option>
                                             </select>
                                         </div>
 
                                         {/* Category */}
                                         <div className="col-span-2">
-                                            {type === 'debt' ? (
+                                            {type === 'transfer' ? (
+                                                <select
+                                                    value={transferDirection}
+                                                    onChange={(e) => {
+                                                        const dir = e.target.value;
+                                                        setTransferDirection(dir);
+                                                        if (dir === 'bank_to_cash') setDescription('GPay/Bank to Cash');
+                                                        else setDescription('Cash to GPay/Bank');
+                                                    }}
+                                                    className="w-full h-9 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold text-cyan-600 dark:text-cyan-400 cursor-pointer"
+                                                >
+                                                    <option value="bank_to_cash">📱 Bank ➔ 💵 Cash</option>
+                                                    <option value="cash_to_bank">💵 Cash ➔ 📱 Bank</option>
+                                                </select>
+                                            ) : type === 'debt' ? (
                                                 <select
                                                     value={debtType}
                                                     onChange={(e) => setDebtType(e.target.value)}
@@ -1253,7 +1375,7 @@ const Transactions = () => {
                                                     value={categoryId}
                                                     onChange={(e) => setCategoryId(e.target.value)}
                                                     className="w-full h-9 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
-                                                    required={type !== 'debt'}
+                                                    required={type !== 'debt' && type !== 'transfer'}
                                                 >
                                                     <option value="">Select Category...</option>
                                                     {availableCategories.map(c => (
@@ -1782,8 +1904,12 @@ const Transactions = () => {
                                                             <select
                                                                 value={type}
                                                                 onChange={(e) => {
-                                                                    setType(e.target.value);
+                                                                    const newType = e.target.value;
+                                                                    setType(newType);
                                                                     setCategoryId('');
+                                                                    if (newType === 'transfer') {
+                                                                        if (!description) setDescription('GPay/Bank to Cash');
+                                                                    }
                                                                 }}
                                                                 className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer min-w-[90px]"
                                                             >
@@ -1791,12 +1917,27 @@ const Transactions = () => {
                                                                 <option value="income">📈 Income</option>
                                                                 <option value="savings">🐷 Savings</option>
                                                                 <option value="debt">💳 Debt</option>
+                                                                <option value="transfer">🔄 Transfer</option>
                                                             </select>
                                                         </td>
 
                                                         {/* Category */}
                                                         <td className="py-2 px-1.5 whitespace-nowrap">
-                                                            {type === 'debt' ? (
+                                                            {type === 'transfer' ? (
+                                                                <select
+                                                                    value={transferDirection}
+                                                                    onChange={(e) => {
+                                                                        const dir = e.target.value;
+                                                                        setTransferDirection(dir);
+                                                                        if (dir === 'bank_to_cash') setDescription('GPay/Bank to Cash');
+                                                                        else setDescription('Cash to GPay/Bank');
+                                                                    }}
+                                                                    className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold text-cyan-600 dark:text-cyan-400 cursor-pointer w-[110px]"
+                                                                >
+                                                                    <option value="bank_to_cash">Bank ➔ Cash</option>
+                                                                    <option value="cash_to_bank">Cash ➔ Bank</option>
+                                                                </select>
+                                                            ) : type === 'debt' ? (
                                                                 <select
                                                                     value={debtType}
                                                                     onChange={(e) => setDebtType(e.target.value)}
@@ -1977,10 +2118,17 @@ const Transactions = () => {
 
                                                                     {/* Category */}
                                                                     <td className="py-2.5 px-3 whitespace-nowrap font-medium">
-                                                                        <span className="inline-flex items-center gap-1.5">
-                                                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
-                                                                            <span className="truncate max-w-[120px]">{getCategoryName(tx.categoryId)}</span>
-                                                                        </span>
+                                                                        {tx.type === 'transfer' ? (
+                                                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                                                                                <span>{tx.transferDirection === 'cash_to_bank' ? '💵➔📱' : '📱➔💵'}</span>
+                                                                                <span>{tx.transferDirection === 'cash_to_bank' ? 'Cash to Bank' : 'GPay to Cash'}</span>
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center gap-1.5">
+                                                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
+                                                                                <span className="truncate max-w-[120px]">{getCategoryName(tx.categoryId)}</span>
+                                                                            </span>
+                                                                        )}
                                                                     </td>
 
                                                                     {/* Description */}
@@ -1990,13 +2138,20 @@ const Transactions = () => {
 
                                                                     {/* Payment Mode */}
                                                                     <td className="py-2.5 px-2.5 whitespace-nowrap">
-                                                                        <div className="flex flex-col gap-0.5">
-                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground text-[10px] font-medium border border-border/40">
-                                                                                <span>{tx.paymentMode === 'cash' ? '💵' : tx.paymentMode === 'card' ? '💳' : tx.paymentMode === 'netbanking' ? '🏦' : '📱'}</span>
-                                                                                <span className="capitalize">{tx.paymentMode || 'UPI'}</span>
+                                                                        {tx.type === 'transfer' ? (
+                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] font-semibold border border-cyan-500/30">
+                                                                                <ArrowLeftRight className="w-3 h-3" />
+                                                                                <span>{tx.bankName ? `${tx.bankName}` : 'Self Transfer'}</span>
                                                                             </span>
-                                                                            <PaymentStatusBadge status={tx.paymentStatus} deferredTo={tx.deferredTo} />
-                                                                        </div>
+                                                                        ) : (
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground text-[10px] font-medium border border-border/40">
+                                                                                    <span>{tx.paymentMode === 'cash' ? '💵' : tx.paymentMode === 'card' ? '💳' : tx.paymentMode === 'netbanking' ? '🏦' : '📱'}</span>
+                                                                                    <span className="capitalize">{tx.paymentMode || 'UPI'}</span>
+                                                                                </span>
+                                                                                <PaymentStatusBadge status={tx.paymentStatus} deferredTo={tx.deferredTo} />
+                                                                            </div>
+                                                                        )}
                                                                     </td>
 
                                                                     {/* Paid By */}
@@ -2056,7 +2211,7 @@ const Transactions = () => {
                                                                         "py-2.5 px-3 text-right font-bold tabular-nums whitespace-nowrap text-xs sm:text-sm font-mono",
                                                                         typeInfo.color
                                                                     )}>
-                                                                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
+                                                                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : tx.type === 'transfer' ? '⇄ ' : ''}{formatMoney(tx.amount)}
                                                                     </td>
 
                                                                     {/* Actions */}
@@ -2215,6 +2370,9 @@ const Transactions = () => {
                                                         {/* Category Icon */}
                                                         <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm", typeInfo.bg)}>
                                                             {(() => {
+                                                                if (tx.type === 'transfer') {
+                                                                    return <ArrowLeftRight className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />;
+                                                                }
                                                                 const cat = categories.find(c => c.id === tx.categoryId);
                                                                 if (cat) return <CategoryIcon iconName={cat.icon || cat.emoji} size={18} color={cat.color} />;
                                                                 return <typeInfo.icon className={cn("w-5 h-5", typeInfo.color)} />;
@@ -2224,21 +2382,32 @@ const Transactions = () => {
                                                         {/* Title + Meta Row */}
                                                         <div className="flex-1 min-w-0">
                                                             <p className="font-semibold text-sm text-foreground truncate leading-tight">
-                                                                {tx.description || getCategoryName(tx.categoryId)}
+                                                                {tx.description || (tx.type === 'transfer' ? (tx.transferDirection === 'cash_to_bank' ? 'Cash to Bank' : 'GPay to Cash') : getCategoryName(tx.categoryId))}
                                                             </p>
                                                             <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-muted-foreground">
                                                                 {/* Date */}
                                                                 <span>{format(new Date(tx.date), 'MMM dd, yyyy')}</span>
                                                                 <span className="text-muted-foreground/40 text-[10px]">•</span>
 
-                                                                {/* Category Dot + Name */}
-                                                                <span className="flex items-center gap-1">
-                                                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
-                                                                    <span>{getCategoryName(tx.categoryId)}</span>
-                                                                </span>
+                                                                {/* Category Dot + Name OR Transfer Direction Badge */}
+                                                                {tx.type === 'transfer' ? (
+                                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30">
+                                                                        <ArrowLeftRight className="w-2.5 h-2.5" />
+                                                                        {tx.transferDirection === 'cash_to_bank' ? '💵➔📱 Cash to Bank' : '📱➔💵 GPay to Cash'}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(tx.categoryId) }} />
+                                                                        <span>{getCategoryName(tx.categoryId)}</span>
+                                                                    </span>
+                                                                )}
 
-                                                                {/* Payment Mode Badge (UPI, Cash, etc) */}
-                                                                {tx.paymentMode && (
+                                                                {/* Payment Mode Badge (UPI, Cash, etc) or Bank Name for Transfer */}
+                                                                {tx.type === 'transfer' ? (
+                                                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold tracking-wider bg-cyan-500/15 text-cyan-500 dark:text-cyan-400 border border-cyan-500/30">
+                                                                        🏦 {tx.bankName || 'Bank'}
+                                                                    </span>
+                                                                ) : tx.paymentMode ? (
                                                                     <span className={cn(
                                                                         "px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider",
                                                                         tx.paymentMode === 'upi'        && "bg-purple-500/15 text-purple-400 border border-purple-500/30",
@@ -2248,7 +2417,7 @@ const Transactions = () => {
                                                                     )}>
                                                                         {tx.paymentMode === 'netbanking' ? 'NetBank' : tx.paymentMode.toUpperCase()}
                                                                     </span>
-                                                                )}
+                                                                ) : null}
 
                                                                 {/* Paid By Badge */}
                                                                 {(() => {
@@ -2327,7 +2496,7 @@ const Transactions = () => {
                                                     {/* Row 2: Amount (LEFT) + Actions (RIGHT) - Exactly matching reference screenshot */}
                                                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/20">
                                                         <span className={cn("font-bold text-sm font-mono tracking-tight", typeInfo.color)}>
-                                                            {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}{formatMoney(tx.amount)}
+                                                            {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : tx.type === 'transfer' ? '⇄ ' : ''}{formatMoney(tx.amount)}
                                                         </span>
                                                         <div className="flex items-center gap-1">
                                                             <button
