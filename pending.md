@@ -52,7 +52,7 @@
   - **URL**: `https://personal-finance-app-mauve.vercel.app/api/payment/webhook`
   - **Status**: Live & Enabled.
 - [x] **2.2 Set Webhook Secret**:
-  - Configured with Razorpay Key Secret (`[REDACTED_SECRET]`), supported natively with fallback in `webhook.js`.
+  - Configured with Razorpay Key Secret, supported natively with fallback in `webhook.js`.
 - [x] **2.3 Enable Active Events**:
   - [x] `payment.captured` — Upgrades user plan & generates GST invoice.
   - [x] `payment.failed` — Records failure reason.
