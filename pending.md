@@ -103,8 +103,7 @@
 
 ---
 
-## ✅ 6. Codebase Items 100% Done & Verified (Do Not Re-check)
-- [x] **Repo Security Cleanup**: All real bank statement PDFs, Firebase user dumps, binary APKs, and debug scripts removed from git tracking and added to `.gitignore`.
+- [x] **Repo Security Cleanup & Git History Purge**: All real bank statement PDFs, Firebase user dumps, binary APKs, and debug scripts were permanently purged from the entire Git commit history using `git-filter-repo` and force-pushed to GitHub. Zero sensitive files exist anywhere in Git history.
 - [x] **Firestore Security Rules**: Multi-tenant isolation configured in `firestore.rules` and linked in `firebase.json`.
 - [x] **Landing Page Alignment**: SMS claims replaced with real hero features (Smart Statement PDF Parser, Couple Collaboration, Salary Pockets).
 - [x] **WhatsApp Floating Support Widget**: Fully responsive floating widget with tooltip in `src/components/WhatsAppSupport.jsx`.
