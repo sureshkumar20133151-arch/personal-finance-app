@@ -49,9 +49,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
   if (!secret) {
-    console.error("[payment/webhook] RAZORPAY_WEBHOOK_SECRET is not configured");
+    console.error("[payment/webhook] Neither RAZORPAY_WEBHOOK_SECRET nor RAZORPAY_KEY_SECRET is configured");
     return res.status(500).json({ error: "Webhook not configured" });
   }
 
