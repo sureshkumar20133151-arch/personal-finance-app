@@ -10,6 +10,7 @@ import { Checkout } from 'capacitor-razorpay';
 import AvatarFallback from '../components/AvatarFallback';
 import { AVATAR_PRESETS, renderAvatarDataUrl } from '../lib/avatars';
 import { apiUrl } from '../lib/apiBase';
+import { isAppOwner } from '../utils/admin';
 import ClaudeConnectGuideModal from '../components/ClaudeConnectGuideModal';
 
 const Account = () => {
@@ -623,6 +624,30 @@ const Account = () => {
                                     Manage Plan ↓
                                 </a>
                             </div>
+
+                            {isAppOwner(currentUser?.email) && (
+                                <div className="mt-4 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-1.5 bg-amber-500/10 text-amber-500 rounded-lg border border-amber-500/20">
+                                            <Crown className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                                SaaS Owner Control Center
+                                                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-extrabold">Owner</span>
+                                            </p>
+                                            <p className="text-[11px] text-muted-foreground">View customer directory, revenue metrics, subscriptions & coupons.</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/admin')}
+                                        className="px-3.5 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-all shrink-0 shadow-sm"
+                                    >
+                                        Open Admin Dashboard →
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Preset Avatar Selection Grid */}

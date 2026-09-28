@@ -18,7 +18,9 @@ const SelectCategories = lazy(() => import('./pages/auth/SelectCategories'));
 const JoinHousehold = lazy(() => import('./pages/auth/JoinHousehold'));
 const Landing = lazy(() => import('./pages/Landing'));
 const Legal = lazy(() => import('./pages/Legal'));
+const Admin = lazy(() => import('./pages/Admin'));
 
+import AdminRoute from './components/AdminRoute';
 import { FinanceProvider } from './context/FinanceContext';
 import AccountRecoveryModal from './components/AccountRecoveryModal';
 
@@ -83,6 +85,7 @@ const App = () => {
                 <Route path="/loans" element={<Loans />} />
                 <Route path="/setup" element={<Setup />} />
                 <Route path="/account" element={<Account />} />
+                <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
             </Routes>
           </Suspense>

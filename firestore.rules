@@ -11,14 +11,21 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // 1. Users: Strictly multi-tenant isolated
+    function isAppOwner() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'sureshkumar20133151@gmail.com' ||
+        request.auth.token.email == 'solodeveloper.suresh@gmail.com'
+      );
+    }
+
+    // 1. Users: Strictly multi-tenant isolated (App Owner can read all & manage plans)
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAppOwner();
     }
 
     // 2. Deleted Users: User can only access their own soft-deleted data
     match /deleted_users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAppOwner();
     }
 
     // 3. Households: Shared finance collaboration
@@ -51,9 +58,20 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // 5. Coupons: Authenticated users can read coupon codes; client writes are prohibited
+    // 5. Coupons: Authenticated users can read; App Owner can create/update
     match /coupons/{code} {
       allow read: if isAuthenticated();
+      allow write: if isAppOwner();
+    }
+
+    // 6. Payment Events & Invoices: App Owner can read SaaS metrics
+    match /processedPaymentEvents/{eventId} {
+      allow read: if isAppOwner();
+      allow write: if false;
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isAppOwner() || (isAuthenticated() && resource.data.uid == request.auth.uid);
       allow write: if false;
     }
 

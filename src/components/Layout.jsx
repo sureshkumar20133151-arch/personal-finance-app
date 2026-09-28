@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Wallet, Settings, Receipt,
-  User, Building2, PieChart, Home,
+  User, Building2, PieChart, Home, Crown,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { triggerHapticSelection } from '../lib/haptics';
+import { isAppOwner } from '../utils/admin';
 import AvatarFallback from './AvatarFallback';
 import NotificationCenter from './NotificationCenter';
 
@@ -92,6 +93,22 @@ const Layout = () => {
 
         {/* Right: Notifications & Profile Avatar */}
         <div className="flex items-center gap-2.5">
+          {isAppOwner(currentUser?.email) && (
+            <NavLink
+              to="/admin"
+              onClick={triggerHapticSelection}
+              className={({ isActive }) => cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-sm",
+                isActive
+                  ? "bg-amber-500 text-black border-amber-400 font-extrabold shadow-amber-500/20"
+                  : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/30"
+              )}
+              title="SaaS Owner Dashboard"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span>Owner Admin</span>
+            </NavLink>
+          )}
           <NotificationCenter alerts={activeAlerts || []} />
           <NavLink
             to="/account"
@@ -134,6 +151,20 @@ const Layout = () => {
 
         {/* Mobile Right: Notifications & Avatar */}
         <div className="flex items-center gap-2">
+          {isAppOwner(currentUser?.email) && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => cn(
+                "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border",
+                isActive
+                  ? "bg-amber-500 text-black border-amber-400 font-extrabold"
+                  : "bg-amber-500/10 text-amber-500 border-amber-500/30"
+              )}
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span>Admin</span>
+            </NavLink>
+          )}
           <NotificationCenter alerts={activeAlerts || []} />
           <NavLink
             to="/account"
