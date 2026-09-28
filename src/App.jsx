@@ -21,7 +21,6 @@ const Legal = lazy(() => import('./pages/Legal'));
 
 import { FinanceProvider } from './context/FinanceContext';
 import AccountRecoveryModal from './components/AccountRecoveryModal';
-import WhatsAppSupport from './components/WhatsAppSupport';
 
 // Branded loading spinner shown while lazy chunks are downloading
 const PageLoader = () => (
@@ -87,7 +86,6 @@ const App = () => {
               </Route>
             </Routes>
           </Suspense>
-          <WhatsAppSupport />
         </FinanceProvider>
       </AuthProvider>
     </Router>
