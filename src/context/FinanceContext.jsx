@@ -1139,19 +1139,36 @@ export function FinanceProvider({ children }) {
     if (uid === 'mlbLQkDo0Ef95hns8p81TkQdUK83' || uid === 'mlbLQkDo0Ef95hns8p8iTkQdUK83') return 'Suresh';
     if (uid === 'do139V31SkRXMSpkLIW1AroA9ZO2') return 'Rosy';
     const first = state.profile?.firstName?.trim();
-    if (first) {
-      if (first.toLowerCase().includes('sur')) return 'Suresh';
-      if (first.toLowerCase().includes('ros')) return 'Rosy';
-      return first;
-    }
+    if (first) return first;
     const display = currentUser?.displayName?.trim();
-    if (display) {
-      if (display.toLowerCase().includes('sur')) return 'Suresh';
-      if (display.toLowerCase().includes('ros')) return 'Rosy';
-      return display.split(' ')[0];
-    }
-    return 'Suresh';
+    if (display) return display.split(' ')[0];
+    const emailPrefix = currentUser?.email?.split('@')[0];
+    if (emailPrefix) return emailPrefix;
+    return 'Me';
   }, [currentUser, state.profile?.firstName]);
+
+  // Identify partner name (Rosy for Suresh, Suresh for Rosy, household member or custom)
+  const partnerActorName = useMemo(() => {
+    const uid = currentUser?.uid;
+    if (uid === 'mlbLQkDo0Ef95hns8p81TkQdUK83' || uid === 'mlbLQkDo0Ef95hns8p8iTkQdUK83') return 'Rosy';
+    if (uid === 'do139V31SkRXMSpkLIW1AroA9ZO2') return 'Suresh';
+
+    // If custom partnerName is saved in profile
+    if (state.profile?.partnerName?.trim()) {
+      return state.profile.partnerName.trim().split(' ')[0];
+    }
+
+    // If household has another member
+    if (state.householdMembers) {
+      const other = Object.entries(state.householdMembers).find(([id]) => id !== uid)?.[1];
+      if (other?.name?.trim()) {
+        const cleanName = other.name.trim().split(' ')[0];
+        if (cleanName && cleanName.toLowerCase() !== 'member') return cleanName;
+      }
+    }
+
+    return null;
+  }, [currentUser, state.householdMembers, state.profile?.partnerName]);
 
   // ─── CRUD ────────────────────────────────────────────────────────────────
   const addTransaction = useCallback((tx) => {
@@ -1265,7 +1282,7 @@ export function FinanceProvider({ children }) {
 
   const addTransactionComment = useCallback((txId, text, emoji = '') => {
     if (!text && !emoji) return;
-    const author = currentActorName || 'Suresh';
+    const author = currentActorName || 'Me';
     const commentObj = {
       id: uuidv4(),
       text: (text || '').trim(),
@@ -1774,6 +1791,7 @@ export function FinanceProvider({ children }) {
 
     // Household (team sharing)
     currentActorName,
+    partnerActorName,
     householdId:            state.householdId || null,
     householdMeta:          state.householdMeta || null,
     householdMembers:       state.householdMembers || {},

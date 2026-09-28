@@ -21,8 +21,30 @@ const Setup = () => {
         salaryDate, updateSalaryDate, initialBankBalances, bankAccountBalances, clearData,
         initialCashBalance, cashSeedDate, updateStartingBalances,
         accountingStartDate, updateAccountingStartDate,
-        isSmsUnlocked
+        isSmsUnlocked,
+        profile, saveProfile, currentActorName, partnerActorName
     } = useFinanceData();
+
+    // Member names state
+    const [tempUserName, setTempUserName] = useState('');
+    const [tempPartnerName, setTempPartnerName] = useState('');
+
+    useEffect(() => {
+        setTempUserName(profile?.firstName || currentActorName || '');
+        setTempPartnerName(profile?.partnerName || partnerActorName || '');
+    }, [profile?.firstName, profile?.partnerName, currentActorName, partnerActorName]);
+
+    const handleSaveNames = async () => {
+        try {
+            await saveProfile({
+                firstName: tempUserName.trim(),
+                partnerName: tempPartnerName.trim()
+            });
+            showToast('Member names updated successfully.');
+        } catch {
+            showToast('Failed to update member names.', 'error');
+        }
+    };
 
     // Starting balances state
     const [tempBankBalances, setTempBankBalances] = useState({});
@@ -302,6 +324,46 @@ const Setup = () => {
                 <div className="grid gap-6 sm:grid-cols-2 max-w-3xl animate-in fade-in duration-300">
                     <ThemeSelector />
                     <CurrencySelector />
+
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sm:col-span-2">
+                        <h3 className="font-semibold mb-1 flex items-center gap-2">
+                            <span style={{ fontSize: '16px' }}>👥</span> Household & Member Names
+                        </h3>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Personalize who shows up in your transaction dropdowns (Paid By, Updated By) and personal expense scopes.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Your Name</label>
+                                <input
+                                    type="text"
+                                    value={tempUserName}
+                                    onChange={(e) => setTempUserName(e.target.value)}
+                                    placeholder="e.g. Alex"
+                                    className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Partner / Spouse / Roommate Name (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={tempPartnerName}
+                                    onChange={(e) => setTempPartnerName(e.target.value)}
+                                    placeholder="Leave empty if single user"
+                                    className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleSaveNames}
+                                className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs cursor-pointer active:scale-[0.98]"
+                            >
+                                Save Names
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="rounded-2xl border border-border bg-card shadow-sm p-6 sm:col-span-2">
                         <h3 className="font-semibold mb-1 flex items-center gap-2">

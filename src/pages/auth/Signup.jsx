@@ -155,12 +155,12 @@ const Signup = () => {
                             <div className="space-y-1.5">
                                 <label htmlFor="firstName" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">First Name</label>
                                 <input id="firstName" type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
-                                    placeholder="Suresh" className="input-field" required />
+                                    placeholder="John" className="input-field" required />
                             </div>
                             <div className="space-y-1.5">
                                 <label htmlFor="lastName" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Last Name</label>
                                 <input id="lastName" type="text" value={lastName} onChange={e => setLastName(e.target.value)}
-                                    placeholder="Kumar" className="input-field" required />
+                                    placeholder="Doe" className="input-field" required />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">

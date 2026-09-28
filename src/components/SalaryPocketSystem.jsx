@@ -16,6 +16,7 @@ import {
   HandCoins, Landmark, TriangleAlert
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useFinanceData } from '../hooks/useFinanceData';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (n, formatMoney) => formatMoney ? formatMoney(n) : `₹${n.toLocaleString('en-IN')}`;
@@ -131,14 +132,24 @@ export const PaymentStatusPicker = ({ value = 'paid', deferredTo, borrowedFrom, 
 
 // ─── PocketSetupModal ──────────────────────────────────────────────────────
 const PocketSetupModal = ({ onClose, onSave, salaryPockets, monthlySalary, formatMoney }) => {
+  const { currentActorName, partnerActorName } = useFinanceData();
+  const userName = currentActorName || 'Me';
+  const partnerName = partnerActorName || null;
+  const hasPartner = Boolean(partnerName);
+
   const [salary, setSalary] = useState(monthlySalary || 50000);
   const [pockets, setPockets] = useState(
     salaryPockets && salaryPockets.length > 0
       ? salaryPockets.map(p => ({ ...p }))
-      : [
-          { id: 'p1', name: "Wife's Home Expenses", icon: '🏠', color: 'rose',    allocatedTo: 'Rosy',   allocatedAmount: 20000 },
-          { id: 'p2', name: "Husband's Pocket Money", icon: '👤', color: 'blue', allocatedTo: 'Suresh', allocatedAmount: 5000  },
-        ]
+      : hasPartner
+        ? [
+            { id: 'p1', name: "Home Expenses", icon: '🏠', color: 'rose', allocatedTo: partnerName, allocatedAmount: 20000 },
+            { id: 'p2', name: "Personal Pocket Money", icon: '👤', color: 'blue', allocatedTo: userName, allocatedAmount: 5000 },
+          ]
+        : [
+            { id: 'p1', name: "Essentials & Bills", icon: '🏠', color: 'rose', allocatedTo: userName, allocatedAmount: 20000 },
+            { id: 'p2', name: "Personal Spending", icon: '👤', color: 'blue', allocatedTo: userName, allocatedAmount: 5000 },
+          ]
   );
   const [showIconPicker, setShowIconPicker] = useState(null);
 
@@ -152,7 +163,7 @@ const PocketSetupModal = ({ onClose, onSave, salaryPockets, monthlySalary, forma
       name: 'New Pocket',
       icon: '💰',
       color: POCKET_COLORS[prev.length % POCKET_COLORS.length].id,
-      allocatedTo: 'Both',
+      allocatedTo: hasPartner ? 'Both' : userName,
       allocatedAmount: 0,
     }]);
   };
@@ -297,9 +308,9 @@ const PocketSetupModal = ({ onClose, onSave, salaryPockets, monthlySalary, forma
                         onChange={e => updatePocket(pocket.id, 'allocatedTo', e.target.value)}
                         className="w-full h-8 px-2 text-xs font-semibold bg-background/60 border border-border/50 rounded-lg text-foreground focus:outline-none"
                       >
-                        <option value="Rosy">🌸 Rosy (Wife)</option>
-                        <option value="Suresh">👤 Suresh (Husband)</option>
-                        <option value="Both">🤝 Both</option>
+                        <option value={userName}>👤 {userName}</option>
+                        {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
+                        {hasPartner && <option value="Both">🤝 Both</option>}
                       </select>
                     </div>
                     <div>
@@ -425,6 +436,11 @@ export const DeferredPaymentsPanel = ({
   onMarkPaid,
   formatMoney
 }) => {
+  const { currentActorName, partnerActorName } = useFinanceData();
+  const userName = currentActorName || 'Me';
+  const partnerName = partnerActorName || null;
+  const hasPartner = Boolean(partnerName);
+
   const [collapsed, setCollapsed] = useState(false);
 
   const deferred = useMemo(() =>
@@ -496,7 +512,7 @@ export const DeferredPaymentsPanel = ({
                     <p className="text-xs font-bold text-foreground truncate">{tx.description}</p>
                     {tx.paidBy && (
                       <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
-                        {tx.paidBy === 'Rosy' ? '🌸 Rosy' : '👤 Suresh'}
+                        {hasPartner && (tx.paidBy === partnerName || (partnerName === 'Rosy' && tx.paidBy === 'Rosy')) ? `🌸 ${partnerName}` : `👤 ${tx.paidBy || userName}`}
                       </span>
                     )}
                   </div>

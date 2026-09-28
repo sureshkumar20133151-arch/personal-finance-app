@@ -27,21 +27,7 @@ const SORT_OPTIONS = [
     { value: 'person-asc', label: 'Person Who Spent', icon: '👤' },
 ];
 
-const SCOPE_OPTIONS = [
-    { value: 'all', label: 'Expense For: All', icon: '👥' },
-    { group: 'Household Scope' },
-    { value: 'ours', label: 'Home (Joint)', icon: '🏠' },
-    { value: 'mine', label: 'Suresh (Personal)', icon: '👤' },
-    { value: 'partner', label: 'Rosy (Personal)', icon: '🌸' },
-    { group: 'Paid By' },
-    { value: 'paid:Suresh', label: 'Paid by: Suresh', icon: '👤' },
-    { value: 'paid:Rosy', label: 'Paid by: Rosy', icon: '🌸' },
-    { value: 'paid:Both', label: 'Paid by: Both', icon: '🤝' },
-    { group: 'Updated By' },
-    { value: 'updated:Suresh', label: 'Updated by: Suresh', icon: '👤' },
-    { value: 'updated:Rosy', label: 'Updated by: Rosy', icon: '🌸' },
-    { value: 'updated:Claude', label: 'Updated by: Claude AI', icon: '🤖' },
-];
+
 
 const CustomSelect = ({
     value,
@@ -175,22 +161,52 @@ const Transactions = () => {
         householdMembers,
         addTransferTransaction,
         currentActorName,
+        partnerActorName,
         profile,
         bankAccountBalances,
     } = useFinanceData();
     const { currentUser } = useAuth();
     const currentUserUid = currentUser?.uid;
 
-    const defaultActor = useMemo(() => {
+    const userName = useMemo(() => {
         if (currentActorName) return currentActorName;
         const uid = currentUser?.uid;
         if (uid === 'mlbLQkDo0Ef95hns8p81TkQdUK83' || uid === 'mlbLQkDo0Ef95hns8p8iTkQdUK83') return 'Suresh';
         if (uid === 'do139V31SkRXMSpkLIW1AroA9ZO2') return 'Rosy';
         const name = profile?.firstName || currentUser?.displayName || '';
-        if (name.toLowerCase().includes('ros')) return 'Rosy';
-        if (name.toLowerCase().includes('sur')) return 'Suresh';
-        return 'Suresh';
+        if (name.trim()) return name.trim().split(' ')[0];
+        const emailPrefix = currentUser?.email?.split('@')[0];
+        if (emailPrefix) return emailPrefix;
+        return 'Me';
     }, [currentActorName, currentUser, profile]);
+
+    const partnerName = useMemo(() => {
+        if (partnerActorName) return partnerActorName;
+        return null;
+    }, [partnerActorName]);
+
+    const hasPartner = Boolean(partnerName);
+    const defaultActor = userName;
+
+    const scopeOptions = useMemo(() => [
+        { value: 'all', label: 'Expense For: All', icon: '👥' },
+        { group: hasPartner ? 'Household Scope' : 'Expense Scope' },
+        { value: 'ours', label: hasPartner ? 'Home (Joint)' : 'General / Household', icon: '🏠' },
+        { value: 'mine', label: `${userName} (Personal)`, icon: '👤' },
+        ...(hasPartner ? [{ value: 'partner', label: `${partnerName} (Personal)`, icon: '🌸' }] : []),
+        { group: 'Paid By' },
+        { value: `paid:${userName}`, label: `Paid by: ${userName}`, icon: '👤' },
+        ...(hasPartner ? [
+            { value: `paid:${partnerName}`, label: `Paid by: ${partnerName}`, icon: '🌸' },
+            { value: 'paid:Both', label: 'Paid by: Both', icon: '🤝' },
+        ] : []),
+        { group: 'Updated By' },
+        { value: `updated:${userName}`, label: `Updated by: ${userName}`, icon: '👤' },
+        ...(hasPartner ? [
+            { value: `updated:${partnerName}`, label: `Updated by: ${partnerName}`, icon: '🌸' },
+        ] : []),
+        { value: 'updated:Claude', label: 'Updated by: Claude AI', icon: '🤖' },
+    ], [userName, partnerName, hasPartner]);
 
     // Form State
     const [amount, setAmount] = useState('');
@@ -198,8 +214,8 @@ const Transactions = () => {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState('expense');
     const [categoryId, setCategoryId] = useState('');
-    const [paidBy, setPaidBy] = useState('Suresh');
-    const [updatedBy, setUpdatedBy] = useState('Suresh');
+    const [paidBy, setPaidBy] = useState(userName);
+    const [updatedBy, setUpdatedBy] = useState(userName);
 
     // Self-Transfer State ('bank_to_cash' | 'cash_to_bank')
     const [transferDirection, setTransferDirection] = useState('bank_to_cash');
@@ -348,8 +364,12 @@ const Transactions = () => {
         setBorrowedFrom('');
         setShareWithUid('');
         setShowShareOptions(false);
-        setPaidBy(defaultActor || 'Suresh');
-        setUpdatedBy(defaultActor || 'Suresh');
+        setDeferredNote('');
+        setBorrowedFrom('');
+        setShareWithUid('');
+        setShowShareOptions(false);
+        setPaidBy(defaultActor || userName);
+        setUpdatedBy(defaultActor || userName);
         setScope(householdId ? 'ours' : 'mine');
         setAssignedTo('Both');
         setDueDay(5);
@@ -397,12 +417,37 @@ const Transactions = () => {
                 || (scopeFilter === 'ours' && (t.scope === 'ours' || !t.scope))
                 || (scopeFilter === 'mine' && t.scope === 'mine')
                 || (scopeFilter === 'partner' && t.scope === 'partner')
-                || (scopeFilter === 'paid:Suresh' && ((t.paidBy || '').toLowerCase().includes('sur') || (!t.paidBy && (!t.scope || t.scope === 'mine' || t.scope === 'ours'))))
-                || (scopeFilter === 'paid:Rosy' && ((t.paidBy || '').toLowerCase().includes('ros') || (!t.paidBy && t.scope === 'partner')))
-                || (scopeFilter === 'paid:Both' && ((t.paidBy || '').toLowerCase().includes('both') || (t.paidBy || '').toLowerCase().includes('joint')))
-                || (scopeFilter === 'updated:Suresh' && ((t.updatedBy || '').toLowerCase().includes('sur') || (t.createdBy || '').toLowerCase().includes('sur') || (!t.updatedBy && !t.createdBy && t.source !== 'mcp')))
-                || (scopeFilter === 'updated:Rosy' && ((t.updatedBy || '').toLowerCase().includes('ros') || (t.createdBy || '').toLowerCase().includes('ros')))
-                || (scopeFilter === 'updated:Claude' && ((t.updatedBy || '').toLowerCase().includes('claude') || (t.createdBy || '').toLowerCase().includes('claude') || t.source === 'mcp'));
+                || (scopeFilter.startsWith('paid:') && (() => {
+                    const target = scopeFilter.slice(5).toLowerCase();
+                    const p = (t.paidBy || '').toLowerCase();
+                    if (target === 'both') return p.includes('both') || p.includes('joint');
+                    if (p === target) return true;
+                    if (target === userName.toLowerCase()) {
+                        return p === userName.toLowerCase() || (userName === 'Suresh' && p.includes('sur')) || (!t.paidBy && (!t.scope || t.scope === 'mine' || t.scope === 'ours'));
+                    }
+                    if (target === partnerName.toLowerCase()) {
+                        return p === partnerName.toLowerCase() || (partnerName === 'Rosy' && p.includes('ros')) || (!t.paidBy && t.scope === 'partner');
+                    }
+                    if (target === 'suresh') return p.includes('sur') || (!t.paidBy && (!t.scope || t.scope === 'mine' || t.scope === 'ours'));
+                    if (target === 'rosy') return p.includes('ros') || (!t.paidBy && t.scope === 'partner');
+                    return p.includes(target);
+                })())
+                || (scopeFilter.startsWith('updated:') && (() => {
+                    const target = scopeFilter.slice(8).toLowerCase();
+                    const u = (t.updatedBy || '').toLowerCase();
+                    const c = (t.createdBy || '').toLowerCase();
+                    if (target === 'claude') return u.includes('claude') || c.includes('claude') || t.source === 'mcp';
+                    if (u === target || c === target) return true;
+                    if (target === userName.toLowerCase()) {
+                        return u === userName.toLowerCase() || c === userName.toLowerCase() || (userName === 'Suresh' && (u.includes('sur') || c.includes('sur'))) || (!t.updatedBy && !t.createdBy && t.source !== 'mcp');
+                    }
+                    if (target === partnerName.toLowerCase()) {
+                        return u === partnerName.toLowerCase() || c === partnerName.toLowerCase() || (partnerName === 'Rosy' && (u.includes('ros') || c.includes('ros')));
+                    }
+                    if (target === 'suresh') return u.includes('sur') || c.includes('sur') || (!t.updatedBy && !t.createdBy && t.source !== 'mcp');
+                    if (target === 'rosy') return u.includes('ros') || c.includes('ros');
+                    return u.includes(target) || c.includes(target);
+                })());
             const desc = t.description || '';
             const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (categories.find(c => c.id === t.categoryId)?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -422,15 +467,15 @@ const Transactions = () => {
                 return new Date(b.date) - new Date(a.date);
             }
             if (sortBy === 'person-asc') {
-                const personA = a.paidBy || a.updatedBy || a.createdBy || 'Suresh';
-                const personB = b.paidBy || b.updatedBy || b.createdBy || 'Suresh';
+                const personA = a.paidBy || a.updatedBy || a.createdBy || userName;
+                const personB = b.paidBy || b.updatedBy || b.createdBy || userName;
                 const cmp = personA.localeCompare(personB);
                 if (cmp !== 0) return cmp;
                 return new Date(b.date) - new Date(a.date);
             }
             return new Date(b.date) - new Date(a.date);
         });
-    }, [transactions, selectedMonth, filterType, scopeFilter, searchQuery, categories, sortBy]);
+    }, [transactions, selectedMonth, filterType, scopeFilter, searchQuery, categories, sortBy, userName, partnerName]);
 
     // Handlers
     const handleSubmit = (e) => {
@@ -477,9 +522,9 @@ const Transactions = () => {
             categoryId: type === 'transfer' ? null : categoryId,
             ...(type === 'debt' && loanId ? { loanId, repaymentType } : {}),
             paymentMode: type === 'transfer' ? (transferDirection === 'bank_to_cash' ? 'cash' : 'upi') : paymentMode,
-            paidBy: paidBy || defaultActor || 'Suresh',
-            updatedBy: updatedBy || defaultActor || 'Suresh',
-            ...(!editingTx ? { createdBy: updatedBy || defaultActor || 'Suresh' } : {}),
+            paidBy: paidBy || defaultActor || userName,
+            updatedBy: updatedBy || defaultActor || userName,
+            ...(!editingTx ? { createdBy: updatedBy || defaultActor || userName } : {}),
             scope: scope || (householdId ? 'ours' : 'mine'),
             // ── Payment Status ─────────────────────────────────────────────
             paymentStatus: type === 'transfer' ? 'paid' : (paymentStatus || 'paid'),
@@ -578,8 +623,8 @@ const Transactions = () => {
         setType(tx.type || 'expense');
         setCategoryId(tx.categoryId || '');
         setPaymentMode(tx.paymentMode || 'upi');
-        setPaidBy(tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : defaultActor || 'Suresh'));
-        setUpdatedBy(tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : defaultActor || 'Suresh'));
+        setPaidBy(tx.paidBy || (tx.scope === 'partner' ? partnerName : defaultActor || userName));
+        setUpdatedBy(tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : defaultActor || userName));
         setScope(tx.scope || 'ours');
         if (tx.type === 'transfer') {
             setTransferDirection(tx.transferDirection || 'bank_to_cash');
@@ -980,13 +1025,13 @@ const Transactions = () => {
                     </label>
                     <select
                         id={isEdit ? "edit-paid-by" : "paid-by"}
-                        value={paidBy || defaultActor || 'Suresh'}
+                        value={paidBy || defaultActor || userName}
                         onChange={(e) => setPaidBy(e.target.value)}
                         className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                     >
-                        <option value="Suresh">👤 Suresh (Husband)</option>
-                        <option value="Rosy">🌸 Rosy</option>
-                        <option value="Both">🤝 Both</option>
+                        <option value={userName}>👤 {userName}</option>
+                        {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
+                        {hasPartner && <option value="Both">🤝 Both</option>}
                     </select>
                 </div>
 
@@ -996,12 +1041,12 @@ const Transactions = () => {
                     </label>
                     <select
                         id={isEdit ? "edit-updated-by" : "updated-by"}
-                        value={updatedBy || defaultActor || 'Suresh'}
+                        value={updatedBy || defaultActor || userName}
                         onChange={(e) => setUpdatedBy(e.target.value)}
                         className="w-full h-9 bg-background border border-input rounded-lg px-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                     >
-                        <option value="Suresh">👤 Suresh (Husband)</option>
-                        <option value="Rosy">🌸 Rosy</option>
+                        <option value={userName}>👤 {userName}</option>
+                        {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
                         <option value="Claude">🤖 Claude</option>
                     </select>
                 </div>
@@ -1018,9 +1063,9 @@ const Transactions = () => {
                     onChange={(e) => setScope(e.target.value)}
                     className="w-full h-9 bg-background border border-input rounded-lg px-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
                 >
-                    <option value="ours">🏠 Home Expenses (Family / Veedu)</option>
-                    <option value="mine">👤 Suresh Personal (Petrol / Snacks)</option>
-                    <option value="partner">🌸 Rosy Personal</option>
+                    <option value="ours">{hasPartner ? '🏠 Home Expenses (Family / Joint)' : '🏠 General / Household'}</option>
+                    <option value="mine">👤 {userName} Personal</option>
+                    {hasPartner && <option value="partner">🌸 {partnerName} Personal</option>}
                 </select>
             </div>
 
@@ -1162,9 +1207,9 @@ const Transactions = () => {
                                 onChange={(e) => setAssignedTo(e.target.value)}
                                 className="h-7 text-xs bg-background border border-input rounded-md px-2 focus:ring-1 focus:ring-primary cursor-pointer font-medium"
                             >
-                                <option value="Both">👥 Both</option>
-                                <option value="Suresh">👤 Suresh</option>
-                                <option value="Rosy">🌸 Rosy</option>
+                                <option value={userName}>👤 {userName}</option>
+                                {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
+                                {hasPartner && <option value="Both">👥 Both</option>}
                             </select>
                         </div>
                         <div className="flex items-center justify-between">
@@ -1416,25 +1461,25 @@ const Transactions = () => {
                                         {/* Paid By */}
                                         <div className="col-span-1">
                                             <select
-                                                value={paidBy || defaultActor || 'Suresh'}
+                                                value={paidBy || defaultActor || userName}
                                                 onChange={(e) => setPaidBy(e.target.value)}
                                                 className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
                                             >
-                                                <option value="Suresh">👤 Suresh</option>
-                                                <option value="Rosy">🌸 Rosy</option>
-                                                <option value="Both">🤝 Both</option>
+                                                <option value={userName}>👤 {userName}</option>
+                                                {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
+                                                {hasPartner && <option value="Both">🤝 Both</option>}
                                             </select>
                                         </div>
 
                                         {/* Updated By */}
                                         <div className="col-span-1">
                                             <select
-                                                value={updatedBy || defaultActor || 'Suresh'}
+                                                value={updatedBy || defaultActor || userName}
                                                 onChange={(e) => setUpdatedBy(e.target.value)}
                                                 className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
                                             >
-                                                <option value="Suresh">👤 Suresh</option>
-                                                <option value="Rosy">🌸 Rosy</option>
+                                                <option value={userName}>👤 {userName}</option>
+                                                {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
                                                 <option value="Claude">🤖 Claude</option>
                                             </select>
                                         </div>
@@ -1446,9 +1491,9 @@ const Transactions = () => {
                                                 onChange={(e) => setScope(e.target.value)}
                                                 className="w-full h-9 px-1 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer"
                                             >
-                                                <option value="ours">🏠 Home</option>
-                                                <option value="mine">👤 Suresh</option>
-                                                <option value="partner">🌸 Rosy</option>
+                                                <option value="ours">{hasPartner ? '🏠 Home' : '🏠 General'}</option>
+                                                <option value="mine">👤 {userName}</option>
+                                                {hasPartner && <option value="partner">🌸 {partnerName}</option>}
                                             </select>
                                         </div>
 
@@ -1726,7 +1771,7 @@ const Transactions = () => {
                                     <CustomSelect
                                         value={scopeFilter}
                                         onChange={setScopeFilter}
-                                        options={SCOPE_OPTIONS}
+                                        options={scopeOptions}
                                         icon={Users}
                                         align="left"
                                         menuWidth="w-56"
@@ -1776,7 +1821,7 @@ const Transactions = () => {
                                     <div className="p-12 text-center text-muted-foreground">
                                         <PiggyBank className="w-12 h-12 mx-auto mb-4 opacity-20" />
                                         <p>No recurring bills or fixed expenses set up yet.</p>
-                                        <p className="text-xs mt-2">Add a transaction and check "Recurring" to assign bills to Suresh or Rosy!</p>
+                                        <p className="text-xs mt-2">Add a transaction and check "Recurring" to assign bills to household members!</p>
                                     </div>
                                 ) : (
                                     recurring.map(rule => {
@@ -1801,13 +1846,13 @@ const Transactions = () => {
                                                             {rule.assignedTo && (
                                                                 <span className={cn(
                                                                     "px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider border",
-                                                                    rule.assignedTo === 'Rosy'
+                                                                    rule.assignedTo === partnerName || (partnerName === 'Rosy' && rule.assignedTo === 'Rosy')
                                                                         ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
-                                                                        : rule.assignedTo === 'Suresh'
+                                                                        : rule.assignedTo === userName || (userName === 'Suresh' && rule.assignedTo === 'Suresh')
                                                                         ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
                                                                         : "bg-purple-500/10 text-purple-600 border-purple-500/20"
                                                                 )}>
-                                                                    {rule.assignedTo === 'Rosy' ? '🌸 Rosy' : rule.assignedTo === 'Suresh' ? '👤 Suresh' : '🤝 Both'}
+                                                                    {rule.assignedTo === 'Both' ? '🤝 Both' : rule.assignedTo === partnerName || (partnerName === 'Rosy' && rule.assignedTo === 'Rosy') ? `🌸 ${partnerName}` : `👤 ${rule.assignedTo}`}
                                                                 </span>
                                                             )}
                                                             {rule.dueDay && (
@@ -1992,25 +2037,25 @@ const Transactions = () => {
                                                         {/* Paid By */}
                                                         <td className="py-2 px-1.5 whitespace-nowrap">
                                                             <select
-                                                                value={paidBy || defaultActor || 'Suresh'}
+                                                                value={paidBy || defaultActor || userName}
                                                                 onChange={(e) => setPaidBy(e.target.value)}
                                                                 className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer w-[86px]"
                                                             >
-                                                                <option value="Suresh">👤 Suresh</option>
-                                                                <option value="Rosy">🌸 Rosy</option>
-                                                                <option value="Both">🤝 Both</option>
+                                                                <option value={userName}>👤 {userName}</option>
+                                                                {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
+                                                                {hasPartner && <option value="Both">🤝 Both</option>}
                                                             </select>
                                                         </td>
 
                                                         {/* Updated By */}
                                                         <td className="py-2 px-1.5 whitespace-nowrap">
                                                             <select
-                                                                value={updatedBy || defaultActor || 'Suresh'}
+                                                                value={updatedBy || defaultActor || userName}
                                                                 onChange={(e) => setUpdatedBy(e.target.value)}
                                                                 className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-semibold cursor-pointer w-[88px]"
                                                             >
-                                                                <option value="Suresh">👤 Suresh</option>
-                                                                <option value="Rosy">🌸 Rosy</option>
+                                                                <option value={userName}>👤 {userName}</option>
+                                                                {hasPartner && <option value={partnerName}>🌸 {partnerName}</option>}
                                                                 <option value="Claude">🤖 Claude</option>
                                                             </select>
                                                         </td>
@@ -2022,9 +2067,9 @@ const Transactions = () => {
                                                                 onChange={(e) => setScope(e.target.value)}
                                                                 className="h-8 px-1.5 py-1 text-xs bg-background border border-input rounded-lg focus:ring-1 focus:ring-primary font-medium cursor-pointer w-[82px]"
                                                             >
-                                                                <option value="ours">🏠 Home</option>
-                                                                <option value="mine">👤 Suresh</option>
-                                                                <option value="partner">🌸 Rosy</option>
+                                                                <option value="ours">{hasPartner ? '🏠 Home' : '🏠 General'}</option>
+                                                                <option value="mine">👤 {userName}</option>
+                                                                {hasPartner && <option value="partner">🌸 {partnerName}</option>}
                                                             </select>
                                                         </td>
 
@@ -2089,10 +2134,9 @@ const Transactions = () => {
                                                         const isEven = idx % 2 === 0;
 
                                                         const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : null);
-                                                        const isSuresh = actor ? actor.toLowerCase().includes('sur') : true;
-                                                        const isRosy = actor ? actor.toLowerCase().includes('ros') : false;
                                                         const isClaude = actor ? (actor.toLowerCase().includes('claude') || tx.source === 'mcp') : false;
-                                                        const actorLabel = isClaude ? 'Claude' : isRosy ? 'Rosy' : isSuresh ? 'Suresh' : (actor || 'Suresh');
+                                                        const isPartnerActor = !isClaude && actor && partnerName && (actor.toLowerCase() === partnerName.toLowerCase() || (partnerName === 'Rosy' && actor.toLowerCase().includes('ros')));
+                                                        const actorLabel = isClaude ? 'Claude' : isPartnerActor ? partnerName : (actor || userName);
 
                                                         return (
                                                             <React.Fragment key={tx.id}>
@@ -2157,20 +2201,21 @@ const Transactions = () => {
                                                                     {/* Paid By */}
                                                                     <td className="py-2.5 px-2.5 whitespace-nowrap">
                                                                         {(() => {
-                                                                            const payer = tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : 'Suresh');
-                                                                            const isRosyPayer = payer.toLowerCase().includes('ros');
+                                                                            const payer = tx.paidBy || (tx.scope === 'partner' ? partnerName : userName);
                                                                             const isBoth = payer.toLowerCase().includes('both') || payer.toLowerCase().includes('joint');
+                                                                            const isPartnerPayer = !isBoth && partnerName && (payer.toLowerCase() === partnerName.toLowerCase() || (partnerName === 'Rosy' && payer.toLowerCase().includes('ros')));
+                                                                            const payerLabel = isBoth ? 'Both' : isPartnerPayer ? partnerName : (payer || userName);
                                                                             return (
                                                                                 <span className={cn(
                                                                                     "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border",
                                                                                     isBoth
                                                                                         ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
-                                                                                        : isRosyPayer
+                                                                                        : isPartnerPayer
                                                                                         ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
                                                                                         : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
                                                                                 )}>
-                                                                                    <span>{isBoth ? '🤝' : isRosyPayer ? '🌸' : '👤'}</span>
-                                                                                    <span>{isBoth ? 'Both' : isRosyPayer ? 'Rosy' : 'Suresh'}</span>
+                                                                                    <span>{isBoth ? '🤝' : isPartnerPayer ? '🌸' : '👤'}</span>
+                                                                                    <span>{payerLabel}</span>
                                                                                 </span>
                                                                             );
                                                                         })()}
@@ -2182,11 +2227,11 @@ const Transactions = () => {
                                                                             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border",
                                                                             isClaude
                                                                                 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                                                                                : isRosy
+                                                                                : isPartnerActor
                                                                                 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
                                                                                 : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
                                                                         )}>
-                                                                            <span>{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
+                                                                            <span>{isClaude ? '🤖' : isPartnerActor ? '🌸' : '👤'}</span>
                                                                             <span>{actorLabel}</span>
                                                                         </span>
                                                                     </td>
@@ -2202,7 +2247,7 @@ const Transactions = () => {
                                                                                 : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                                                                         )}>
                                                                             <span>{tx.scope === 'mine' ? '👤' : tx.scope === 'partner' ? '🌸' : '🏠'}</span>
-                                                                            <span>{tx.scope === 'mine' ? 'Suresh' : tx.scope === 'partner' ? 'Rosy' : 'Home'}</span>
+                                                                            <span>{tx.scope === 'mine' ? userName : tx.scope === 'partner' ? partnerName : 'Home'}</span>
                                                                         </span>
                                                                     </td>
 
@@ -2282,7 +2327,7 @@ const Transactions = () => {
                                                                                             <div key={c.id} className="p-2 rounded-lg bg-muted/40 border border-border/50 text-xs space-y-0.5">
                                                                                                 <div className="flex items-center justify-between">
                                                                                                     <span className="font-bold flex items-center gap-1">
-                                                                                                        {c.author === 'Rosy' ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
+                                                                                                        {c.author === partnerName || (partnerName === 'Rosy' && c.author === 'Rosy') ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
                                                                                                         {c.emoji && <span className="text-sm ml-1">{c.emoji}</span>}
                                                                                                     </span>
                                                                                                     <span className="text-[10px] text-muted-foreground">
@@ -2421,33 +2466,34 @@ const Transactions = () => {
 
                                                                 {/* Paid By Badge */}
                                                                 {(() => {
-                                                                    const payer = tx.paidBy || (tx.scope === 'partner' ? 'Rosy' : 'Suresh');
-                                                                    const isRosyPayer = payer.toLowerCase().includes('ros');
+                                                                    const payer = tx.paidBy || (tx.scope === 'partner' ? partnerName : userName);
                                                                     const isBoth = payer.toLowerCase().includes('both') || payer.toLowerCase().includes('joint');
+                                                                    const isPartnerPayer = !isBoth && partnerName && (payer.toLowerCase() === partnerName.toLowerCase() || (partnerName === 'Rosy' && payer.toLowerCase().includes('ros')));
+                                                                    const payerLabel = isBoth ? 'Both' : isPartnerPayer ? partnerName : (payer || userName);
                                                                     return (
                                                                         <span
-                                                                            title={`Paid by ${isBoth ? 'Both' : isRosyPayer ? 'Rosy' : 'Suresh'}`}
+                                                                            title={`Paid by ${payerLabel}`}
                                                                             className={cn(
                                                                                 "inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border",
                                                                                 isBoth
                                                                                     ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
-                                                                                    : isRosyPayer
+                                                                                    : isPartnerPayer
                                                                                     ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                                                                                     : "bg-blue-500/10 text-blue-400 border-blue-500/30"
                                                                             )}
                                                                         >
-                                                                            <span>{isBoth ? '🤝' : isRosyPayer ? '🌸' : '👤'}</span>
-                                                                            <span>Paid: {isBoth ? 'Both' : isRosyPayer ? 'Rosy' : 'Suresh'}</span>
+                                                                            <span>{isBoth ? '🤝' : isPartnerPayer ? '🌸' : '👤'}</span>
+                                                                            <span>Paid: {payerLabel}</span>
                                                                         </span>
                                                                     );
                                                                 })()}
 
-                                                                {/* Updated By Badge (Suresh / Rosy / Claude) */}
+                                                                {/* Updated By Badge */}
                                                                 {(() => {
-                                                                    const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : 'Suresh');
-                                                                    const isRosy = actor.toLowerCase().includes('ros');
+                                                                    const actor = tx.updatedBy || tx.createdBy || (tx.source === 'mcp' ? 'Claude' : userName);
                                                                     const isClaude = actor.toLowerCase().includes('claude') || tx.source === 'mcp';
-                                                                    const label = isClaude ? 'Claude' : isRosy ? 'Rosy' : 'Suresh';
+                                                                    const isPartnerActor = !isClaude && partnerName && (actor.toLowerCase() === partnerName.toLowerCase() || (partnerName === 'Rosy' && actor.toLowerCase().includes('ros')));
+                                                                    const label = isClaude ? 'Claude' : isPartnerActor ? partnerName : (actor || userName);
                                                                     return (
                                                                         <span
                                                                             title={`Updated by ${label}`}
@@ -2455,18 +2501,18 @@ const Transactions = () => {
                                                                                 "inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border",
                                                                                 isClaude
                                                                                     ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/30"
-                                                                                    : isRosy
+                                                                                    : isPartnerActor
                                                                                     ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                                                                                     : "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
                                                                             )}
                                                                         >
-                                                                            <span>{isClaude ? '🤖' : isRosy ? '🌸' : '👤'}</span>
+                                                                            <span>{isClaude ? '🤖' : isPartnerActor ? '🌸' : '👤'}</span>
                                                                             <span>By: {label}</span>
                                                                         </span>
                                                                     );
                                                                 })()}
 
-                                                                {/* Scope Badge (Home / Suresh / Rosy) */}
+                                                                {/* Scope Badge */}
                                                                 {(() => {
                                                                     const scope = tx.scope || 'ours';
                                                                     return (
@@ -2479,7 +2525,7 @@ const Transactions = () => {
                                                                                 : "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
                                                                         )}>
                                                                             <span>{scope === 'ours' ? '🏠' : scope === 'partner' ? '🌸' : '👤'}</span>
-                                                                            <span>{scope === 'ours' ? 'Home' : scope === 'partner' ? 'Rosy' : 'Suresh'}</span>
+                                                                            <span>{scope === 'ours' ? 'Home' : scope === 'partner' ? partnerName : userName}</span>
                                                                         </span>
                                                                     );
                                                                 })()}
@@ -2555,7 +2601,7 @@ const Transactions = () => {
                                                                         <div key={c.id} className="p-2 rounded-lg bg-card border border-border/60 text-xs space-y-0.5 shadow-2xs">
                                                                             <div className="flex items-center justify-between">
                                                                                 <span className="font-bold flex items-center gap-1">
-                                                                                    {c.author === 'Rosy' ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
+                                                                                    {c.author === partnerName || (partnerName === 'Rosy' && c.author === 'Rosy') ? '🌸' : c.author === 'Claude' ? '🤖' : '👤'} {c.author}
                                                                                     {c.emoji && <span className="text-sm ml-1">{c.emoji}</span>}
                                                                                 </span>
                                                                                 <span className="text-[10px] text-muted-foreground">
