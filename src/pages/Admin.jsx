@@ -23,6 +23,7 @@ const Admin = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('customers'); // 'customers' | 'coupons'
+  const [actionSuccessMessage, setActionSuccessMessage] = useState('');
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
