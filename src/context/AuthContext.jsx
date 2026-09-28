@@ -47,8 +47,12 @@ export function AuthProvider({ children }) {
         // (currentUser) which may not have updated yet in this same tick.
         const trialEndDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
         await setDoc(doc(db, "users", userCredential.user.uid), {
+            email: userCredential.user.email,
+            displayName: name || userCredential.user.displayName || email.split('@')[0],
             subscription: "trial",
             trialEndDate,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
             ...(profileData ? { profile: { ...profileData, profileComplete: true } } : {}),
         }, { merge: true });
         return userCredential;
@@ -60,13 +64,15 @@ export function AuthProvider({ children }) {
 
     async function bootstrapNewGoogleUser(result) {
         const isNewUser = getAdditionalUserInfo(result)?.isNewUser;
-        if (isNewUser) {
-            const trialEndDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-            await setDoc(doc(db, "users", result.user.uid), {
-                subscription: "trial",
-                trialEndDate,
-            }, { merge: true });
-        }
+        const trialEndDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+        const user = result.user;
+        await setDoc(doc(db, "users", user.uid), {
+            email: user.email,
+            displayName: user.displayName || user.email?.split('@')[0] || "",
+            photoURL: user.photoURL || null,
+            ...(isNewUser ? { subscription: "trial", trialEndDate, createdAt: new Date().toISOString() } : {}),
+            lastLoginAt: new Date().toISOString(),
+        }, { merge: true });
         return result;
     }
 
@@ -174,6 +180,16 @@ export function AuthProvider({ children }) {
 
                     setCurrentUser(createUserProxy(user, activePhoto));
                     setLoading(false);
+
+                    // Sync user identity metadata to Firestore users/{uid} for admin visibility
+                    if (user && user.email) {
+                        setDoc(doc(db, "users", user.uid), {
+                            email: user.email,
+                            displayName: user.displayName || user.email.split('@')[0],
+                            photoURL: user.photoURL || null,
+                            lastLoginAt: new Date().toISOString(),
+                        }, { merge: true }).catch(() => {});
+                    }
 
                     // If not in local cache, check Firestore in background to sync from cloud
                     if (!cachedPhoto) {

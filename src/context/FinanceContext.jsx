@@ -576,6 +576,16 @@ export function FinanceProvider({ children }) {
               .catch(e => console.error("[FinanceContext] Failed to seed default categories:", e));
           }
 
+          // Ensure email & displayName are always in users/{uid} doc for Admin visibility
+          if (currentUser?.email && (!cloudData.email || !cloudData.displayName)) {
+            setDoc(doc(db, "users", currentUser.uid), {
+              email: currentUser.email,
+              displayName: currentUser.displayName || [cloudData.profile?.firstName, cloudData.profile?.lastName].filter(Boolean).join(" ") || currentUser.email.split('@')[0],
+              photoURL: currentUser.photoURL || cloudData.photoURL || null,
+              lastSeenAt: new Date().toISOString(),
+            }, { merge: true }).catch(() => {});
+          }
+
           // Existing user auto-migration: if cloudData has transactions, categories, household, subscription, or profile fields, treat profile & categories as completed!
           const hasExistingData = (cloudData.transactions && cloudData.transactions.length > 0) || 
                                   (cloudData.categories && cloudData.categories.length > 0) ||

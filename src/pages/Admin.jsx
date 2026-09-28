@@ -235,8 +235,8 @@ const Admin = () => {
 
     return users.filter((u) => {
       // 1. Search Query
-      const name = `${u.profile?.firstName || ''} ${u.profile?.lastName || ''} ${u.displayName || ''}`.toLowerCase();
-      const email = (u.email || '').toLowerCase();
+      const email = (u.email || u.profile?.email || (u.householdMembers && Object.values(u.householdMembers).find(m => m.email)?.email) || '').toLowerCase();
+      const name = `${u.profile?.firstName || ''} ${u.profile?.lastName || ''} ${u.displayName || ''} ${u.id || ''}`.toLowerCase();
       const mobile = (u.profile?.mobile || '').toLowerCase();
       const place = (u.profile?.place || '').toLowerCase();
       const profession = (u.profile?.profession || '').toLowerCase();
@@ -301,7 +301,8 @@ const Admin = () => {
     ];
 
     const rows = users.map((u) => {
-      const name = `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim() || u.displayName || 'Customer';
+      const email = u.email || u.profile?.email || (u.householdMembers && Object.values(u.householdMembers).find(m => m.email)?.email) || '';
+      const name = [u.profile?.firstName, u.profile?.lastName].filter(Boolean).join(' ') || u.displayName || (email ? email.split('@')[0] : '') || `User (${u.id.slice(0, 6)})`;
       const sub = u.subscription || 'trial';
       const rev = sub === 'pro' ? PRO_ANNUAL_PRICE : sub === 'starter' ? STARTER_ANNUAL_PRICE : 0;
       return [
@@ -563,7 +564,14 @@ const Admin = () => {
           ) : (
             <div className="space-y-3">
               {filteredUsers.map((u) => {
-                const fullName = `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim() || u.displayName || 'Customer';
+                const email = u.email || u.profile?.email || (u.householdMembers && Object.values(u.householdMembers).find(m => m.email)?.email) || '';
+                const memberName = u.householdMembers && u.householdMembers[u.id]?.name;
+                const fullName = [u.profile?.firstName, u.profile?.lastName].filter(Boolean).join(' ')
+                  || u.displayName
+                  || memberName
+                  || (email ? email.split('@')[0] : '')
+                  || (u.id ? `Account (${u.id.slice(0, 8)})` : 'Customer');
+
                 const sub = u.subscription || 'trial';
                 const now = new Date();
                 const isTrialActive = u.trialEndDate ? new Date(u.trialEndDate) > now : true;
@@ -577,7 +585,7 @@ const Admin = () => {
                     {/* Customer Info */}
                     <div className="flex items-start gap-3.5">
                       <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center shrink-0 uppercase text-sm">
-                        {fullName.charAt(0) || u.email?.charAt(0) || 'U'}
+                        {fullName.charAt(0) || email?.charAt(0) || 'U'}
                       </div>
 
                       <div className="space-y-1">
@@ -611,12 +619,22 @@ const Admin = () => {
 
                         {/* Contact details */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground font-mono">
-                          {u.email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="w-3 h-3 text-muted-foreground/70" />
-                              {u.email}
+                          {email ? (
+                            <span className="flex items-center gap-1 text-foreground/90 font-medium">
+                              <Mail className="w-3.5 h-3.5 text-primary" />
+                              {email}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                              <Mail className="w-3 h-3 text-muted-foreground/40" />
+                              Syncing email on next visit...
                             </span>
                           )}
+
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground" title={u.id}>
+                            UID: {u.id?.slice(0, 10)}...
+                          </span>
+
                           {u.profile?.mobile && (
                             <span className="flex items-center gap-1">
                               <Phone className="w-3 h-3 text-muted-foreground/70" />
