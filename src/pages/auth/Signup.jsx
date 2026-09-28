@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle, Wallet, Eye, EyeOff, ArrowRight, CheckCircle2, Gift } from "lucide-react";
+import { getFriendlyAuthErrorMessage } from "../../utils/authErrors";
 
 const perks = [
   "6-month free trial — no credit card",
@@ -44,7 +45,7 @@ const Signup = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError(err.message || "Failed to sign up with Google. Please try again.");
+            setError(getFriendlyAuthErrorMessage(err, "Failed to sign up with Google. Please try again."));
         }
         setGoogleLoading(false);
     }
@@ -70,7 +71,7 @@ const Signup = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError("Failed to create account. Email must be valid and password at least 6 characters.");
+            setError(getFriendlyAuthErrorMessage(err, "Failed to create account. Email must be valid and password at least 6 characters."));
         }
         setLoading(false);
     }

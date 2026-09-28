@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle, Wallet, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { auth } from "../../lib/firebase";
 import { signInWithCredential, GoogleAuthProvider } from "firebase/auth";
+import { getFriendlyAuthErrorMessage } from "../../utils/authErrors";
 
 const Login = () => {
     const { currentUser, login, loginWithGoogle } = useAuth();
@@ -63,7 +64,7 @@ const Login = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError(err.message || "Failed to sign in with Google.");
+            setError(getFriendlyAuthErrorMessage(err, "Failed to sign in with Google."));
         }
         setGoogleLoading(false);
     }
@@ -77,7 +78,7 @@ const Login = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            setError("Failed to sign in. Please check your credentials.");
+            setError(getFriendlyAuthErrorMessage(err, "Failed to sign in. Please check your credentials."));
         }
         setLoading(false);
     }
