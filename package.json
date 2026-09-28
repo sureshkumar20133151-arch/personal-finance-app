@@ -16,6 +16,7 @@
     "cap:sync": "cap sync",
     "cap:open": "cap open android",
     "android:run": "cap run android",
+    "build:apk": "vite build && cap sync android && cd android && gradlew.bat assembleDebug && cd .. && powershell -Command \"Copy-Item -Path android/app/build/outputs/apk/debug/BudgetTracker.apk -Destination BudgetTracker.apk -Force; Copy-Item -Path android/app/build/outputs/apk/debug/BudgetTracker.apk -Destination 'mobile apk/BudgetTracker.apk' -Force\"",
     "electron:build": "electron-builder --win"
   },
   "build": {
