@@ -6,7 +6,8 @@ import { isAppOwner } from '../utils/admin';
 import {
   Users, Crown, Zap, Clock, TrendingUp, IndianRupee, Search,
   Download, RefreshCw, CheckCircle2, AlertTriangle, ShieldCheck,
-  Calendar, Phone, MapPin, Briefcase, Mail, Filter, Sparkles, Tag, Plus, Trash2, ArrowUpRight
+  Calendar, Phone, MapPin, Briefcase, Mail, Filter, Sparkles, Tag, Plus, Trash2, ArrowUpRight,
+  Edit2, X, Copy
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -32,7 +33,60 @@ const Admin = () => {
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponDays, setNewCouponDays] = useState('30');
   const [couponCreating, setCouponCreating] = useState(false);
-  const [actionSuccessMessage, setActionSuccessMessage] = useState('');
+  // Edit customer modal / form
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editMobile, setEditMobile] = useState('');
+  const [editProfession, setEditProfession] = useState('');
+  const [savingCustomer, setSavingCustomer] = useState(false);
+
+  const handleOpenEditCustomer = (u) => {
+    setEditingCustomer(u);
+    const email = u.email || u.profile?.email || '';
+    const fullName = [u.profile?.firstName, u.profile?.lastName].filter(Boolean).join(' ') || u.displayName || (email ? email.split('@')[0] : '');
+    setEditName(fullName);
+    setEditEmail(email);
+    setEditMobile(u.profile?.mobile || '');
+    setEditProfession(u.profile?.profession || '');
+  };
+
+  const handleSaveCustomer = async (e) => {
+    e.preventDefault();
+    if (!editingCustomer) return;
+    setSavingCustomer(true);
+    try {
+      const cleanName = editName.trim();
+      const cleanEmail = editEmail.trim();
+      const cleanMobile = editMobile.trim();
+      const cleanProfession = editProfession.trim();
+
+      const updates = {
+        displayName: cleanName || (cleanEmail ? cleanEmail.split('@')[0] : 'User'),
+        email: cleanEmail,
+        profile: {
+          ...(editingCustomer.profile || {}),
+          firstName: cleanName.split(' ')[0] || '',
+          lastName: cleanName.split(' ').slice(1).join(' ') || '',
+          mobile: cleanMobile,
+          profession: cleanProfession,
+        },
+      };
+
+      await setDoc(doc(db, 'users', editingCustomer.id), updates, { merge: true });
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === editingCustomer.id ? { ...u, ...updates, profile: { ...(u.profile || {}), ...updates.profile } } : u))
+      );
+      showSuccessBanner(`Customer ${cleanName || cleanEmail || 'details'} saved successfully!`);
+      setEditingCustomer(null);
+    } catch (err) {
+      console.error('[Admin] Failed to update customer:', err);
+      alert(`Failed to save customer: ${err.message}`);
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
 
   const showSuccessBanner = (msg) => {
     setActionSuccessMessage(msg);
@@ -700,15 +754,14 @@ const Admin = () => {
                         <span>+30d Trial</span>
                       </button>
 
-                      {!isExpired && (
-                        <button
-                          onClick={() => handleUpdateUserPlan(u, 'expired')}
-                          className="px-2 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-all"
-                          title="Expire Subscription"
-                        >
-                          Expire
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleOpenEditCustomer(u)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all"
+                        title="Edit customer name, email, or notes"
+                      >
+                        <Edit2 className="w-3 h-3 text-primary" />
+                        <span>Edit</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -808,6 +861,104 @@ const Admin = () => {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Edit Customer Details ── */}
+      {editingCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Edit Customer Details</h3>
+                  <p className="text-[11px] text-muted-foreground font-mono">UID: {editingCustomer.id}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCustomer(null)}
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCustomer} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Customer / Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. John Doe, Friend Karthik..."
+                  className="w-full h-10 px-3 text-sm bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="e.g. user@gmail.com"
+                  className="w-full h-10 px-3 text-sm bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Phone (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editMobile}
+                    onChange={(e) => setEditMobile(e.target.value)}
+                    placeholder="e.g. 9876543210"
+                    className="w-full h-10 px-3 text-sm bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Profession / Note
+                  </label>
+                  <input
+                    type="text"
+                    value={editProfession}
+                    onChange={(e) => setEditProfession(e.target.value)}
+                    placeholder="e.g. Doctor, Friend..."
+                    className="w-full h-10 px-3 text-sm bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setEditingCustomer(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCustomer}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {savingCustomer ? 'Saving...' : 'Save Customer'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
