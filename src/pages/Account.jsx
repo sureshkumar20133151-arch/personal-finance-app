@@ -24,6 +24,9 @@ const Account = () => {
     const [toast, setToast] = useState(null);
     const toastTimeoutRef = useRef(null);
 
+    // Tabs: 'profile' | 'subscription' | 'integrations' | 'household' | 'security'
+    const [activeTab, setActiveTab] = useState('profile');
+
     // MCP Connector UI State
     const [copiedMcpUrl, setCopiedMcpUrl] = useState(false);
     const [copiedMcpName, setCopiedMcpName] = useState(false);
@@ -445,8 +448,34 @@ const Account = () => {
                 </button>
             </header>
 
+            {/* Tab bar */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border/50 w-full overflow-x-auto">
+                {[
+                    { id: 'profile', label: 'Profile', icon: User },
+                    { id: 'subscription', label: 'Subscription', icon: CreditCard },
+                    { id: 'integrations', label: 'Integrations', icon: Bot },
+                    { id: 'household', label: 'Household', icon: Users },
+                    { id: 'security', label: 'Data & Danger Zone', icon: Shield },
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                            "inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-all shrink-0",
+                            activeTab === tab.id
+                                ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <tab.icon className="w-4 h-4" />
+                        <span>{tab.label}</span>
+                    </button>
+                ))}
+            </div>
+
             <div className="grid gap-6 md:grid-cols-2">
                 {/* ── 1. Profile Card (Full-Width Responsive Banner) ── */}
+                {activeTab === 'profile' && (
                 <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm md:col-span-2">
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                         {/* Profile Avatar with Photo Upload & Preset trigger */}
@@ -618,8 +647,10 @@ const Account = () => {
                         )}
                     </div>
                 </div>
+                )}
 
                 {/* ── 2. AI & Claude MCP Connectors Card (Full-Width Sleek Hub) ── */}
+                {activeTab === 'integrations' && (
                 <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm md:col-span-2">
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -878,8 +909,10 @@ const Account = () => {
                         )}
                     </div>
                 </div>
+                )}
 
                 {/* ── 3. Subscription Plans Section ── */}
+                {activeTab === 'subscription' && (
                 <div id="subscription-plans" className="md:col-span-2">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                         <div>
@@ -1091,9 +1124,12 @@ const Account = () => {
                         <CouponCard />
                     </div>
                 </div>
+                )}
 
-                <HouseholdCard />
+                {activeTab === 'household' && <HouseholdCard />}
 
+                {activeTab === 'security' && (
+                <>
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:col-span-2">
                     <div className="flex items-center gap-4 mb-4">
                         <Shield className="w-5 h-5 text-green-500" />
@@ -1140,6 +1176,8 @@ const Account = () => {
                         </button>
                     </div>
                 </div>
+                </>
+                )}
             </div>
 
             {/* Claude Interactive Setup Guide Modal */}
