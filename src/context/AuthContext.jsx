@@ -81,11 +81,18 @@ export function AuthProvider({ children }) {
                 grantOfflineAccess: true
             });
 
+            try {
+                await GoogleAuth.signOut();
+            } catch (_) {}
+
             const googleUser = await GoogleAuth.signIn();
             const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
             const result = await signInWithCredential(auth, credential);
             return bootstrapNewGoogleUser(result);
         } else {
+            googleProvider.setCustomParameters({
+                prompt: 'select_account'
+            });
             const result = await signInWithPopup(auth, googleProvider);
             return bootstrapNewGoogleUser(result);
         }
@@ -146,6 +153,13 @@ export function AuthProvider({ children }) {
 
     function logout() {
         setCurrentUser(null);
+        if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform()) {
+            try {
+                import('@codetrix-studio/capacitor-google-auth').then(({ GoogleAuth }) => {
+                    GoogleAuth.signOut().catch(() => {});
+                }).catch(() => {});
+            } catch (_) {}
+        }
         return signOut(auth);
     }
 
