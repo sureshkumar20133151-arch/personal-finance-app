@@ -325,6 +325,7 @@ const Transactions = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [pdfPassword, setPdfPassword] = useState('');
     const [pendingFile, setPendingFile] = useState(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
     const handleSyncSms = async () => {
         if (refreshing) return;
@@ -2288,14 +2289,35 @@ const Transactions = () => {
                                                                             >
                                                                                 <Edit2 className="w-3.5 h-3.5" />
                                                                             </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => deleteTransaction(tx.id)}
-                                                                                className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
-                                                                                title="Delete Transaction"
-                                                                            >
-                                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                                            </button>
+{deleteConfirmId === tx.id ? (
+                                                                                <div className="inline-flex items-center gap-1 bg-destructive/10 border border-destructive/20 rounded-md p-0.5">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => { deleteTransaction(tx.id); setDeleteConfirmId(null); }}
+                                                                                        className="px-1.5 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded shadow-xs hover:bg-destructive/90 transition-colors cursor-pointer"
+                                                                                        title="Confirm Delete"
+                                                                                    >
+                                                                                        Delete?
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => setDeleteConfirmId(null)}
+                                                                                        className="px-1 py-0.5 text-muted-foreground hover:text-foreground text-[10px] rounded cursor-pointer"
+                                                                                        title="Cancel"
+                                                                                    >
+                                                                                        ✕
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setDeleteConfirmId(tx.id)}
+                                                                                    className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                                                                                    title="Delete Transaction"
+                                                                                >
+                                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     </td>
                                                                 </tr>
@@ -2567,13 +2589,32 @@ const Transactions = () => {
                                                             >
                                                                 <Edit2 className="w-3.5 h-3.5" />
                                                             </button>
-                                                            <button
-                                                                onClick={() => deleteTransaction(tx.id)}
-                                                                className="p-1.5 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
-                                                                title="Delete Transaction"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
+{deleteConfirmId === tx.id ? (
+                                                                <div className="inline-flex items-center gap-1 bg-destructive/10 border border-destructive/20 rounded-md p-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => { deleteTransaction(tx.id); setDeleteConfirmId(null); }}
+                                                                        className="px-2 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded shadow-xs hover:bg-destructive/90 transition-colors cursor-pointer"
+                                                                    >
+                                                                        Delete?
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setDeleteConfirmId(null)}
+                                                                        className="px-1.5 py-0.5 text-muted-foreground hover:text-foreground text-[10px] rounded cursor-pointer"
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => setDeleteConfirmId(tx.id)}
+                                                                    className="p-1.5 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                                                                    title="Delete Transaction"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
 
