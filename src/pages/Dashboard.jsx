@@ -747,82 +747,11 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── UPCOMING PAYMENTS (Directly below Glassmorphism Hero Card) ── */}
-      <div className="rounded-3xl border border-border/60 bg-card p-4 sm:p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-foreground">Upcoming Payments</h3>
-                {upcomingExpenses.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                    {upcomingExpenses.length} due soon
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Bills, EMIs & recurring subscriptions</p>
-            </div>
-          </div>
-        </div>
-
-        {upcomingExpenses.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-            {upcomingExpenses.map(item => {
-              const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
-              const urgent = daysUntil <= 7;
-              const cat = item.category || { name: 'Bill', color: '#64748b', icon: 'HelpCircle' };
-              return (
-                <div key={item.id} className={cn(
-                  'flex items-center justify-between p-3 rounded-2xl border transition-all',
-                  urgent
-                    ? 'bg-red-500/5 border-red-500/25 hover:border-red-500/40'
-                    : 'bg-muted/20 border-border/60 hover:border-border'
-                )}>
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-background border border-border/60 shrink-0">
-                      <CategoryIcon iconName={cat.icon || cat.emoji} size={14} color={cat.color} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-foreground truncate">{item.description || cat.name}</p>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <span>📅 {format(item.nextDue, 'dd MMM')}</span>
-                        <span className="capitalize text-muted-foreground/75">({item.frequency})</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs font-extrabold text-red-500">-{formatMoney(item.amount)}</p>
-                    <span className={cn(
-                      'inline-block text-[9px] font-bold px-1.5 py-0.5 rounded mt-0.5',
-                      urgent
-                        ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 animate-pulse'
-                        : 'bg-muted text-muted-foreground'
-                    )}>
-                      {daysUntil <= 0 ? 'Today!' : `${daysUntil}d left`}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/15 border border-border/40 text-xs text-muted-foreground">
-            <span className="flex items-center gap-2">
-              <span>🎉</span> No bills due this week. All caught up!
-            </span>
-            <span className="text-[11px] text-primary font-medium">Add recurring in Transactions</span>
-          </div>
-        )}
-      </div>
-
-      {/* ── ACCOUNTS & CASH ON HAND (Always visible) ── */}
+      {/* ── 1. BANK ACCOUNTS & CASH ON HAND (Directly on Dashboard) ── */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-            <span>🏦</span> Accounts &amp; Wallets
+            <span>🏦</span> Bank Accounts &amp; Cash on Hand
           </p>
           <button
             onClick={() => {
@@ -881,7 +810,173 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── TAB NAV ── */}
+      {/* ── 2. LENT TO FRIENDS (Money to Collect / Pending Receivables) ── */}
+      <div className="rounded-3xl border border-indigo-500/20 bg-card p-4 sm:p-5 shadow-sm overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center font-bold">
+              <HandCoins className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">Lent to Friends (To Collect)</h3>
+                {pendingLent.length > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
+                    {pendingLent.length} pending
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Money friends owe you • WhatsApp reminders &amp; one-tap receive</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddLentModal(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Lend</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Total pending banner */}
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-3">
+          <div>
+            <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Total Pending Collection</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-foreground">{formatMoney(totalPendingLent)}</p>
+          </div>
+          <button
+            onClick={() => setActiveTab('lent')}
+            className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1"
+          >
+            Manage All →
+          </button>
+        </div>
+
+        {/* List of friends */}
+        {pendingLent.length > 0 ? (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {pendingLent.map(item => {
+              const friendName = item.name.replace(/\s*\(Friend owes me\)\s*/i, '').trim();
+              return (
+                <div key={item.id} className="p-3 rounded-2xl border border-border/60 bg-muted/20 hover:bg-muted/40 transition-all flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                      {friendName[0]?.toUpperCase() || '👤'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{friendName}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Lent {item.startDate ? format(new Date(item.startDate), 'dd MMM') : 'Recently'}
+                        {item.note && ` • ${item.note}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <p className="text-sm font-extrabold text-foreground mr-1">{formatMoney(item.principal)}</p>
+                    <button
+                      title="Remind on WhatsApp"
+                      onClick={() => {
+                        const msg = `Hi ${friendName}, friendly reminder regarding the pending amount of ${formatMoney(item.principal)}. Thanks!`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                      }}
+                      className="p-1.5 rounded-lg bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      title="Mark as Received"
+                      onClick={() => handleSettleLent(item.id, friendName, item.principal)}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600 shadow-sm transition-all"
+                    >
+                      Received ✓
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-2">No friends currently owe you money.</p>
+        )}
+      </div>
+
+      {/* ── 3. UPCOMING PAYMENTS (Directly on Dashboard) ── */}
+      <div className="rounded-3xl border border-border/60 bg-card p-4 sm:p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">Upcoming Payments</h3>
+                {upcomingExpenses.length > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                    {upcomingExpenses.length} due soon
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Bills, EMIs &amp; recurring subscriptions</p>
+            </div>
+          </div>
+        </div>
+
+        {upcomingExpenses.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {upcomingExpenses.map(item => {
+              const daysUntil = Math.ceil((item.nextDue - new Date()) / (1000 * 60 * 60 * 24));
+              const urgent = daysUntil <= 7;
+              const cat = item.category || { name: 'Bill', color: '#64748b', icon: 'HelpCircle' };
+              return (
+                <div key={item.id} className={cn(
+                  'flex items-center justify-between p-3 rounded-2xl border transition-all',
+                  urgent
+                    ? 'bg-red-500/5 border-red-500/25 hover:border-red-500/40'
+                    : 'bg-muted/20 border-border/60 hover:border-border'
+                )}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-background border border-border/60 shrink-0">
+                      <CategoryIcon iconName={cat.icon || cat.emoji} size={14} color={cat.color} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{item.description || cat.name}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <span>📅 {format(item.nextDue, 'dd MMM')}</span>
+                        <span className="capitalize text-muted-foreground/75">({item.frequency})</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-extrabold text-red-500">-{formatMoney(item.amount)}</p>
+                    <span className={cn(
+                      'inline-block text-[9px] font-bold px-1.5 py-0.5 rounded mt-0.5',
+                      urgent
+                        ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 animate-pulse'
+                        : 'bg-muted text-muted-foreground'
+                    )}>
+                      {daysUntil <= 0 ? 'Today!' : `${daysUntil}d left`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/15 border border-border/40 text-xs text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <span>🎉</span> No bills due this week. All caught up!
+            </span>
+            <span className="text-[11px] text-primary font-medium">Add recurring in Transactions</span>
+          </div>
+        )}
+      </div>
+
+{/* ── TAB NAV ── */}
       <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/60 rounded-2xl border border-border/40 w-full sm:w-fit overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Overview', icon: Activity },
@@ -937,101 +1032,6 @@ const Dashboard = () => {
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* ── LENT TO FRIENDS (RECEIVABLES) OVERVIEW CARD ── */}
-          <div className="rounded-3xl border border-indigo-500/20 bg-card p-4 sm:p-5 shadow-sm overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center font-bold">
-                  <HandCoins className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-foreground">Lent to Friends (Money to Collect)</h3>
-                    {pendingLent.length > 0 && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
-                        {pendingLent.length} friends
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Track who owes you money and send friendly reminders</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowAddLentModal(true)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Lend</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Total pending banner */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-3">
-              <div>
-                <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Total to Collect</p>
-                <p className="text-xl sm:text-2xl font-extrabold text-foreground">{formatMoney(totalPendingLent)}</p>
-              </div>
-              <button
-                onClick={() => setActiveTab('lent')}
-                className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1"
-              >
-                Full Details →
-              </button>
-            </div>
-
-            {/* List of friends */}
-            {pendingLent.length > 0 ? (
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                {pendingLent.map(item => {
-                  const friendName = item.name.replace(/\s*\(Friend owes me\)\s*/i, '').trim();
-                  return (
-                    <div key={item.id} className="p-3 rounded-2xl border border-border/60 bg-muted/20 hover:bg-muted/40 transition-all flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                          {friendName[0]?.toUpperCase() || '👤'}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-foreground truncate">{friendName}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Lent {item.startDate ? format(new Date(item.startDate), 'dd MMM') : 'Recently'}
-                            {item.note && ` • ${item.note}`}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <p className="text-sm font-extrabold text-foreground mr-1">{formatMoney(item.principal)}</p>
-                        <button
-                          title="Remind on WhatsApp"
-                          onClick={() => {
-                            const msg = `Hi ${friendName}, friendly reminder regarding the pending amount of ${formatMoney(item.principal)}. Thanks!`;
-                            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-                          }}
-                          className="p-1.5 rounded-lg bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          title="Mark as Received"
-                          onClick={() => handleSettleLent(item.id, friendName, item.principal)}
-                          className="px-2 py-1 rounded-lg bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600 shadow-sm transition-all"
-                        >
-                          Received ✓
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-3">No friends currently owe you money. Great!</p>
-            )}
           </div>
 
           {/* ── KPI CARDS (4 compact cards) ── */}
