@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFinanceData } from '../hooks/useFinanceData';
-import { Plus, Trash2, Calendar, CreditCard, Building2, Car, Crown, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Calendar, CreditCard, Building2, Car, Crown, CheckCircle2, ArrowRight, HandCoins } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format, addMonths, differenceInMonths } from 'date-fns';
 
 const Loans = () => {
+    const navigate = useNavigate();
     const { loans, addLoan, deleteLoan, formatMoney, getLoanDetails } = useFinanceData();
+
+    // Clean separation: Only show true borrowings / bank EMIs here ("loan section lend kattakoodathula")
+    const actualLoans = (loans || []).filter(l => 
+        l.type !== 'lent' && 
+        l.direction !== 'to_receive' && 
+        (!l.name || !l.name.toLowerCase().includes('owes'))
+    );
 
     const [isAdding, setIsAdding] = useState(false);
 
@@ -187,9 +196,29 @@ const Loans = () => {
                 </div>
             )}
 
+            {/* Helpful navigation card to Dashboard Lent to Friends */}
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold">
+                        <HandCoins className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-foreground text-sm">Money Lent to Friends (Receivables)</p>
+                        <p className="text-muted-foreground text-xs">Track who owes you money directly on the Dashboard under the "Lent to Friends" tab.</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm shadow-blue-500/30 transition-all flex-shrink-0"
+                >
+                    View Lent Tab
+                    <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+            </div>
+
             {/* Active Loans List */}
             <div className="grid gap-6 md:grid-cols-2">
-                {loans.map(loan => {
+                {actualLoans.map(loan => {
                     const isDebt = loan.type === 'debt';
                     const { progress } = calculateProgress(loan);
                     const endDate = getEndDate(loan);
@@ -277,15 +306,15 @@ const Loans = () => {
                     );
                 })}
 
-                {loans.length === 0 && !isAdding && (
+                {actualLoans.length === 0 && !isAdding && (
                     <div className="md:col-span-2 py-16 text-center border-2 border-dashed border-muted rounded-2xl">
                         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground">
                             <CreditCard className="w-8 h-8" />
                         </div>
-                        <h3 className="text-lg font-semibold">No active loans</h3>
-                        <p className="text-muted-foreground mb-4">Add your car, home, or personal loans to track them here.</p>
+                        <h3 className="text-lg font-semibold">🎉 No Active Borrowings</h3>
+                        <p className="text-muted-foreground mb-4">You have zero personal debts or bank EMIs to pay.</p>
                         <button onClick={() => setIsAdding(true)} className="text-primary font-medium hover:underline">
-                            Add your first loan
+                            Add a Bank EMI or Personal Debt
                         </button>
                     </div>
                 )}

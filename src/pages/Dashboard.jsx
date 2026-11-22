@@ -2,11 +2,14 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useFinanceData } from '../hooks/useFinanceData';
 import { format, subMonths, addMonths, isSameMonth } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, TrendingUp, TrendingDown,
   PiggyBank, CreditCard, Calendar, Share2,
   IndianRupee, Activity, Target, Zap, RefreshCw,
-  Users, Scale, Heart
+  Users, Scale, Heart, HandCoins, MessageCircle,
+  CheckCircle2, Trash2, Plus, Clock, ArrowUpRight,
+  Edit3, Eye, EyeOff
 } from 'lucide-react';
 import AnalyticsWidget from '../components/AnalyticsWidget';
 import { cn } from '../lib/utils';
@@ -126,6 +129,7 @@ const tourSteps = [
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const Dashboard = () => {
+  const navigate = useNavigate();
   const {
     transactions = [], formatMoney, categories = [],
     loans = [], recurring = [], salaryDate, monthlyBudget,
@@ -133,7 +137,107 @@ const Dashboard = () => {
     cashBalance, totalBalance, bankAccountBalances,
     isSmsUnlocked,
     markDeferredAsPaid,
+    initialBankBalances = {},
+    updateStartingBalances,
+    addTransaction,
+    addLent, settleLent, deleteLent, deleteLoan,
   } = useFinanceData();
+
+  const [showCashModal, setShowCashModal] = useState(false);
+  const [cashInputValue, setCashInputValue] = useState('');
+  const [showAddLentModal, setShowAddLentModal] = useState(false);
+  const [newLentData, setNewLentData] = useState({ name: '', amount: '', note: '' });
+  const [lentFilter, setLentFilter] = useState('pending'); // 'pending' | 'settled' | 'all'
+
+  // Lent to friends calculations (receivables)
+  const lentList = useMemo(() => {
+    return (loans || []).filter(l => 
+      l.type === 'lent' || 
+      l.direction === 'to_receive' || 
+      (l.name && l.name.toLowerCase().includes('owes'))
+    );
+  }, [loans]);
+
+  // Actual bank borrowings / EMIs (exclude money lent to friends)
+  const actualLoans = useMemo(() => {
+    return (loans || []).filter(l => 
+      l.type !== 'lent' && 
+      l.direction !== 'to_receive' && 
+      (!l.name || !l.name.toLowerCase().includes('owes'))
+    );
+  }, [loans]);
+
+  const pendingLent = useMemo(() => {
+    return lentList.filter(l => l.status !== 'settled');
+  }, [lentList]);
+
+  const settledLent = useMemo(() => {
+    return lentList.filter(l => l.status === 'settled');
+  }, [lentList]);
+
+  const totalPendingLent = useMemo(() => {
+    return pendingLent.reduce((sum, l) => sum + (Number(l.principal) || 0), 0);
+  }, [pendingLent]);
+
+  const totalSettledLent = useMemo(() => {
+    return settledLent.reduce((sum, l) => sum + (Number(l.principal) || 0), 0);
+  }, [settledLent]);
+
+  const filteredLentList = useMemo(() => {
+    if (lentFilter === 'pending') return pendingLent;
+    if (lentFilter === 'settled') return settledLent;
+    return lentList;
+  }, [lentFilter, pendingLent, settledLent, lentList]);
+
+  const handleSaveCash = () => {
+    const val = parseFloat(cashInputValue) || 0;
+    if (updateStartingBalances) {
+      updateStartingBalances(initialBankBalances, val, new Date().toISOString());
+    }
+    setShowCashModal(false);
+    setToast({ show: true, message: `✅ Cash on Hand updated to ${formatMoney(val)}!`, type: 'success' });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+  };
+
+  const handleAddLentSubmit = (e) => {
+    e.preventDefault();
+    if (!newLentData.name || !newLentData.amount) return;
+    if (addLent) {
+      addLent({
+        name: newLentData.name,
+        amount: parseFloat(newLentData.amount),
+        note: newLentData.note,
+        startDate: new Date().toISOString()
+      });
+    }
+    setShowAddLentModal(false);
+    setNewLentData({ name: '', amount: '', note: '' });
+    setToast({ show: true, message: `✅ Recorded ${formatMoney(parseFloat(newLentData.amount))} lent to ${newLentData.name}!`, type: 'success' });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+  };
+
+  const handleSettleLent = (id, friendName, amount) => {
+    if (settleLent) settleLent(id);
+    if (addTransaction) {
+      addTransaction({
+        type: 'income',
+        amount: parseFloat(amount) || 0,
+        description: `Returned by ${friendName}`,
+        categoryId: '1',
+        paymentMode: 'cash',
+        date: new Date().toISOString()
+      });
+    }
+    setToast({ show: true, message: `🎉 Marked ₹${amount} from ${friendName} as Received & added to balance!`, type: 'success' });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+  };
+
+  const handleDeleteLent = (id) => {
+    if (deleteLent) deleteLent(id);
+    else if (deleteLoan) deleteLoan(id);
+    setToast({ show: true, message: `Deleted entry.`, type: 'info' });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+  };
 
   const netBalance = totalBalance;
   const bankAccounts = bankAccountBalances;
@@ -714,8 +818,23 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* ── BANK ACCOUNTS (horizontal scroll, compact) ── */}
-      {bankAccounts.length > 0 && (
+      {/* ── ACCOUNTS & CASH ON HAND (Always visible) ── */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+            <span>🏦</span> Accounts &amp; Wallets
+          </p>
+          <button
+            onClick={() => {
+              setCashInputValue(cashBalance ? String(cashBalance) : '');
+              setShowCashModal(true);
+            }}
+            className="text-[11px] text-emerald-500 font-bold hover:underline flex items-center gap-1"
+          >
+            <span>+ Set Cash</span>
+          </button>
+        </div>
+
         <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x">
           {bankAccounts.map((acc, index) => {
             const bankColor =
@@ -739,32 +858,47 @@ const Dashboard = () => {
               </div>
             );
           })}
-          {/* Cash card */}
-          {cashBalance > 0 && (
-            <div className="flex-shrink-0 snap-start rounded-2xl border border-emerald-500/30 p-3.5 sm:p-4 w-44 sm:w-52 bg-emerald-500/5 shadow-sm hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Cash</span>
-                <span className="text-base">💵</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/70 mb-2">In Hand</p>
-              <p className="text-lg sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">{formatMoney(cashBalance)}</p>
+
+          {/* Cash on Hand card (ALWAYS VISIBLE!) */}
+          <div 
+            onClick={() => {
+              setCashInputValue(cashBalance ? String(cashBalance) : '');
+              setShowCashModal(true);
+            }}
+            className="flex-shrink-0 snap-start rounded-2xl border border-emerald-500/30 p-3.5 sm:p-4 w-44 sm:w-52 bg-emerald-500/5 shadow-sm hover:shadow-md hover:border-emerald-500/50 cursor-pointer transition-all relative overflow-hidden group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Cash on Hand</span>
+              <span className="text-base group-hover:scale-110 transition-transform">💵</span>
             </div>
-          )}
+            <p className="text-[10px] text-muted-foreground/70 mb-2">Physical In-Hand</p>
+            <p className="text-lg sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">{formatMoney(cashBalance)}</p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-[9px] text-muted-foreground">Tap to set cash</p>
+              <span className="text-[10px] text-emerald-500 font-bold group-hover:underline">Edit ✏️</span>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* ── TAB NAV ── */}
-      <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/60 rounded-2xl border border-border/40 w-full sm:w-fit">
+      <div id="tour-nav-tabs" className="flex gap-1 p-1 bg-muted/60 rounded-2xl border border-border/40 w-full sm:w-fit overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Overview', icon: Activity },
           { id: 'spending', label: 'Spending', icon: TrendingDown },
           { id: 'goals',    label: 'Goals',    icon: Target },
+          { 
+            id: 'lent', 
+            label: 'Lent to Friends', 
+            icon: HandCoins, 
+            badge: pendingLent.length > 0 ? pendingLent.length : null 
+          },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'flex items-center justify-center gap-1.5 flex-1 sm:flex-none sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all',
+              'flex items-center justify-center gap-1.5 flex-1 sm:flex-none sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap',
               activeTab === tab.id
                 ? 'bg-background text-foreground shadow-sm border border-border/40'
                 : 'text-muted-foreground hover:text-foreground'
@@ -772,6 +906,11 @@ const Dashboard = () => {
           >
             <tab.icon className="w-3.5 h-3.5" />
             {tab.label}
+            {tab.badge && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -800,13 +939,108 @@ const Dashboard = () => {
             ))}
           </div>
 
+          {/* ── LENT TO FRIENDS (RECEIVABLES) OVERVIEW CARD ── */}
+          <div className="rounded-3xl border border-indigo-500/20 bg-card p-4 sm:p-5 shadow-sm overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center font-bold">
+                  <HandCoins className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-foreground">Lent to Friends (Money to Collect)</h3>
+                    {pendingLent.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
+                        {pendingLent.length} friends
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Track who owes you money and send friendly reminders</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddLentModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Lend</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Total pending banner */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-3">
+              <div>
+                <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Total to Collect</p>
+                <p className="text-xl sm:text-2xl font-extrabold text-foreground">{formatMoney(totalPendingLent)}</p>
+              </div>
+              <button
+                onClick={() => setActiveTab('lent')}
+                className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1"
+              >
+                Full Details →
+              </button>
+            </div>
+
+            {/* List of friends */}
+            {pendingLent.length > 0 ? (
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {pendingLent.map(item => {
+                  const friendName = item.name.replace(/\s*\(Friend owes me\)\s*/i, '').trim();
+                  return (
+                    <div key={item.id} className="p-3 rounded-2xl border border-border/60 bg-muted/20 hover:bg-muted/40 transition-all flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          {friendName[0]?.toUpperCase() || '👤'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">{friendName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Lent {item.startDate ? format(new Date(item.startDate), 'dd MMM') : 'Recently'}
+                            {item.note && ` • ${item.note}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <p className="text-sm font-extrabold text-foreground mr-1">{formatMoney(item.principal)}</p>
+                        <button
+                          title="Remind on WhatsApp"
+                          onClick={() => {
+                            const msg = `Hi ${friendName}, friendly reminder regarding the pending amount of ${formatMoney(item.principal)}. Thanks!`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                          }}
+                          className="p-1.5 rounded-lg bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          title="Mark as Received"
+                          onClick={() => handleSettleLent(item.id, friendName, item.principal)}
+                          className="px-2 py-1 rounded-lg bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600 shadow-sm transition-all"
+                        >
+                          Received ✓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-3">No friends currently owe you money. Great!</p>
+            )}
+          </div>
+
           {/* ── KPI CARDS (4 compact cards) ── */}
           <div id="tour-kpi-cards" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Income',      value: income,   icon: TrendingUp,   color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', bar: sparkData.income,  barColor: '#10b981', sub: `${savingsRate}% saved` },
               { label: 'Expenses',    value: expense,  icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     bar: sparkData.expense, barColor: '#ef4444', sub: `${budgetUsed}% of budget` },
               { label: 'Savings',     value: savings,  icon: PiggyBank,    color: 'text-blue-500',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    bar: sparkData.savings, barColor: '#3b82f6', sub: `${income > 0 ? Math.round((savings/income)*100) : 0}% of income` },
-              { label: 'Debt Paid',   value: debt,     icon: CreditCard,   color: 'text-orange-500',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  bar: sparkData.debt,    barColor: '#f97316', sub: `${loans.length} loan${loans.length !== 1 ? 's' : ''}` },
+              { label: 'Lent to Friends', value: totalPendingLent, icon: HandCoins, color: 'text-indigo-500', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', bar: sparkData.debt, barColor: '#6366f1', sub: `${pendingLent.length} friend${pendingLent.length !== 1 ? 's' : ''} owe you` },
             ].map(card => (
               <div key={card.label} className={cn('rounded-2xl border p-3.5 sm:p-4 bg-card shadow-sm hover:shadow-md transition-all relative overflow-hidden', card.border)}>
                 <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center mb-2.5', card.bg)}>
@@ -992,6 +1226,315 @@ const Dashboard = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── LENT TO FRIENDS TAB ── */}
+      {activeTab === 'lent' && (
+        <div className="space-y-5 animate-in fade-in duration-300">
+          {/* Header Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+              <p className="text-[10px] font-bold text-indigo-500 uppercase">Total to Collect</p>
+              <p className="text-xl sm:text-2xl font-extrabold text-foreground mt-0.5">{formatMoney(totalPendingLent)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{pendingLent.length} pending</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <p className="text-[10px] font-bold text-emerald-500 uppercase">Total Recovered</p>
+              <p className="text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatMoney(totalSettledLent)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{settledLent.length} settled</p>
+            </div>
+            <div className="col-span-2 sm:col-span-1 rounded-2xl border border-border bg-card p-4 flex flex-col justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Fast Action</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Lent money to another friend?</p>
+              </div>
+              <button
+                onClick={() => setShowAddLentModal(true)}
+                className="mt-2 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add New Friend Loan
+              </button>
+            </div>
+          </div>
+
+          {/* All Lent Entries */}
+          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                <HandCoins className="w-4 h-4 text-indigo-500" />
+                Friends Ledger ({lentList.length})
+              </h3>
+              <div className="flex gap-1 bg-muted/60 p-1 rounded-xl text-xs">
+                <button
+                  onClick={() => setLentFilter('pending')}
+                  className={cn('px-2.5 py-1 rounded-lg font-medium transition-all', lentFilter === 'pending' ? 'bg-background shadow-sm font-bold text-foreground' : 'text-muted-foreground')}
+                >
+                  Pending ({pendingLent.length})
+                </button>
+                <button
+                  onClick={() => setLentFilter('settled')}
+                  className={cn('px-2.5 py-1 rounded-lg font-medium transition-all', lentFilter === 'settled' ? 'bg-background shadow-sm font-bold text-foreground' : 'text-muted-foreground')}
+                >
+                  Settled ({settledLent.length})
+                </button>
+                <button
+                  onClick={() => setLentFilter('all')}
+                  className={cn('px-2.5 py-1 rounded-lg font-medium transition-all', lentFilter === 'all' ? 'bg-background shadow-sm font-bold text-foreground' : 'text-muted-foreground')}
+                >
+                  All ({lentList.length})
+                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            {filteredLentList.length > 0 ? (
+              <div className="space-y-3">
+                {filteredLentList.map(item => {
+                  const friendName = item.name.replace(/\s*\(Friend owes me\)\s*/i, '').trim();
+                  const isSettled = item.status === 'settled';
+                  return (
+                    <div key={item.id} className={cn(
+                      'p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3',
+                      isSettled ? 'bg-muted/10 border-border/40 opacity-70' : 'bg-card border-border hover:border-indigo-500/30 shadow-sm'
+                    )}>
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm',
+                          isSettled ? 'bg-emerald-500/10 text-emerald-600' : 'bg-indigo-500/10 text-indigo-600'
+                        )}>
+                          {friendName[0]?.toUpperCase() || '👤'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-foreground text-sm">{friendName}</p>
+                            {isSettled ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600">Settled ✓</span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Pending</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Given on {item.startDate ? format(new Date(item.startDate), 'dd MMMM yyyy') : 'Recently'}
+                            {item.note && ` • ${item.note}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                        <p className={cn('text-lg font-extrabold', isSettled ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                          {formatMoney(item.principal)}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          {!isSettled && (
+                            <>
+                              <button
+                                title="Send WhatsApp Reminder"
+                                onClick={() => {
+                                  const msg = `Hi ${friendName}, friendly reminder regarding the pending amount of ${formatMoney(item.principal)}. Thanks!`;
+                                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-green-500/10 text-green-600 hover:bg-green-500/20 text-xs font-bold transition-all"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Remind</span>
+                              </button>
+                              <button
+                                onClick={() => handleSettleLent(item.id, friendName, item.principal)}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-sm transition-all"
+                              >
+                                Received ✓
+                              </button>
+                            </>
+                          )}
+                          <button
+                            title="Delete"
+                            onClick={() => handleDeleteLent(item.id)}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-10 border-2 border-dashed border-muted rounded-2xl">
+                <HandCoins className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-semibold text-foreground">No entries found</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Track money lent to friends or colleagues here.</p>
+                <button
+                  onClick={() => setShowAddLentModal(true)}
+                  className="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold"
+                >
+                  + Add First Entry
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── UPDATE CASH ON HAND MODAL ── */}
+      {showCashModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card border border-border p-6 rounded-3xl shadow-2xl max-w-sm w-full space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">💵</span>
+                <h3 className="font-bold text-lg text-foreground">Cash on Hand</h3>
+              </div>
+              <button 
+                onClick={() => setShowCashModal(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              How much physical cash do you currently have in your wallet / pocket?
+            </p>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Amount (₹)</label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₹</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={cashInputValue}
+                  onChange={(e) => setCashInputValue(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-border bg-background text-foreground font-mono text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Quick Chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {[100, 200, 500, 1000, 2000].map(amt => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setCashInputValue(String((parseFloat(cashInputValue) || 0) + amt))}
+                  className="px-2.5 py-1 rounded-lg bg-muted text-[11px] font-semibold hover:bg-muted/80 text-foreground"
+                >
+                  +{amt}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCashInputValue('0')}
+                className="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 text-[11px] font-semibold hover:bg-red-500/20"
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCashModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCash}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all"
+              >
+                Save Cash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD LENT TO FRIEND MODAL ── */}
+      {showAddLentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card border border-border p-6 rounded-3xl shadow-2xl max-w-sm w-full space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🤝</span>
+                <h3 className="font-bold text-lg text-foreground">Lend to Friend</h3>
+              </div>
+              <button 
+                onClick={() => setShowAddLentModal(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Record money given to a friend or relative to track until they return it.
+            </p>
+
+            <form onSubmit={handleAddLentSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Friend Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newLentData.name}
+                  onChange={e => setNewLentData({ ...newLentData, name: e.target.value })}
+                  placeholder="e.g. Dhilip, Mani, Kumar"
+                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-border bg-background text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Amount (₹) *</label>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₹</span>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={newLentData.amount}
+                    onChange={e => setNewLentData({ ...newLentData, amount: e.target.value })}
+                    placeholder="1000"
+                    className="w-full pl-8 pr-4 py-2 rounded-xl border border-border bg-background text-foreground text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Note / Purpose (Optional)</label>
+                <input
+                  type="text"
+                  value={newLentData.note}
+                  onChange={e => setNewLentData({ ...newLentData, note: e.target.value })}
+                  placeholder="e.g. Petrol, Emergency, Bike service"
+                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddLentModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all"
+                >
+                  Save Entry
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

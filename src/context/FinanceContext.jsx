@@ -1602,6 +1602,38 @@ export function FinanceProvider({ children }) {
   const addLoan         = (l)  => saveImmediate({ ...state, loans: [...(state.loans || []), { ...l, id: uuidv4() }] });
   const deleteLoan      = (id) => saveImmediate({ ...state, loans: (state.loans || []).filter(l => l.id !== id) });
 
+  // ── Lent to Friends (Receivables) ──
+  const addLent = useCallback((entry) => {
+    const item = {
+      id: uuidv4(),
+      type: 'lent',
+      direction: 'to_receive',
+      name: entry.name,
+      principal: parseFloat(entry.amount) || parseFloat(entry.principal) || 0,
+      monthlyAmount: 0,
+      interestRate: 0,
+      tenure: 0,
+      startDate: entry.startDate || new Date().toISOString(),
+      dueDate: entry.dueDate || null,
+      note: entry.note || '',
+      phone: entry.phone || '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    saveImmediate({ ...state, loans: [...(state.loans || []), item] });
+  }, [state, saveImmediate]);
+
+  const settleLent = useCallback((id) => {
+    saveImmediate({
+      ...state,
+      loans: (state.loans || []).map(l => l.id === id ? { ...l, status: 'settled', settledAt: new Date().toISOString() } : l)
+    });
+  }, [state, saveImmediate]);
+
+  const deleteLent = useCallback((id) => {
+    saveImmediate({ ...state, loans: (state.loans || []).filter(l => l.id !== id) });
+  }, [state, saveImmediate]);
+
   const clearData = async () => {
     const fresh = { 
       ...DEFAULT_STATE, 
@@ -1830,6 +1862,7 @@ export function FinanceProvider({ children }) {
     deleteRecurringTransaction: deleteRecurring,
     toggleBillPaid,
     addLoan, deleteLoan,
+    addLent, settleLent, deleteLent,
     clearData,
   };
 
