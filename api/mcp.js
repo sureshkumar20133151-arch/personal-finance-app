@@ -227,6 +227,152 @@ const TOOLS = [
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
+  {
+    name: 'set_bank_balance',
+    title: 'Set Bank Account Balance',
+    description: 'Set or update the starting/current balance of a bank account (e.g. Indian Bank, Canara Bank, SBI, HDFC).',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bank_name:      { type: 'string', description: 'Bank name (e.g. "Indian Bank", "Canara Bank", "SBI")' },
+        amount:         { type: 'number', description: 'Current available balance in ₹' },
+        account_ending: { type: 'string', description: 'Last 4 digits or "primary" (default: "primary")' },
+      },
+      required: ['bank_name', 'amount'],
+    },
+  },
+  {
+    name: 'set_cash_balance',
+    title: 'Set Cash on Hand',
+    description: 'Set or update the physical cash-in-hand balance.',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', description: 'Current physical cash amount in ₹' },
+      },
+      required: ['amount'],
+    },
+  },
+  {
+    name: 'set_monthly_budget',
+    title: 'Set Overall Monthly Budget',
+    description: 'Set or update the overall monthly spending budget (e.g. ₹20,000).',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', description: 'Total monthly budget in ₹ (e.g. 20000)' },
+      },
+      required: ['amount'],
+    },
+  },
+  {
+    name: 'add_lent',
+    title: 'Record Money Lent to Friend',
+    description: 'Record money lent to a friend or relative that they need to return (e.g. Dhilip ₹1,000, Mani ₹1,500).',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:     { type: 'string', description: 'Friend or person name (e.g. "Dhilip", "Mani")' },
+        amount:   { type: 'number', description: 'Amount lent in ₹' },
+        note:     { type: 'string', description: 'Optional note / reason (e.g. "Emergency", "Petrol")' },
+        due_date: { type: 'string', description: 'Expected return date (YYYY-MM-DD)' },
+      },
+      required: ['name', 'amount'],
+    },
+  },
+  {
+    name: 'settle_lent',
+    title: 'Mark Lent Money as Received / Settled',
+    description: 'Mark money previously lent to a friend as returned/received. Automatically creates an income entry in transactions and adds to balance.',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:   { type: 'string', description: 'Friend name (e.g. "Dhilip", "Mani") or lent entry ID' },
+        amount: { type: 'number', description: 'Amount returned in ₹ (optional, defaults to full principal)' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'delete_transaction',
+    title: 'Delete Transaction',
+    description: 'Delete a transaction from the ledger by ID, or delete the latest transaction, or search by description and amount.',
+    annotations: { readOnlyHint: false, destructiveHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id:          { type: 'string',  description: 'Transaction ID to delete' },
+        latest:      { type: 'boolean', description: 'Set to true to delete the most recent transaction' },
+        search:      { type: 'string',  description: 'Keyword search for transaction to remove' },
+        amount:      { type: 'number',  description: 'Amount of transaction to remove' },
+      },
+    },
+  },
+  {
+    name: 'add_recurring',
+    title: 'Add Recurring Bill or Subscription',
+    description: 'Add a recurring subscription or bill (e.g. Netflix ₹199/mo, EB Bill ₹500, Rent ₹8,000).',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:          { type: 'string', description: 'Name of the bill/subscription' },
+        amount:        { type: 'number', description: 'Amount in ₹' },
+        frequency:     { type: 'string', enum: ['monthly', 'weekly', 'daily'], description: 'Frequency (default: "monthly")' },
+        category_name: { type: 'string', description: 'Category name (optional)' },
+      },
+      required: ['name', 'amount'],
+    },
+  },
+  {
+    name: 'delete_recurring',
+    title: 'Delete Recurring Bill or Subscription',
+    description: 'Delete an active recurring bill or subscription by name or ID.',
+    annotations: { readOnlyHint: false, destructiveHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name or ID of the recurring item to delete' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'add_loan',
+    title: 'Add Borrowing Loan / EMI',
+    description: 'Record an EMI or money borrowed that the user owes (e.g. Bike loan EMI, personal loan).',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:           { type: 'string', description: 'Loan or lender name (e.g. "HDFC Bike Loan")' },
+        type:           { type: 'string', enum: ['emi', 'debt'], description: 'Type: "emi" for monthly installment, "debt" for lump sum borrowing' },
+        principal:      { type: 'number', description: 'Total loan principal amount in ₹' },
+        monthly_amount: { type: 'number', description: 'Monthly EMI installment in ₹' },
+        tenure:         { type: 'number', description: 'Tenure in months (for EMI)' },
+        interest_rate:  { type: 'number', description: 'Annual interest rate % (optional)' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'delete_loan',
+    title: 'Delete Loan or Borrowing',
+    description: 'Delete a loan or debt entry by name or ID.',
+    annotations: { readOnlyHint: false, destructiveHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name or ID of the loan to delete' },
+      },
+      required: ['name'],
+    },
+  },
 ];
 
 // ─── FIRESTORE HELPER ────────────────────────────────────────────────────────
@@ -1179,6 +1325,453 @@ async function handleGetLoansAndRecurring(targetUid) {
   return lines.join('\n');
 }
 
+// ─── TOOL: set_bank_balance ──────────────────────────────────────────────────
+async function handleSetBankBalance(args = {}, targetUid) {
+  const { bank_name, amount, account_ending = 'primary' } = args;
+  if (!bank_name || amount === undefined || amount === null) {
+    throw new Error('bank_name and amount are required.');
+  }
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const key = `${bank_name.trim()}_${account_ending.trim()}`;
+  const bankBalances = {
+    ...(data.initialBankBalances || {}),
+    [key]: {
+      amount: Number(amount),
+      bankName: bank_name.trim(),
+      accountEnding: account_ending.trim(),
+      date: new Date().toISOString(),
+    }
+  };
+
+  await db.collection('users').doc(uid).set({
+    initialBankBalances: bankBalances
+  }, { merge: true });
+
+  if (data.householdId) {
+    const hhRef = db.collection('households').doc(data.householdId);
+    const snap = await hhRef.get().catch(() => null);
+    if (snap && snap.exists) {
+      const members = snap.data().members || {};
+      if (members[uid]) {
+        members[uid].initialBankBalances = bankBalances;
+        await hhRef.update({ members }).catch(() => {});
+      }
+    }
+  }
+
+  return [
+    `🏦 BANK BALANCE UPDATED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Bank:         ${bank_name} (${account_ending})`,
+    `New Balance:  ${fmt(Number(amount))}`,
+    `Updated on:   ${new Date().toLocaleDateString('en-IN')}`,
+    ``,
+    `Your dashboard has been updated in real-time.`,
+  ].join('\n');
+}
+
+// ─── TOOL: set_cash_balance ──────────────────────────────────────────────────
+async function handleSetCashBalance(args = {}, targetUid) {
+  const { amount } = args;
+  if (amount === undefined || amount === null) {
+    throw new Error('amount is required.');
+  }
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const now = new Date().toISOString();
+  await db.collection('users').doc(uid).set({
+    initialCashBalance: Number(amount),
+    cashSeedDate: now,
+  }, { merge: true });
+
+  if (data.householdId) {
+    const hhRef = db.collection('households').doc(data.householdId);
+    const snap = await hhRef.get().catch(() => null);
+    if (snap && snap.exists) {
+      const members = snap.data().members || {};
+      if (members[uid]) {
+        members[uid].initialCashBalance = Number(amount);
+        members[uid].cashSeedDate = now;
+        await hhRef.update({ members }).catch(() => {});
+      }
+    }
+  }
+
+  return [
+    `💵 CASH ON HAND UPDATED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Cash on Hand: ${fmt(Number(amount))}`,
+    `Updated on:   ${new Date().toLocaleDateString('en-IN')}`,
+    ``,
+    `Your dashboard Cash on Hand card has been updated.`,
+  ].join('\n');
+}
+
+// ─── TOOL: set_monthly_budget ────────────────────────────────────────────────
+async function handleSetMonthlyBudget(args = {}, targetUid) {
+  const { amount } = args;
+  if (amount === undefined || amount === null) {
+    throw new Error('amount is required.');
+  }
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  await db.collection('users').doc(uid).set({
+    monthlyBudget: Number(amount),
+  }, { merge: true });
+
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({
+      monthlyBudget: Number(amount),
+    }, { merge: true }).catch(() => {});
+  }
+
+  return [
+    `🎯 MONTHLY BUDGET UPDATED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Monthly Budget: ${fmt(Number(amount))}`,
+    `Updated on:     ${new Date().toLocaleDateString('en-IN')}`,
+    ``,
+    `Your spending pace and budget health bars have been refreshed.`,
+  ].join('\n');
+}
+
+// ─── TOOL: add_lent ──────────────────────────────────────────────────────────
+async function handleAddLent(args = {}, targetUid) {
+  const { name, amount, note, due_date } = args;
+  if (!name || !amount) {
+    throw new Error('name and amount are required.');
+  }
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const loans = data.loans || [];
+  const newItem = {
+    id: `lent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    type: 'lent',
+    direction: 'to_receive',
+    name: name.trim(),
+    principal: Number(amount),
+    monthlyAmount: 0,
+    interestRate: 0,
+    tenure: 0,
+    startDate: new Date().toISOString(),
+    dueDate: due_date || null,
+    note: note ? note.trim() : '',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedLoans = [...loans, newItem];
+
+  await db.collection('users').doc(uid).set({
+    loans: updatedLoans,
+  }, { merge: true });
+
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({
+      loans: updatedLoans,
+    }, { merge: true }).catch(() => {});
+  }
+
+  return [
+    `🤝 LENT TO FRIEND RECORDED (RECEIVABLE)`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Friend Name:  ${name}`,
+    `Amount Lent:  ${fmt(Number(amount))}`,
+    `Note:         ${note || 'None'}`,
+    `Status:       Pending (To Collect)`,
+    `Date:         ${new Date().toLocaleDateString('en-IN')}`,
+    ``,
+    `Added to your "Lent to Friends" card on Dashboard. You can send WhatsApp reminders or mark received anytime.`,
+  ].join('\n');
+}
+
+// ─── TOOL: settle_lent ───────────────────────────────────────────────────────
+async function handleSettleLent(args = {}, targetUid) {
+  const { name, amount } = args;
+  if (!name) throw new Error('name is required.');
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const loans = data.loans || [];
+  const query = name.toLowerCase().trim();
+
+  // Find matching pending lent entry
+  const lentIndex = loans.findIndex(l =>
+    (l.type === 'lent' || l.direction === 'to_receive' || (l.name && l.name.toLowerCase().includes('owes'))) &&
+    l.status !== 'settled' &&
+    (l.name.toLowerCase().includes(query) || l.id === name)
+  );
+
+  if (lentIndex === -1) {
+    throw new Error(`No pending lent entry found matching "${name}". Check get_loans_and_recurring to see active receivables.`);
+  }
+
+  const targetLent = loans[lentIndex];
+  const returnAmt = amount ? Number(amount) : targetLent.principal;
+
+  // 1. Mark loan as settled
+  const updatedLoans = [...loans];
+  updatedLoans[lentIndex] = {
+    ...targetLent,
+    status: 'settled',
+    settledAt: new Date().toISOString(),
+  };
+
+  // 2. Add income transaction
+  const newTx = {
+    id: `mcp_${Date.now()}_settle`,
+    type: 'income',
+    amount: returnAmt,
+    description: `Returned by ${targetLent.name}`,
+    categoryId: '1',
+    paymentMode: 'cash',
+    source: 'mcp',
+    paidBy: (data.profile?.firstName || data.displayName || 'Suresh'),
+    date: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedTxs = [...(data.transactions || []), newTx];
+
+  await db.collection('users').doc(uid).set({
+    loans: updatedLoans,
+    transactions: updatedTxs,
+  }, { merge: true });
+
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({
+      loans: updatedLoans,
+      transactions: updatedTxs,
+    }, { merge: true }).catch(() => {});
+  }
+
+  return [
+    `🎉 LENT MONEY RECEIVED & SETTLED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Friend Name:     ${targetLent.name}`,
+    `Amount Received: ${fmt(returnAmt)}`,
+    `Status:          Settled ✅`,
+    `Income Entry:    Added "${newTx.description}" to Transactions`,
+    ``,
+    `The pending receivable has been cleared and added to your balance.`,
+  ].join('\n');
+}
+
+// ─── TOOL: delete_transaction ────────────────────────────────────────────────
+async function handleDeleteTransaction(args = {}, targetUid) {
+  const { id, latest, search, amount } = args;
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const txs = [...(data.transactions || [])];
+  if (txs.length === 0) throw new Error('No transactions found to delete.');
+
+  let targetIndex = -1;
+
+  if (latest) {
+    targetIndex = txs.length - 1;
+  } else if (id) {
+    targetIndex = txs.findIndex(t => t.id === id);
+  } else if (search || amount) {
+    targetIndex = txs.findLastIndex(t => {
+      const matchSearch = search ? t.description.toLowerCase().includes(search.toLowerCase()) : true;
+      const matchAmt = amount ? Math.abs(t.amount - Number(amount)) < 0.01 : true;
+      return matchSearch && matchAmt;
+    });
+  }
+
+  if (targetIndex === -1) {
+    throw new Error('Transaction not found matching criteria.');
+  }
+
+  const [removed] = txs.splice(targetIndex, 1);
+
+  await db.collection('users').doc(uid).set({
+    transactions: txs,
+  }, { merge: true });
+
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({
+      transactions: txs,
+    }, { merge: true }).catch(() => {});
+  }
+
+  return [
+    `🗑️ TRANSACTION DELETED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Description: ${removed.description}`,
+    `Amount:      ${fmt(removed.amount)}`,
+    `Type:        ${removed.type}`,
+    `Date:        ${new Date(removed.date).toLocaleDateString('en-IN')}`,
+    ``,
+    `Removed successfully from your ledger.`,
+  ].join('\n');
+}
+
+// ─── TOOL: add_recurring ─────────────────────────────────────────────────────
+async function handleAddRecurring(args = {}, targetUid) {
+  const { name, amount, frequency = 'monthly', category_name } = args;
+  if (!name || !amount) throw new Error('name and amount are required.');
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const categories = data.categories || [];
+  let categoryId = null;
+  if (category_name) {
+    const match = categories.find(c => c.name.toLowerCase().includes(category_name.toLowerCase()));
+    if (match) categoryId = String(match.id);
+  }
+
+  const newItem = {
+    id: `rec_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name: name.trim(),
+    amount: Number(amount),
+    frequency,
+    categoryId,
+    active: true,
+    startDate: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+
+  const updated = [...(data.recurring || []), newItem];
+
+  await db.collection('users').doc(uid).set({ recurring: updated }, { merge: true });
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({ recurring: updated }, { merge: true }).catch(() => {});
+  }
+
+  return [
+    `📅 RECURRING BILL ADDED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Name:      ${name}`,
+    `Amount:    ${fmt(Number(amount))}`,
+    `Frequency: ${frequency}`,
+    ``,
+    `Added to Upcoming Payments & smart bill reminders.`,
+  ].join('\n');
+}
+
+// ─── TOOL: delete_recurring ──────────────────────────────────────────────────
+async function handleDeleteRecurring(args = {}, targetUid) {
+  const { name } = args;
+  if (!name) throw new Error('name or ID is required.');
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const query = name.toLowerCase().trim();
+  const list = data.recurring || [];
+  const filtered = list.filter(r => r.id !== name && !r.name.toLowerCase().includes(query));
+
+  if (filtered.length === list.length) {
+    throw new Error(`Recurring bill "${name}" not found.`);
+  }
+
+  await db.collection('users').doc(uid).set({ recurring: filtered }, { merge: true });
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({ recurring: filtered }, { merge: true }).catch(() => {});
+  }
+
+  return `🗑️ Recurring bill "${name}" deleted successfully.`;
+}
+
+// ─── TOOL: add_loan ──────────────────────────────────────────────────────────
+async function handleAddLoan(args = {}, targetUid) {
+  const { name, type = 'emi', principal, monthly_amount, tenure, interest_rate } = args;
+  if (!name) throw new Error('name is required.');
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const newItem = {
+    id: `loan_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name: name.trim(),
+    type: type || 'emi',
+    direction: 'to_pay',
+    principal: Number(principal) || 0,
+    monthlyAmount: Number(monthly_amount) || 0,
+    tenure: Number(tenure) || 0,
+    interestRate: Number(interest_rate) || 0,
+    startDate: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+
+  const updated = [...(data.loans || []), newItem];
+
+  await db.collection('users').doc(uid).set({ loans: updated }, { merge: true });
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({ loans: updated }, { merge: true }).catch(() => {});
+  }
+
+  return [
+    `🏦 LOAN / EMI RECORDED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `Name:           ${name}`,
+    `Type:           ${type.toUpperCase()}`,
+    `Monthly EMI:    ${monthly_amount ? fmt(Number(monthly_amount)) : 'N/A'}`,
+    `Principal:      ${principal ? fmt(Number(principal)) : 'N/A'}`,
+    `Tenure:         ${tenure ? tenure + ' months' : 'N/A'}`,
+    ``,
+    `Added to your Loans section in Budget Tracker.`,
+  ].join('\n');
+}
+
+// ─── TOOL: delete_loan ───────────────────────────────────────────────────────
+async function handleDeleteLoan(args = {}, targetUid) {
+  const { name } = args;
+  if (!name) throw new Error('name or ID is required.');
+
+  const uid = targetUid || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+  const data = await getUserData(uid);
+  const db = await getMcpDb();
+  if (!db) throw new Error('Firebase Admin not configured.');
+
+  const query = name.toLowerCase().trim();
+  const list = data.loans || [];
+  const filtered = list.filter(l => l.id !== name && !l.name.toLowerCase().includes(query));
+
+  if (filtered.length === list.length) {
+    throw new Error(`Loan "${name}" not found.`);
+  }
+
+  await db.collection('users').doc(uid).set({ loans: filtered }, { merge: true });
+  if (data.householdId) {
+    await db.collection('households').doc(data.householdId).set({ loans: filtered }, { merge: true }).catch(() => {});
+  }
+
+  return `🗑️ Loan "${name}" deleted successfully.`;
+}
+
 // ─── JSON-RPC DISPATCHER ─────────────────────────────────────────────────────
 async function handleJsonRpc(request, targetUid) {
   const { jsonrpc, method, params, id } = request || {};
@@ -1257,6 +1850,16 @@ async function handleJsonRpc(request, targetUid) {
           case 'edit_category':         text = await handleEditCategory(args, targetUid); break;
           case 'delete_category':       text = await handleDeleteCategory(args, targetUid); break;
           case 'get_loans_and_recurring': text = await handleGetLoansAndRecurring(targetUid); break;
+          case 'set_bank_balance':      text = await handleSetBankBalance(args, targetUid); break;
+          case 'set_cash_balance':      text = await handleSetCashBalance(args, targetUid); break;
+          case 'set_monthly_budget':    text = await handleSetMonthlyBudget(args, targetUid); break;
+          case 'add_lent':              text = await handleAddLent(args, targetUid); break;
+          case 'settle_lent':           text = await handleSettleLent(args, targetUid); break;
+          case 'delete_transaction':    text = await handleDeleteTransaction(args, targetUid); break;
+          case 'add_recurring':         text = await handleAddRecurring(args, targetUid); break;
+          case 'delete_recurring':      text = await handleDeleteRecurring(args, targetUid); break;
+          case 'add_loan':              text = await handleAddLoan(args, targetUid); break;
+          case 'delete_loan':           text = await handleDeleteLoan(args, targetUid); break;
           default:
             return err(-32601, `Unknown tool: ${name}`);
         }
