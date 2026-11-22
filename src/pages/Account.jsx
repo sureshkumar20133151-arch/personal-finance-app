@@ -12,6 +12,7 @@ import { AVATAR_PRESETS, renderAvatarDataUrl } from '../lib/avatars';
 import { apiUrl } from '../lib/apiBase';
 import { isAppOwner } from '../utils/admin';
 import ClaudeConnectGuideModal from '../components/ClaudeConnectGuideModal';
+import WhatsAppIntegrationCard from '../components/WhatsAppIntegrationCard';
 
 const Account = () => {
     const { currentUser, logout, updateUserProfile } = useAuth();
@@ -676,6 +677,7 @@ const Account = () => {
 
                 {/* ── 2. AI & Claude MCP Connectors Card (Full-Width Sleek Hub) ── */}
                 {activeTab === 'integrations' && (
+                <>
                 <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm md:col-span-2">
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -934,6 +936,10 @@ const Account = () => {
                         )}
                     </div>
                 </div>
+
+                {/* ── WhatsApp AI Voice & Bill Tracker Card ── */}
+                <WhatsAppIntegrationCard />
+                </>
                 )}
 
                 {/* ── 3. Subscription Plans Section ── */}
