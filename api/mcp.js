@@ -30,7 +30,7 @@ function resolveTargetUid(req) {
     return process.env.ROSIE_USER_UID || DEFAULT_ROSIE_UID;
   }
   if (userParam === 'suresh' || userParam === 'default') {
-    return process.env.SURESH_USER_UID || process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
+    return process.env.SURESH_USER_UID || DEFAULT_SURESH_UID;
   }
 
   return process.env.MCP_USER_UID || DEFAULT_SURESH_UID;
