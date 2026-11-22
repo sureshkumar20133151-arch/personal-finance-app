@@ -1271,43 +1271,55 @@ async function handleDeleteCategory(args = {}, targetUid) {
 // ─── TOOL: get_loans_and_recurring ───────────────────────────────────────────
 async function handleGetLoansAndRecurring(targetUid) {
   const data = await getUserData(targetUid);
-  const { loans = [], recurring = [], categories = [], lent = [] } = data;
+  const { loans = [], recurring = [], categories = [] } = data;
 
   const catMap = {};
   categories.forEach(c => { catMap[String(c.id)] = c; });
 
   const lines = [`💳 LOANS, RECURRING BILLS & LENT MONEY`, `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`];
 
-  // Lent to friends (To Collect)
-  const pendingLent = (lent || []).filter(l => l.status !== 'settled');
+  // Lent to friends (To Collect / Receivables)
+  const lentList = (loans || []).filter(l => 
+    l.type === 'lent' || 
+    l.direction === 'to_receive' || 
+    (l.name && l.name.toLowerCase().includes('owes'))
+  );
+  const pendingLent = lentList.filter(l => l.status !== 'settled');
   if (pendingLent.length > 0) {
-    lines.push(``, `🤝 LENT TO FRIENDS (MONEY TO COLLECT - ${pendingLent.length}):`);
+    lines.push(``, `🤝 LENT TO FRIENDS (TO COLLECT - ${pendingLent.length}):`);
     pendingLent.forEach(l => {
-      lines.push(`   • ${l.borrowerName || l.person || 'Friend'}: ${fmt(l.amount)} ${l.dueDate ? `(Due: ${l.dueDate})` : ''} ${l.notes ? `[${l.notes}]` : ''}`);
+      lines.push(`   • ${l.name || 'Friend'}: ${fmt(l.principal || l.amount || 0)} ${l.dueDate ? `(Due: ${l.dueDate})` : ''} ${l.note ? `[${l.note}]` : ''}`);
     });
-    const totalToCollect = pendingLent.reduce((s, l) => s + (l.amount || 0), 0);
+    const totalToCollect = pendingLent.reduce((s, l) => s + (Number(l.principal || l.amount) || 0), 0);
     lines.push(`   📊 Total Receivable: ${fmt(totalToCollect)}`);
+  } else {
+    lines.push(``, `🤝 LENT TO FRIENDS: No pending amounts to collect.`);
   }
 
-  // Loans
-  if (loans.length > 0) {
-    lines.push(``, `🏦 ACTIVE LOANS (${loans.length}):`);
-    loans.forEach(l => {
+  // Active Loans & EMIs (Borrowed by user)
+  const actualLoans = (loans || []).filter(l => 
+    l.type !== 'lent' && 
+    l.direction !== 'to_receive' && 
+    (!l.name || !l.name.toLowerCase().includes('owes'))
+  );
+  if (actualLoans.length > 0) {
+    lines.push(``, `🏦 ACTIVE LOANS & EMIs (${actualLoans.length}):`);
+    actualLoans.forEach(l => {
       const loanLines = [
         ``,
         `   📌 ${l.name || l.type || 'Loan'}`,
-        `   • Total Amount:     ${fmt(l.totalAmount || l.principalAmount)}`,
-        `   • Remaining:        ${fmt(l.remainingAmount)}`,
-        `   • Monthly EMI:      ${fmt(l.emi || l.monthlyPayment)}`,
+        `   • Principal:        ${fmt(l.principal || l.totalAmount || l.principalAmount)}`,
+        `   • Remaining:        ${fmt(l.remainingAmount || l.principal)}`,
+        `   • Monthly EMI:      ${fmt(l.monthlyAmount || l.emi || l.monthlyPayment)}`,
         l.interestRate ? `   • Interest Rate:    ${l.interestRate}% p.a.` : '',
         l.dueDate ? `   • Due Date:         ${new Date(l.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''
       ].filter(Boolean);
       lines.push(...loanLines);
     });
-    const totalEmi = loans.reduce((s, l) => s + (l.emi || l.monthlyPayment || 0), 0);
+    const totalEmi = actualLoans.reduce((s, l) => s + (Number(l.monthlyAmount || l.emi || l.monthlyPayment) || 0), 0);
     lines.push(``, `   📊 Total Monthly EMI: ${fmt(totalEmi)}`);
   } else {
-    lines.push(``, `   No active loans recorded.`);
+    lines.push(``, `🏦 ACTIVE LOANS: No active loans recorded.`);
   }
 
   // Recurring
