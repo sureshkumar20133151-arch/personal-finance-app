@@ -297,6 +297,7 @@ export function FinanceProvider({ children }) {
 
   // ─── Persist ──────────────────────────────────────────────────────────────
   const persistDebounce = useRef(null);
+  const isCloudLoadedRef = useRef(false);
 
   const sanitizeForFirestore = (obj) => {
     if (!obj) return obj;
@@ -330,6 +331,10 @@ export function FinanceProvider({ children }) {
 
     // All logged-in users get cloud sync (not just Pro)
     if (currentUser && !currentUser.isAnonymous) {
+      if (!isCloudLoadedRef.current) {
+        console.warn("[FinanceContext] Cloud data not yet loaded. Skipping Firestore write to prevent data wipe.");
+        return Promise.resolve();
+      }
       const { householdId, shared, personal } = splitForHousehold(data);
       // Return the write promise so callers that care about success/failure
       // (e.g. saveProfile) can await it instead of this being silently
@@ -351,6 +356,10 @@ export function FinanceProvider({ children }) {
     
     // All logged-in users get cloud sync (not just Pro)
     if (currentUser && !currentUser.isAnonymous) {
+      if (!isCloudLoadedRef.current) {
+        console.warn("[FinanceContext] Cloud data not yet loaded. Skipping debounced write.");
+        return;
+      }
       if (persistDebounce.current) clearTimeout(persistDebounce.current);
       persistDebounce.current = setTimeout(() => {
         const { householdId, shared, personal } = splitForHousehold(data);
@@ -398,7 +407,9 @@ export function FinanceProvider({ children }) {
         }
 
         if (stateChanged) {
-          saveImmediate(loadedState);
+          if (isCloudLoadedRef.current || !currentUser || currentUser.isAnonymous) {
+            saveImmediate(loadedState);
+          }
         }
 
         const sub = loadedState.subscription;
@@ -532,6 +543,7 @@ export function FinanceProvider({ children }) {
     };
 
     if (!currentUser || currentUser.isAnonymous) {
+      isCloudLoadedRef.current = true;
       const saved = localStorage.getItem(STORAGE_KEY);
       let data = DEFAULT_STATE;
       try { if (saved) data = { ...DEFAULT_STATE, ...JSON.parse(saved) }; }
@@ -541,6 +553,7 @@ export function FinanceProvider({ children }) {
     }
 
     setLoading(true);
+    isCloudLoadedRef.current = false;
     let hasMigrated = false;
     const unsub = onSnapshot(doc(db, "users", currentUser.uid),
       (snap) => {
@@ -558,6 +571,7 @@ export function FinanceProvider({ children }) {
          }
 
         if (cloudData) {
+          isCloudLoadedRef.current = true;
           let data = {
             ...DEFAULT_STATE,
             ...cloudData,
@@ -659,14 +673,19 @@ export function FinanceProvider({ children }) {
           
           boot(data);
         } else {
-          // NEW USER
-          let data = DEFAULT_STATE;
-          if (localData && !hasMigrated) {
-              hasMigrated = true;
-              data = { ...DEFAULT_STATE, ...localData };
-              localStorage.removeItem(STORAGE_KEY);
+          // Document does not exist yet. Only initialize if we're connected and it's not a cache glitch.
+          if (!snap.metadata.fromCache) {
+            isCloudLoadedRef.current = true;
+            let data = DEFAULT_STATE;
+            if (localData && !hasMigrated) {
+                hasMigrated = true;
+                data = { ...DEFAULT_STATE, ...localData };
+                localStorage.removeItem(STORAGE_KEY);
+            }
+            setDoc(doc(db, "users", currentUser.uid), sanitizeForFirestore(data), { merge: true }).then(() => boot(data));
+          } else {
+            console.warn("[FinanceContext] Offline cache miss - waiting for server snapshot before initializing doc");
           }
-          setDoc(doc(db, "users", currentUser.uid), data).then(() => boot(data));
         }
       },
       (err) => { console.error("Firebase snapshot error", err); setLoading(false); }
